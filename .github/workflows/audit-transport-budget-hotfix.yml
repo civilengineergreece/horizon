@@ -1,0 +1,38 @@
+name: Audit transport budget hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-transport-budget-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preserve travel time when transport cost is excluded from budget
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('destinations-data.js')
+          s = p.read_text(encoding='utf-8')
+          old1 = "  if(state.budget?.transport==='no')return {mode:state.transport==='any'?d.transport[0]:state.transport,cost:0,hours:0};\n  const modes=state.transport==='any'?d.transport:[state.transport],candidates=[];"
+          new1 = "  const excludeTransportCost=state.budget?.transport==='no';\n  const modes=state.transport==='any'?d.transport:[state.transport],candidates=[];"
+          old2 = "  if(!pool.length)return null;\n  return pool.sort((a,b)=>a.cost-b.cost)[0];"
+          new2 = "  if(!pool.length)return null;\n  const chosen=pool.sort((a,b)=>a.cost-b.cost)[0];\n  return excludeTransportCost?{...chosen,cost:0}:chosen;"
+          if old1 not in s or old2 not in s:
+              raise SystemExit('Expected transport blocks not found')
+          s = s.replace(old1,new1,1).replace(old2,new2,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Commit audit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add destinations-data.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Preserve travel-time filtering when transport is outside budget"
+          git push
