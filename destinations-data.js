@@ -97,7 +97,7 @@ function ferryCost(d,adults,children){
 }
 function chooseTransport(d){
   const adults=Math.max(1,state.travelers?.adults||1),children=Math.max(0,state.travelers?.children||0);
-  if(state.budget?.transport==='no')return {mode:state.transport==='any'?d.transport[0]:state.transport,cost:0,hours:0};
+  const excludeTransportCost=state.budget?.transport==='no';
   const modes=state.transport==='any'?d.transport:[state.transport],candidates=[];
   modes.forEach(m=>{
     if(!d.transport.includes(m))return;
@@ -109,7 +109,8 @@ function chooseTransport(d){
   const limit=parseHoursFromSpecial();
   const pool=limit?candidates.filter(c=>c.hours<=limit):candidates;
   if(!pool.length)return null;
-  return pool.sort((a,b)=>a.cost-b.cost)[0];
+  const chosen=pool.sort((a,b)=>a.cost-b.cost)[0];
+  return excludeTransportCost?{...chosen,cost:0}:chosen;
 }
 
 function injectTransportExtras(){
