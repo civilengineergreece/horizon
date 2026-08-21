@@ -1,7 +1,8 @@
 (()=>{
 const out=[];
 const dailyBase=[0,58,76,102,145],activityBase=[0,14,18,25,34];
-const tags={city:['history','food','nightlife'],island:['sea','food','family','nature'],nature:['nature','food','family'],mixed:['sea','food','history','nature']};
+const tags={city:['history','food','nightlife'],island:['sea','food','family','nature'],nature:['nature','food','family'],mixed:['food','history','nature']};
+const seaPlaces=new Set(['Λεμεσός','Πάφος','Αττάλεια','Σαράντα','Χβαρ','Ντουμπρόβνικ','Σπλιτ','Κότορ','Μπούντβα','Μαϊάμι','Λος Άντζελες','Νίκαια','Μασσαλία','Ναύπλιο','Μονεμβασιά','Κρήτη','Μάνη','Καλαμάτα','Πάργα','Χαλκιδική','Πήλιο','Αβάνα','Κανκούν','Ντουμπάι','Άμπου Ντάμπι','Μουσκάτ','Μπαλί','Βαρκελώνη','Βαλένθια','Μάλαγα','Μαγιόρκα','Παλέρμο','Μάλτα','Αλγκάρβε','Μαδέρα','Κέιπ Τάουν','Ζανζιβάρη','Σίδνεϊ','Γκντανσκ']);
 const desc={
   city:'City break με ιστορία, γαστρονομία και αστική εμπειρία.',
   island:'Νησιωτική απόδραση με παραλίες, τοπικές γεύσεις και χαλάρωση.',
@@ -29,7 +30,7 @@ function G(country,region,type,tier,names){
     const dailyFactor=.84+hash01(key,11)*.34,activityFactor=.78+hash01(key,47)*.44,typeFactor=type==='island'?1.06:type==='nature'?.94:type==='mixed'?1.03:1;
     let daily=Math.round(dailyBase[tier]*dailyFactor*typeFactor),activity=Math.round(activityBase[tier]*activityFactor),travel=Math.round((planeAdultRT[region]||280)*(.88+hash01(key,29)*.24));
     if(greekPrice[name]){daily=greekPrice[name][0];travel=greekPrice[name][1];activity=greekPrice[name][2]}
-    out.push({name,country,region,type,tags:[...tags[type]],transport,stay,daily,travel,activity,desc:desc[type]});
+    const placeTags=[...tags[type]].filter(t=>t!=='sea');if(type==='island'||seaPlaces.has(name))placeTags.unshift('sea');out.push({name,country,region,type,tags:placeTags,transport,stay,daily,travel,activity,desc:desc[type]});
   });
 }
 
@@ -256,8 +257,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   };
   const originalScore=window.scoreDest;
   window.scoreDest=function(d){
-    const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),timeCompatible=!limit||r.travelHours<=limit;
-    return {...r,hardExcluded:!modeCompatible||!timeCompatible,timeLimit:limit};
+    const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),timeCompatible=!limit||r.travelHours<=limit,seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea');
+    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible,timeLimit:limit,seaRequired};
   };
   const originalRender=window.render;
   window.render=function(){originalRender();setTimeout(injectTransportExtras,0)};
