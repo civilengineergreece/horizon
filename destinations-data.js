@@ -106,7 +106,9 @@ function chooseTransport(d){
     else if(m==='ferry')candidates.push(ferryCost(d,adults,children));
   });
   if(!candidates.length)return null;
-  const limit=parseHoursFromSpecial(),within=limit?candidates.filter(c=>c.hours<=limit):candidates,pool=within.length?within:candidates;
+  const limit=parseHoursFromSpecial();
+  const pool=limit?candidates.filter(c=>c.hours<=limit):candidates;
+  if(!pool.length)return null;
   return pool.sort((a,b)=>a.cost-b.cost)[0];
 }
 
@@ -257,8 +259,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   };
   const originalScore=window.scoreDest;
   window.scoreDest=function(d){
-    const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),timeCompatible=!limit||r.travelHours<=limit,seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea');
-    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible,timeLimit:limit,seaRequired};
+    const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),chosen=chooseTransport(d),timeCompatible=!!chosen&&(!limit||chosen.hours<=limit),seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea');
+    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible,timeLimit:limit,seaRequired,travelHours:chosen?.hours??Infinity};
   };
   const originalRender=window.render;
   window.render=function(){originalRender();setTimeout(injectTransportExtras,0)};
