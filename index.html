@@ -68,5 +68,6 @@ function showResults(){capture();document.getElementById('questionCard').classLi
 document.getElementById('resetBtn').onclick=()=>{if(confirm('Να διαγραφούν οι απαντήσεις του planner;')){localStorage.removeItem(STORAGE);state={};current=0;document.querySelector('.progress-card').classList.remove('hidden');document.getElementById('plannerWrap').style.gridTemplateColumns='';render()}};
 initCoverage();render();
 </script>
+<script src="destination-details.js"></script>
 </body>
 </html>
