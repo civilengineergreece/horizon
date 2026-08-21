@@ -1,0 +1,82 @@
+name: Upgrade hard filters and flexible dates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-hard-filters-and-dates.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch planner UX and matching
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          # --- index.html: flexible departure + desired duration ---
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_step = "{key:'dates',title:'Ημερομηνίες',hint:'Πότε θέλεις να ταξιδέψεις;',type:'dates',required:true},"
+          new_step = "{key:'dates',title:'Ημερομηνίες',hint:'Πότε περίπου θέλεις να φύγεις;',type:'departureFlex',required:true},"
+          if old_step not in s:
+              raise SystemExit('dates step not found')
+          s = s.replace(old_step, new_step, 1)
+
+          old_duration = "{key:'duration',title:'Διάρκεια',hint:'Πόσες ημέρες έχεις διαθέσιμες;',type:'number',min:2,max:30,placeholder:'π.χ. 5',required:true},"
+          new_duration = "{key:'duration',title:'Διάρκεια',hint:'Πόσες ημέρες θέλεις να λείψεις;',type:'number',min:2,max:30,placeholder:'π.χ. 5',required:true},"
+          if old_duration not in s:
+              raise SystemExit('duration step not found')
+          s = s.replace(old_duration, new_duration, 1)
+
+          old_fields = "if(step.type==='dates')return `<div class=\"fields grid2\"><div class=\"field\"><label>Αναχώρηση</label><input class=\"control\" type=\"date\" id=\"dateFrom\" value=\"${esc(v?.from||'')}\"></div><div class=\"field\"><label>Επιστροφή</label><input class=\"control\" type=\"date\" id=\"dateTo\" value=\"${esc(v?.to||'')}\"></div></div>`;if(step.type==='number')"
+          new_fields = "if(step.type==='departureFlex')return `<div class=\"fields grid2\"><div class=\"field\"><label>Ιδανική ημερομηνία αναχώρησης</label><input class=\"control\" type=\"date\" id=\"dateFrom\" value=\"${esc(v?.from||'')}\"></div><div class=\"field\"><label>Ευελιξία ημερομηνιών</label><select class=\"control\" id=\"dateFlex\"><option value=\"0\" ${Number(v?.flex||0)===0?'selected':''}>Ακριβής ημερομηνία</option><option value=\"1\" ${Number(v?.flex||0)===1?'selected':''}>±1 ημέρα</option><option value=\"2\" ${Number(v?.flex||0)===2?'selected':''}>±2 ημέρες</option><option value=\"3\" ${Number(v?.flex||0)===3?'selected':''}>±3 ημέρες</option></select></div></div><div class=\"tiny muted\" style=\"margin-top:-6px\">Η επιστροφή υπολογίζεται αυτόματα από τη διάρκεια του ταξιδιού.</div>`;if(step.type==='number')"
+          if old_fields not in s:
+              raise SystemExit('date fields block not found')
+          s = s.replace(old_fields, new_fields, 1)
+
+          old_capture = "if(s.type==='dates')state[s.key]={from:document.getElementById('dateFrom').value,to:document.getElementById('dateTo').value};if(s.type==='budget')"
+          new_capture = "if(s.type==='departureFlex')state[s.key]={from:document.getElementById('dateFrom').value,flex:Number(document.getElementById('dateFlex').value||0)};if(s.type==='budget')"
+          if old_capture not in s:
+              raise SystemExit('capture dates block not found')
+          s = s.replace(old_capture, new_capture, 1)
+
+          old_validate = "if(s.type==='dates')return !!(v?.from&&v?.to&&v.to>=v.from);if(s.type==='budget')"
+          new_validate = "if(s.type==='departureFlex')return !!v?.from;if(s.type==='budget')"
+          if old_validate not in s:
+              raise SystemExit('validate dates block not found')
+          s = s.replace(old_validate, new_validate, 1)
+
+          old_format = "function formatDateRange(){const v=state.dates;if(!v?.from)return '—';const f=new Date(v.from+'T12:00:00'),t=new Date(v.to+'T12:00:00');return `${f.toLocaleDateString('el-GR',{day:'numeric',month:'short'})} – ${t.toLocaleDateString('el-GR',{day:'numeric',month:'short'})}`}"
+          new_format = "function formatDateRange(){const v=state.dates;if(!v?.from)return '—';const f=new Date(v.from+'T12:00:00'),days=Math.max(2,Number(state.duration)||2),t=new Date(f);t.setDate(t.getDate()+days-1);const flex=Math.max(0,Math.min(3,Number(v.flex)||0));const base=`${f.toLocaleDateString('el-GR',{day:'numeric',month:'short'})} – ${t.toLocaleDateString('el-GR',{day:'numeric',month:'short'})}`;return flex?`${base} · ±${flex} ημ. αναχώρηση`:base}"
+          if old_format not in s:
+              raise SystemExit('formatDateRange function not found')
+          s = s.replace(old_format, new_format, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+          # --- destinations-data.js: hard city/nature filters ---
+          p = Path('destinations-data.js')
+          s = p.read_text(encoding='utf-8')
+          old_score = "const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),chosen=chooseTransport(d),timeCompatible=!!chosen&&(!limit||chosen.hours<=limit),seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea');\n    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible,timeLimit:limit,seaRequired,travelHours:chosen?.hours??Infinity};"
+          new_score = "const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),chosen=chooseTransport(d),timeCompatible=!!chosen&&(!limit||chosen.hours<=limit),seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea'),hardStyle=state.style==='city'||state.style==='nature',styleCompatible=!hardStyle||d.type===state.style;\n    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible||!styleCompatible,timeLimit:limit,seaRequired,hardStyle,travelHours:chosen?.hours??Infinity};"
+          if old_score not in s:
+              raise SystemExit('score override block not found')
+          s = s.replace(old_score, new_score, 1)
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit upgrade
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html destinations-data.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Make city and nature hard filters and add flexible departure dates"
+          git push
