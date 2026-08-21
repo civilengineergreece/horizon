@@ -18,28 +18,16 @@ const transportOverride={
 'Πάργα':['car'],'Χαλκιδική':['car'],'Πήλιο':['car'],'Ζαγόρι':['car'],'Μετέωρα':['car'],'Αράχωβα':['car'],
 'Θεσσαλονίκη':['plane','car'],'Ιωάννινα':['plane','car']
 };
+const roadProfiles={
+'Ναύπλιο':{km:139,toll:7.55},'Θεσσαλονίκη':{km:503,toll:36.70},'Μονεμβασιά':{km:310,toll:10.35},'Ιωάννινα':{km:446,toll:44.70},
+'Δελφοί':{km:182,toll:8.65},'Λευκάδα':{km:379,toll:37.45},'Μάνη':{km:285,toll:16.35},'Καλαμάτα':{km:287,toll:16.35},
+'Πάργα':{km:406,toll:40.45},'Χαλκιδική':{km:610,toll:36.70},'Πήλιο':{km:330,toll:13.90},'Ζαγόρι':{km:470,toll:44.70},
+'Μετέωρα':{km:355,toll:19.35},'Αράχωβα':{km:171,toll:8.65}
+};
+const CAR_CONSUMPTION=7.5;
+const FUEL_PRICE=2.00;
 function hash01(text,salt=0){let h=2166136261^salt;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}return ((h>>>0)%10000)/9999}
-function G(country,region,type,tier,names){
- names.split('|').forEach(name=>{
-  let transport=['plane'];
-  if(region==='Ελλάδα')transport=type==='island'?['ferry','plane']:['car','plane'];
-  else if(region==='Βαλκάνια')transport=['plane','car'];
-  if(transportOverride[name])transport=transportOverride[name];
-  let stay=['hotel','airbnb'];
-  if(type==='island'||type==='nature')stay=['hotel','airbnb','camping'];
-  const key=`${country}-${name}`;
-  const dailyFactor=.84+hash01(key,11)*.34;
-  const travelFactor=.78+hash01(key,29)*.44;
-  const activityFactor=.78+hash01(key,47)*.44;
-  const typeFactor=type==='island'?1.06:type==='nature'?.94:type==='mixed'?1.03:1;
-  let daily=Math.round(dailyBase[tier]*dailyFactor*typeFactor);
-  let activity=Math.round(activityBase[tier]*activityFactor);
-  let travel=Math.round(((travelByRegion[region]||250)+(tier-2)*20)*travelFactor);
-  if(region==='Ελλάδα')travel=Math.round((type==='island'?105+(tier-2)*18:55+(tier-2)*10)*travelFactor);
-  if(greekPrice[name]){daily=greekPrice[name][0];travel=greekPrice[name][1];activity=greekPrice[name][2]}
-  out.push({name,country,region,type,tags:[...tags[type]],transport,stay,daily,travel,activity,desc:desc[type]});
- });
-}
+function G(country,region,type,tier,names){names.split('|').forEach(name=>{let transport=['plane'];if(region==='Ελλάδα')transport=type==='island'?['ferry','plane']:['car','plane'];else if(region==='Βαλκάνια')transport=['plane','car'];if(transportOverride[name])transport=transportOverride[name];let stay=['hotel','airbnb'];if(type==='island'||type==='nature')stay=['hotel','airbnb','camping'];const key=`${country}-${name}`;const dailyFactor=.84+hash01(key,11)*.34;const travelFactor=.78+hash01(key,29)*.44;const activityFactor=.78+hash01(key,47)*.44;const typeFactor=type==='island'?1.06:type==='nature'?.94:type==='mixed'?1.03:1;let daily=Math.round(dailyBase[tier]*dailyFactor*typeFactor);let activity=Math.round(activityBase[tier]*activityFactor);let travel=Math.round(((travelByRegion[region]||250)+(tier-2)*20)*travelFactor);if(region==='Ελλάδα')travel=Math.round((type==='island'?105+(tier-2)*18:55+(tier-2)*10)*travelFactor);if(greekPrice[name]){daily=greekPrice[name][0];travel=greekPrice[name][1];activity=greekPrice[name][2]}out.push({name,country,region,type,tags:[...tags[type]],transport,stay,daily,travel,activity,desc:desc[type]})})}
 G('Ιαπωνία','Ανατολική Ασία','city',4,'Τόκιο|Κιότο');
 G('Νότια Κορέα','Ανατολική Ασία','city',3,'Σεούλ');
 G('Κύπρος','Ανατολική Μεσόγειος','mixed',2,'Λεμεσός|Πάφος');
@@ -124,4 +112,32 @@ G('Νότια Αφρική','Υποσαχάρια Αφρική','mixed',3,'Κέ�
 G('Τανζανία','Υποσαχάρια Αφρική','island',3,'Ζανζιβάρη');
 G('Αυστραλία','Ωκεανία','mixed',4,'Σίδνεϊ');
 window.HORIZON_DESTINATIONS=out;
+window.HORIZON_CAR_ASSUMPTIONS={consumptionL100:CAR_CONSUMPTION,fuelPricePerL:FUEL_PRICE,roadProfiles};
+function isAthensOrigin(value){const s=String(value||'').toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');return s.includes('αθην')||s.includes('athen')}
+window.addEventListener('DOMContentLoaded',()=>{
+ if(typeof window.calcCost!=='function')return;
+ const originalCalc=window.calcCost;
+ window.calcCost=function(d){
+  const base=originalCalc(d);
+  if(state.budget?.transport==='no')return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:null};
+  const adults=Math.max(1,state.travelers?.adults||1),children=Math.max(0,state.travelers?.children||0),passengers=adults+children,cars=Math.max(1,Math.ceil(passengers/5));
+  const profile=roadProfiles[d.name],canUseCar=d.transport?.includes('car'),carRequested=state.transport==='car',carCandidate=state.transport==='any'&&canUseCar&&profile&&isAthensOrigin(state.origin);
+  if((carRequested||carCandidate)&&canUseCar){
+   if(profile&&isAthensOrigin(state.origin)){
+    const roadKm=Math.round(profile.km*2),fuelLiters=roadKm*CAR_CONSUMPTION/100*cars,fuelCost=Math.round(fuelLiters*FUEL_PRICE),tolls=Math.round(profile.toll*2*cars*100)/100,carTotal=Math.round(fuelCost+tolls);
+    if(carRequested||carTotal<base.transport)return {...base,transport:carTotal,total:base.total-base.transport+carTotal,fuelCost,tolls,fuelLiters:Math.round(fuelLiters*10)/10,roadKm,transportMode:'car',cars};
+   } else if(carRequested){const fallback=Math.max(25,Math.round(d.travel*cars));return {...base,transport:fallback,total:base.total-base.transport+fallback,fuelCost:null,tolls:null,fuelLiters:null,roadKm:null,transportMode:'car-estimate',cars};}
+  }
+  return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:state.transport};
+ };
+ if(typeof window.renderResults==='function'){
+  const originalRender=window.renderResults;
+  window.renderResults=function(sort='match',region='all'){
+   originalRender(sort,region);
+   let pool=region==='all'?[...scored]:scored.filter(d=>d.region===region);pool.sort((a,b)=>sort==='cheap'?a.total-b.total:sort==='fit'?b.fit-a.fit:b.score-a.score||a.total-b.total);const list=pool.slice(0,8),cards=[...document.querySelectorAll('#resultsCard .destination')];
+   cards.forEach((card,i)=>{const d=list[i];if(!d)return;const firstBreak=card.querySelector('.break');if(firstBreak&&d.transportMode==='car'&&d.fuelCost!=null){firstBreak.innerHTML=`<span>Μεταφορά ΙΧ · ${d.roadKm} χλμ μετ' επιστροφής</span><b>€${d.transport.toLocaleString('el-GR')}</b><span>Καύσιμα €${d.fuelCost.toLocaleString('el-GR')} + διόδια €${Number(d.tolls).toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;}});
+   const p=document.querySelector('#resultsCard>p.muted');if(p&&state.transport==='car')p.innerHTML+=`<br><span class="tiny">Υπόθεση ΙΧ: ${CAR_CONSUMPTION.toLocaleString('el-GR')} L/100 χλμ · βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L · διόδια ΙΧ κατηγορίας 2. Όπου υπάρχει οδικό προφίλ, η εκτίμηση αφορά πήγαινε-έλα από Αθήνα.</span>`;
+  };
+ }
+});
 })();
