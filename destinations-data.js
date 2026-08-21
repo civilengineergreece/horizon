@@ -260,8 +260,8 @@ window.addEventListener('DOMContentLoaded',()=>{
   };
   const originalScore=window.scoreDest;
   window.scoreDest=function(d){
-    const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),chosen=chooseTransport(d),timeCompatible=!!chosen&&(!limit||chosen.hours<=limit),seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea');
-    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible,timeLimit:limit,seaRequired,travelHours:chosen?.hours??Infinity};
+    const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),chosen=chooseTransport(d),timeCompatible=!!chosen&&(!limit||chosen.hours<=limit),seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea'),hardStyle=state.style==='city'||state.style==='nature',styleCompatible=!hardStyle||d.type===state.style;
+    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible||!styleCompatible,timeLimit:limit,seaRequired,hardStyle,travelHours:chosen?.hours??Infinity};
   };
   const originalRender=window.render;
   window.render=function(){originalRender();setTimeout(injectTransportExtras,0)};
