@@ -1,33 +1,37 @@
 (()=>{
 const out=[];
-const travelByRegion={'Ελλάδα':90,'Ανατολική Μεσόγειος':170,'Βαλκάνια':135,'Βαλτική':220,'Βόρεια Ευρώπη':260,'Δυτική Ευρώπη':225,'Κεντρική Ευρώπη':195,'Νότια Ευρώπη':195,'Μέση Ανατολή':300,'Βόρεια Αφρική':300,'Ανατολική Ασία':660,'Νοτιοανατολική Ασία':610,'Βόρεια Αμερική':740,'Λατινική Αμερική':830,'Καραϊβική':810,'Υποσαχάρια Αφρική':790,'Ωκεανία':1270};
 const dailyBase=[0,58,76,102,145],activityBase=[0,14,18,25,34];
 const tags={city:['history','food','nightlife'],island:['sea','food','family','nature'],nature:['nature','food','family'],mixed:['sea','food','history','nature']};
 const desc={city:'City break με ιστορία, γαστρονομία και αστική εμπειρία.',island:'Νησιωτική απόδραση με παραλίες, τοπικές γεύσεις και χαλάρωση.',nature:'Απόδραση φύσης με τοπία, outdoor εμπειρίες και χαλαρό ρυθμό.',mixed:'Συνδυαστική εμπειρία με πόλη, φύση, φαγητό και διαφορετικές δραστηριότητες.'};
+const CAR_CONSUMPTION=7.5,FUEL_PRICE=2.00;
+const planeAdultRT={'Ελλάδα':170,'Ανατολική Μεσόγειος':230,'Βαλκάνια':190,'Βαλτική':310,'Βόρεια Ευρώπη':340,'Δυτική Ευρώπη':290,'Κεντρική Ευρώπη':260,'Νότια Ευρώπη':250,'Μέση Ανατολή':420,'Βόρεια Αφρική':360,'Ανατολική Ασία':920,'Νοτιοανατολική Ασία':850,'Βόρεια Αμερική':980,'Λατινική Αμερική':1150,'Καραϊβική':1080,'Υποσαχάρια Αφρική':980,'Ωκεανία':1550};
+const airHours={'Ελλάδα':3.0,'Ανατολική Μεσόγειος':3.7,'Βαλκάνια':3.4,'Βαλτική':4.8,'Βόρεια Ευρώπη':5.0,'Δυτική Ευρώπη':4.7,'Κεντρική Ευρώπη':4.3,'Νότια Ευρώπη':4.1,'Μέση Ανατολή':5.3,'Βόρεια Αφρική':5.0,'Ανατολική Ασία':15.0,'Νοτιοανατολική Ασία':15.5,'Βόρεια Αμερική':14.0,'Λατινική Αμερική':18.0,'Καραϊβική':17.0,'Υποσαχάρια Αφρική':14.0,'Ωκεανία':24.0};
 const greekPrice={
 'Ναύπλιο':[72,22,13],'Θεσσαλονίκη':[78,45,18],'Μονεμβασιά':[82,32,14],'Ιωάννινα':[70,42,15],'Δελφοί':[65,25,14],
-'Νάξος':[88,92,17],'Σύρος':[80,75,15],'Ρόδος':[92,115,20],'Κέρκυρα':[90,105,18],'Λευκάδα':[82,28,16],
-'Σαντορίνη':[135,120,24],'Μύκονος':[155,125,28],'Πάρος':[105,95,20],'Μήλος':[98,100,18],'Τήνος':[84,70,15],
-'Άνδρος':[78,58,14],'Σίφνος':[95,85,18],'Σέριφος':[82,70,14],'Χίος':[76,95,15],'Λέσβος':[74,100,15],
-'Σάμος':[78,105,16],'Κως':[88,110,18],'Κάρπαθος':[80,125,17],'Σκιάθος':[95,90,18],'Σκόπελος':[82,82,16],
-'Αλόννησος':[80,88,16],'Κρήτη':[82,100,20],'Μάνη':[76,30,15],'Καλαμάτα':[70,24,14],'Πάργα':[86,35,17],
+'Νάξος':[88,100,17],'Σύρος':[80,78,15],'Ρόδος':[92,150,20],'Κέρκυρα':[90,145,18],'Λευκάδα':[82,28,16],
+'Σαντορίνη':[135,150,24],'Μύκονος':[155,145,28],'Πάρος':[105,110,20],'Μήλος':[98,120,18],'Τήνος':[84,82,15],
+'Άνδρος':[78,68,14],'Σίφνος':[95,100,18],'Σέριφος':[82,88,14],'Χίος':[76,130,15],'Λέσβος':[74,135,15],
+'Σάμος':[78,140,16],'Κως':[88,145,18],'Κάρπαθος':[80,160,17],'Σκιάθος':[95,110,18],'Σκόπελος':[82,100,16],
+'Αλόννησος':[80,105,16],'Κρήτη':[82,145,20],'Μάνη':[76,30,15],'Καλαμάτα':[70,24,14],'Πάργα':[86,35,17],
 'Χαλκιδική':[88,35,18],'Πήλιο':[72,28,15],'Ζαγόρι':[76,38,17],'Μετέωρα':[68,30,16],'Αράχωβα':[90,25,18]
 };
 const transportOverride={
-'Ναύπλιο':['car'],'Μονεμβασιά':['car'],'Δελφοί':['car'],'Λευκάδα':['car'],'Μάνη':['car'],'Καλαμάτα':['car'],
-'Πάργα':['car'],'Χαλκιδική':['car'],'Πήλιο':['car'],'Ζαγόρι':['car'],'Μετέωρα':['car'],'Αράχωβα':['car'],
+'Ναύπλιο':['car'],'Μονεμβασιά':['car'],'Δελφοί':['car'],'Λευκάδα':['car'],'Μάνη':['car'],'Καλαμάτα':['car'],'Πάργα':['car'],'Χαλκιδική':['car'],'Πήλιο':['car'],'Ζαγόρι':['car'],'Μετέωρα':['car'],'Αράχωβα':['car'],
 'Θεσσαλονίκη':['plane','car'],'Ιωάννινα':['plane','car']
 };
 const roadProfiles={
-'Ναύπλιο':{km:139,toll:7.55},'Θεσσαλονίκη':{km:503,toll:36.70},'Μονεμβασιά':{km:310,toll:10.35},'Ιωάννινα':{km:446,toll:44.70},
-'Δελφοί':{km:182,toll:8.65},'Λευκάδα':{km:379,toll:37.45},'Μάνη':{km:285,toll:16.35},'Καλαμάτα':{km:287,toll:16.35},
-'Πάργα':{km:406,toll:40.45},'Χαλκιδική':{km:610,toll:36.70},'Πήλιο':{km:330,toll:13.90},'Ζαγόρι':{km:470,toll:44.70},
-'Μετέωρα':{km:355,toll:19.35},'Αράχωβα':{km:171,toll:8.65}
+'Ναύπλιο':{km:139,toll:7.55,hours:1.8},'Θεσσαλονίκη':{km:503,toll:36.70,hours:5.1},'Μονεμβασιά':{km:310,toll:10.35,hours:3.7},'Ιωάννινα':{km:446,toll:44.70,hours:4.7},
+'Δελφοί':{km:182,toll:8.65,hours:2.4},'Λευκάδα':{km:379,toll:37.45,hours:4.3},'Μάνη':{km:285,toll:16.35,hours:3.5},'Καλαμάτα':{km:287,toll:16.35,hours:2.8},
+'Πάργα':{km:406,toll:40.45,hours:4.8},'Χαλκιδική':{km:610,toll:36.70,hours:6.2},'Πήλιο':{km:330,toll:13.90,hours:3.6},'Ζαγόρι':{km:470,toll:44.70,hours:5.2},
+'Μετέωρα':{km:355,toll:19.35,hours:4.0},'Αράχωβα':{km:171,toll:8.65,hours:2.2},
+'Σόφια':{km:790,toll:28,hours:8.5},'Σκόπια':{km:700,toll:20,hours:7.3},'Μπάνσκο':{km:680,toll:28,hours:7.5},'Τίρανα':{km:700,toll:22,hours:8.3},'Σαράντα':{km:570,toll:18,hours:8.0},
+'Σαράγεβο':{km:1080,toll:35,hours:12.0},'Ζάγκρεμπ':{km:1480,toll:55,hours:14.5},'Ντουμπρόβνικ':{km:1030,toll:35,hours:12.5},'Σπλιτ':{km:1290,toll:48,hours:14.0},
+'Κότορ':{km:900,toll:28,hours:11.0},'Μπούντβα':{km:910,toll:28,hours:11.2},'Βουκουρέστι':{km:1180,toll:42,hours:12.0},'Μπρασόβ':{km:1250,toll:42,hours:13.0},
+'Βελιγράδι':{km:1090,toll:38,hours:10.8},'Λιουμπλιάνα':{km:1340,toll:48,hours:13.5},'Λίμνη Μπλεντ':{km:1390,toll:48,hours:14.0}
 };
-const CAR_CONSUMPTION=7.5;
-const FUEL_PRICE=2.00;
+const ferryHours={'Άνδρος':2.0,'Σύρος':2.3,'Τήνος':2.4,'Μύκονος':2.8,'Σέριφος':2.4,'Σίφνος':2.9,'Πάρος':3.4,'Νάξος':4.0,'Μήλος':3.6,'Σαντορίνη':5.0,'Σκιάθος':2.5,'Σκόπελος':3.3,'Αλόννησος':4.2,'Χίος':7.5,'Λέσβος':10.5,'Σάμος':8.5,'Κως':9.5,'Ρόδος':13.0,'Κάρπαθος':14.0,'Κρήτη':8.5};
 function hash01(text,salt=0){let h=2166136261^salt;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}return ((h>>>0)%10000)/9999}
-function G(country,region,type,tier,names){names.split('|').forEach(name=>{let transport=['plane'];if(region==='Ελλάδα')transport=type==='island'?['ferry','plane']:['car','plane'];else if(region==='Βαλκάνια')transport=['plane','car'];if(transportOverride[name])transport=transportOverride[name];let stay=['hotel','airbnb'];if(type==='island'||type==='nature')stay=['hotel','airbnb','camping'];const key=`${country}-${name}`;const dailyFactor=.84+hash01(key,11)*.34;const travelFactor=.78+hash01(key,29)*.44;const activityFactor=.78+hash01(key,47)*.44;const typeFactor=type==='island'?1.06:type==='nature'?.94:type==='mixed'?1.03:1;let daily=Math.round(dailyBase[tier]*dailyFactor*typeFactor);let activity=Math.round(activityBase[tier]*activityFactor);let travel=Math.round(((travelByRegion[region]||250)+(tier-2)*20)*travelFactor);if(region==='Ελλάδα')travel=Math.round((type==='island'?105+(tier-2)*18:55+(tier-2)*10)*travelFactor);if(greekPrice[name]){daily=greekPrice[name][0];travel=greekPrice[name][1];activity=greekPrice[name][2]}out.push({name,country,region,type,tags:[...tags[type]],transport,stay,daily,travel,activity,desc:desc[type]})})}
+function G(country,region,type,tier,names){names.split('|').forEach(name=>{let transport=['plane'];if(region==='Ελλάδα')transport=type==='island'?['ferry','plane']:['car','plane'];else if(region==='Βαλκάνια')transport=['plane','car'];if(transportOverride[name])transport=transportOverride[name];let stay=['hotel','airbnb'];if(type==='island'||type==='nature')stay=['hotel','airbnb','camping'];const key=`${country}-${name}`;const dailyFactor=.84+hash01(key,11)*.34,activityFactor=.78+hash01(key,47)*.44,typeFactor=type==='island'?1.06:type==='nature'?.94:type==='mixed'?1.03:1;let daily=Math.round(dailyBase[tier]*dailyFactor*typeFactor),activity=Math.round(activityBase[tier]*activityFactor),travel=Math.round((planeAdultRT[region]||280)*(.88+hash01(key,29)*.24));if(greekPrice[name]){daily=greekPrice[name][0];travel=greekPrice[name][1];activity=greekPrice[name][2]}out.push({name,country,region,type,tags:[...tags[type]],transport,stay,daily,travel,activity,desc:desc[type]})})}
 G('Ιαπωνία','Ανατολική Ασία','city',4,'Τόκιο|Κιότο');
 G('Νότια Κορέα','Ανατολική Ασία','city',3,'Σεούλ');
 G('Κύπρος','Ανατολική Μεσόγειος','mixed',2,'Λεμεσός|Πάφος');
@@ -111,110 +115,18 @@ G('Πορτογαλία','Νότια Ευρώπη','nature',3,'Μαδέρα');
 G('Νότια Αφρική','Υποσαχάρια Αφρική','mixed',3,'Κέιπ Τάουν');
 G('Τανζανία','Υποσαχάρια Αφρική','island',3,'Ζανζιβάρη');
 G('Αυστραλία','Ωκεανία','mixed',4,'Σίδνεϊ');
-
 window.HORIZON_DESTINATIONS=out;
 window.HORIZON_CAR_ASSUMPTIONS={consumptionL100:CAR_CONSUMPTION,fuelPricePerL:FUEL_PRICE,roadProfiles};
-
-function isAthensOrigin(value){
- const s=String(value||'').toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
- return s.includes('αθην')||s.includes('athen');
-}
+function norm(v){return String(v||'').toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'')}
+function isAthensOrigin(v){const s=norm(v);return s.includes('αθην')||s.includes('athen')}
 function validConsumption(v){const n=Number(v);return Number.isFinite(n)&&n>=2&&n<=25}
-function currentConsumption(){
- const v=state?.carConsumption?.value;
- return validConsumption(v)?Number(v):CAR_CONSUMPTION;
-}
-function injectCarConsumption(){
- if(typeof current==='undefined'||current!==7||!state||state.transport!=='car')return;
- const card=document.getElementById('questionCard');
- if(!card||card.querySelector('#carConsumptionPanel'))return;
- const choices=card.querySelector('.choices');
- const error=card.querySelector('#error');
- if(!choices||!error)return;
- const saved=validConsumption(state.carConsumption?.value)?Number(state.carConsumption.value):'';
- const panel=document.createElement('div');
- panel.id='carConsumptionPanel';
- panel.style.cssText='margin:18px 0 4px;padding:18px;border:1px solid rgba(255,122,22,.35);border-radius:14px;background:rgba(255,122,22,.07)';
- panel.innerHTML=`<div style="font-weight:800;margin-bottom:6px">Κατανάλωση ΙΧ</div>
- <div class="tiny muted" style="margin-bottom:12px">Γράψε τη μέση κατανάλωση του αυτοκινήτου σου. Ο υπολογισμός καυσίμων γίνεται με βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L.</div>
- <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
-  <div class="field" style="flex:1;min-width:190px"><label>Λίτρα / 100 χλμ.</label><input class="control" id="carConsumptionInput" type="number" min="2" max="25" step="0.1" value="${saved}" placeholder="π.χ. 6,5"></div>
-  <button type="button" class="btn ghost" id="carUnknownBtn">Δεν γνωρίζω — βάλε 7,5 L/100 km</button>
- </div>
- <div class="tiny" id="carConsumptionStatus" style="margin-top:10px;color:#ffb1a3"></div>`;
- error.parentNode.insertBefore(panel,error);
- const input=panel.querySelector('#carConsumptionInput');
- const status=panel.querySelector('#carConsumptionStatus');
- const persist=(value,defaulted)=>{
-   const n=Number(value);
-   if(!validConsumption(n)){delete state.carConsumption;save();status.textContent='Βάλε κατανάλωση από 2,0 έως 25,0 L/100 km ή πάτησε «Δεν γνωρίζω».';return false}
-   state.carConsumption={value:Math.round(n*10)/10,defaulted:!!defaulted,fuel:'petrol',fuelPrice:FUEL_PRICE};
-   save();
-   input.value=state.carConsumption.value;
-   status.style.color='#65d39a';
-   status.textContent=defaulted?'Θα χρησιμοποιήσουμε 7,5 L/100 km βενζίνης.':`Θα χρησιμοποιήσουμε ${state.carConsumption.value.toLocaleString('el-GR')} L/100 km βενζίνης.`;
-   return true;
- };
- input.addEventListener('input',()=>{status.style.color='#ffb1a3';const raw=input.value.replace(',','.');if(raw===''){delete state.carConsumption;save();status.textContent='';return}persist(raw,false)});
- panel.querySelector('#carUnknownBtn').addEventListener('click',()=>persist(CAR_CONSUMPTION,true));
- if(saved!=='')persist(saved,!!state.carConsumption?.defaulted);
- const nextBtn=document.getElementById('nextBtn');
- if(nextBtn)nextBtn.addEventListener('click',e=>{
-   if(state.transport==='car'&&!validConsumption(state.carConsumption?.value)){
-     e.preventDefault();e.stopImmediatePropagation();
-     status.style.color='#ffb1a3';
-     status.textContent='Συμπλήρωσε την κατανάλωση ή πάτησε «Δεν γνωρίζω».';
-     input.focus();
-   }
- },true);
-}
-
-window.addEventListener('DOMContentLoaded',()=>{
- if(typeof window.calcCost!=='function')return;
- const originalCalc=window.calcCost;
- window.calcCost=function(d){
-  const base=originalCalc(d);
-  if(state.budget?.transport==='no')return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:null,consumptionL100:currentConsumption()};
-  const adults=Math.max(1,state.travelers?.adults||1),children=Math.max(0,state.travelers?.children||0),passengers=adults+children,cars=Math.max(1,Math.ceil(passengers/5));
-  const profile=roadProfiles[d.name],canUseCar=d.transport?.includes('car'),carRequested=state.transport==='car',carCandidate=state.transport==='any'&&canUseCar&&profile&&isAthensOrigin(state.origin);
-  const consumption=currentConsumption();
-  if((carRequested||carCandidate)&&canUseCar){
-   if(profile&&isAthensOrigin(state.origin)){
-    const roadKm=Math.round(profile.km*2),fuelLiters=roadKm*consumption/100*cars,fuelCost=Math.round(fuelLiters*FUEL_PRICE),tolls=Math.round(profile.toll*2*cars*100)/100,carTotal=Math.round(fuelCost+tolls);
-    if(carRequested||carTotal<base.transport)return {...base,transport:carTotal,total:base.total-base.transport+carTotal,fuelCost,tolls,fuelLiters:Math.round(fuelLiters*10)/10,roadKm,transportMode:'car',cars,consumptionL100:consumption};
-   } else if(carRequested){
-    const fallback=Math.max(25,Math.round(d.travel*cars));
-    return {...base,transport:fallback,total:base.total-base.transport+fallback,fuelCost:null,tolls:null,fuelLiters:null,roadKm:null,transportMode:'car-estimate',cars,consumptionL100:consumption};
-   }
-  }
-  return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:state.transport,consumptionL100:consumption};
- };
-
- const originalRender=window.render;
- window.render=function(){originalRender();setTimeout(injectCarConsumption,0)};
-
- if(typeof window.renderResults==='function'){
-  const originalRenderResults=window.renderResults;
-  window.renderResults=function(sort='match',region='all'){
-   originalRenderResults(sort,region);
-   let pool=region==='all'?[...scored]:scored.filter(d=>d.region===region);
-   pool.sort((a,b)=>sort==='cheap'?a.total-b.total:sort==='fit'?b.fit-a.fit:b.score-a.score||a.total-b.total);
-   const list=pool.slice(0,8),cards=[...document.querySelectorAll('#resultsCard .destination')];
-   cards.forEach((card,i)=>{
-    const d=list[i];if(!d)return;
-    const firstBreak=card.querySelector('.break');
-    if(firstBreak&&d.transportMode==='car'&&d.fuelCost!=null){
-     firstBreak.innerHTML=`<span>Μεταφορά ΙΧ · ${d.roadKm} χλμ μετ' επιστροφής</span><b>€${d.transport.toLocaleString('el-GR')}</b><span>${d.consumptionL100.toLocaleString('el-GR')} L/100 km · καύσιμα €${d.fuelCost.toLocaleString('el-GR')} + διόδια €${Number(d.tolls).toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
-    }
-   });
-   const p=document.querySelector('#resultsCard>p.muted');
-   if(p&&state.transport==='car'){
-    const c=currentConsumption();
-    const defaultNote=state.carConsumption?.defaulted?' (επιλογή «Δεν γνωρίζω»)':'';
-    p.innerHTML+=`<br><span class="tiny">ΙΧ: ${c.toLocaleString('el-GR')} L/100 km${defaultNote} · βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L · διόδια ΙΧ κατηγορίας 2. Όπου υπάρχει οδικό προφίλ, η εκτίμηση αφορά πήγαινε-έλα από Αθήνα.</span>`;
-   }
-  };
- }
- setTimeout(injectCarConsumption,0);
-});
+function currentConsumption(){const v=state?.carConsumption?.value;return validConsumption(v)?Number(v):CAR_CONSUMPTION}
+function parseHoursFromSpecial(){if(state?.maxTravelHours?.unlimited)return null;if(Number(state?.maxTravelHours?.value)>0)return Number(state.maxTravelHours.value);const s=norm(state?.special);const m=s.match(/(?:μεχρι|εως|το πολυ|max(?:imum)?|οχι πανω απο|<=?)?\s*(\d+(?:[.,]\d+)?)\s*(?:ωρ(?:α|ες)?|hours?|hrs?|h)\b/);if(m&&/(διαδρο|μετακιν|ταξιδ|ωρ|hour)/.test(s))return Number(m[1].replace(',','.'));return null}
+function modeHours(d,mode){if(mode==='car'){if(!d.transport.includes('car'))return Infinity;const p=roadProfiles[d.name];if(p&&isAthensOrigin(state.origin))return p.hours;return d.region==='Βαλκάνια'?9+hash01(d.name,83)*5:d.region==='Ελλάδα'?3+hash01(d.name,84)*3:Infinity}if(mode==='ferry'){if(!d.transport.includes('ferry'))return Infinity;return (ferryHours[d.name]||6)+.6}if(mode==='plane'){if(!d.transport.includes('plane'))return Infinity;return (airHours[d.region]||5)+hash01(d.name,87)*.45}return Infinity}
+function carCost(d,adults,children){const cars=Math.max(1,Math.ceil((adults+children)/5)),p=roadProfiles[d.name],cons=currentConsumption();let oneWayKm,toll,hours,exact=false;if(p&&isAthensOrigin(state.origin)){oneWayKm=p.km;toll=p.toll;hours=p.hours;exact=true}else{const countryBase={'Βουλγαρία':790,'Βόρεια Μακεδονία':700,'Αλβανία':680,'Βοσνία και Ερζεγοβίνη':1080,'Κροατία':1250,'Μαυροβούνιο':900,'Ρουμανία':1180,'Σερβία':1090,'Σλοβενία':1350};oneWayKm=Math.round((countryBase[d.country]||650)*(.9+hash01(d.name,91)*.2));toll=Math.round(oneWayKm*.035);hours=oneWayKm/85+.6}const roadKm=Math.round(oneWayKm*2),fuelLiters=roadKm*cons/100*cars,fuelCost=Math.round(fuelLiters*FUEL_PRICE),tolls=Math.round(toll*2*cars*100)/100;return {mode:'car',cost:Math.round(fuelCost+tolls),hours,roadKm,fuelLiters:Math.round(fuelLiters*10)/10,fuelCost,tolls,cars,exact}}
+function planeCost(d,adults,children){const adult=Math.max(d.travel,Math.round((planeAdultRT[d.region]||280)*(.9+hash01(d.name,93)*.18)));return {mode:'plane',cost:Math.round(adult*adults+adult*.78*children),hours:modeHours(d,'plane'),adultRT:adult}}
+function ferryCost(d,adults,children){const adult=Math.max(55,d.travel);return {mode:'ferry',cost:Math.round(adult*adults+adult*.55*children),hours:modeHours(d,'ferry'),adultRT:adult}}
+function chooseTransport(d){const adults=Math.max(1,state.travelers?.adults||1),children=Math.max(0,state.travelers?.children||0);if(state.budget?.transport==='no')return {mode:state.transport==='any'?d.transport[0]:state.transport,cost:0,hours:0};const modes=state.transport==='any'?d.transport:[state.transport];const candidates=[];modes.forEach(m=>{if(!d.transport.includes(m))return;if(m==='car')candidates.push(carCost(d,adults,children));else if(m==='plane')candidates.push(planeCost(d,adults,children));else if(m==='ferry')candidates.push(ferryCost(d,adults,children))});if(!candidates.length)return null;const limit=parseHoursFromSpecial(),within=limit?candidates.filter(c=>c.hours<=limit):candidates;const pool=within.length?within:candidates;return pool.sort((a,b)=>a.cost-b.cost)[0]}
+function injectTransportExtras(){if(typeof current==='undefined'||current!==7||!state)return;const card=document.getElementById('questionCard');if(!card||card.querySelector('#transportExtras'))return;const error=card.querySelector('#error');if(!error)return;const inferred=parseHoursFromSpecial(),explicit=Number(state.maxTravelHours?.value)||'';const panel=document.createElement('div');panel.id='transportExtras';panel.style.cssText='margin:18px 0 4px;padding:18px;border:1px solid rgba(255,122,22,.35);border-radius:14px;background:rgba(255,122,22,.07)';panel.innerHTML=`<div style="font-weight:800;margin-bottom:10px">Όρια μετακίνησης</div><div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap"><div class="field" style="flex:1;min-width:190px"><label>Μέγιστος χρόνος μονής διαδρομής (ώρες)</label><input class="control" id="maxTravelHoursInput" type="number" min="0.5" max="30" step="0.5" value="${explicit}" placeholder="π.χ. 2"></div><button type="button" class="btn ghost" id="noTimeLimitBtn">Δεν έχω όριο</button></div><div class="tiny muted" id="timeLimitStatus" style="margin-top:8px">${inferred&&!explicit?`Εντοπίστηκε από τις ειδικές απαιτήσεις: έως ${inferred.toLocaleString('el-GR')} ώρες.`:'Το όριο λειτουργεί ως σκληρό φίλτρο: προορισμοί πάνω από αυτό αποκλείονται.'}</div>${state.transport==='car'?`<div style="height:1px;background:rgba(255,255,255,.09);margin:16px 0"></div><div style="font-weight:800;margin-bottom:6px">Κατανάλωση ΙΧ</div><div class="tiny muted" style="margin-bottom:12px">Βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L.</div><div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap"><div class="field" style="flex:1;min-width:190px"><label>Λίτρα / 100 χλμ.</label><input class="control" id="carConsumptionInput" type="number" min="2" max="25" step="0.1" value="${validConsumption(state.carConsumption?.value)?state.carConsumption.value:''}" placeholder="π.χ. 6,5"></div><button type="button" class="btn ghost" id="carUnknownBtn">Δεν γνωρίζω — 7,5 L/100 km</button></div><div class="tiny" id="carConsumptionStatus" style="margin-top:8px"></div>`:''}`;error.parentNode.insertBefore(panel,error);const timeInput=panel.querySelector('#maxTravelHoursInput'),timeStatus=panel.querySelector('#timeLimitStatus');timeInput.addEventListener('input',()=>{const n=Number(timeInput.value);if(n>=.5&&n<=30){state.maxTravelHours={value:n,unlimited:false};save();timeStatus.textContent=`Θα αποκλείονται διαδρομές άνω των ${n.toLocaleString('el-GR')} ωρών.`}else if(timeInput.value===''){delete state.maxTravelHours;save();timeStatus.textContent='Χωρίς χειροκίνητο όριο — θα ελεγχθούν τυχόν ειδικές απαιτήσεις.'}});panel.querySelector('#noTimeLimitBtn').onclick=()=>{state.maxTravelHours={value:null,unlimited:true};save();timeInput.value='';timeStatus.textContent='Δεν θα εφαρμοστεί όριο χρόνου μετακίνησης.'};if(state.transport==='car'){const cInput=panel.querySelector('#carConsumptionInput'),cStatus=panel.querySelector('#carConsumptionStatus');const persist=(v,def)=>{const n=Number(String(v).replace(',','.'));if(!validConsumption(n)){delete state.carConsumption;save();cStatus.style.color='#ffb1a3';cStatus.textContent='Βάλε 2,0–25,0 L/100 km ή πάτησε «Δεν γνωρίζω».';return false}state.carConsumption={value:Math.round(n*10)/10,defaulted:!!def,fuel:'petrol',fuelPrice:FUEL_PRICE};save();cInput.value=state.carConsumption.value;cStatus.style.color='#65d39a';cStatus.textContent=def?'Χρήση 7,5 L/100 km βενζίνης.':`Χρήση ${state.carConsumption.value.toLocaleString('el-GR')} L/100 km βενζίνης.`;return true};cInput.addEventListener('input',()=>persist(cInput.value,false));panel.querySelector('#carUnknownBtn').onclick=()=>persist(CAR_CONSUMPTION,true);if(validConsumption(state.carConsumption?.value))persist(state.carConsumption.value,!!state.carConsumption.defaulted);const nextBtn=document.getElementById('nextBtn');if(nextBtn)nextBtn.addEventListener('click',e=>{if(!validConsumption(state.carConsumption?.value)){e.preventDefault();e.stopImmediatePropagation();cStatus.style.color='#ffb1a3';cStatus.textContent='Συμπλήρωσε κατανάλωση ή πάτησε «Δεν γνωρίζω».';cInput.focus()}},true)}}
+window.addEventListener('DOMContentLoaded',()=>{if(typeof window.calcCost!=='function')return;const originalCalc=window.calcCost;window.calcCost=function(d){const base=originalCalc(d),chosen=chooseTransport(d);if(!chosen)return {...base,transport:99999,total:base.total-base.transport+99999,transportMode:null,travelHours:Infinity};return {...base,transport:chosen.cost,total:base.total-base.transport+chosen.cost,transportMode:chosen.mode,travelHours:chosen.hours,transportDetails:chosen,fuelCost:chosen.fuelCost??0,tolls:chosen.tolls??0,fuelLiters:chosen.fuelLiters??0,roadKm:chosen.roadKm??0,consumptionL100:currentConsumption()}};const originalScore=window.scoreDest;window.scoreDest=function(d){const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),timeCompatible=!limit||r.travelHours<=limit;return {...r,hardExcluded:!modeCompatible||!timeCompatible,timeLimit:limit}};const originalRender=window.render;window.render=function(){originalRender();setTimeout(injectTransportExtras,0)};if(typeof window.renderResults==='function'){const originalRR=window.renderResults;window.renderResults=function(sort='match',region='all'){const before=scored.length,limit=parseHoursFromSpecial();scored=scored.filter(d=>!d.hardExcluded);originalRR(sort,region);let pool=region==='all'?[...scored]:scored.filter(d=>d.region===region);pool.sort((a,b)=>sort==='cheap'?a.total-b.total:sort==='fit'?b.fit-a.fit:b.score-a.score||a.total-b.total);const list=pool.slice(0,8),cards=[...document.querySelectorAll('#resultsCard .destination')];cards.forEach((card,i)=>{const d=list[i];if(!d)return;const reg=card.querySelector('.region');if(reg&&Number.isFinite(d.travelHours))reg.innerHTML+=` · ~${d.travelHours.toLocaleString('el-GR',{maximumFractionDigits:1})} ώρες διαδρομή`;const firstBreak=card.querySelector('.break');if(firstBreak){if(d.transportMode==='car'&&d.transportDetails){const x=d.transportDetails;firstBreak.innerHTML=`<span>Μεταφορά ΙΧ · ${x.roadKm||'—'} χλμ μετ' επιστροφής</span><b>€${d.transport.toLocaleString('el-GR')}</b><span>${x.exact?'':'εκτίμηση · '}${d.consumptionL100.toLocaleString('el-GR')} L/100 km · καύσιμα €${(x.fuelCost||0).toLocaleString('el-GR')} + διόδια/τέλη €${Number(x.tolls||0).toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`}else if(d.transportMode==='plane')firstBreak.innerHTML=`<span>Αεροπορικά μετ’ επιστροφής</span><b>€${d.transport.toLocaleString('el-GR')}</b><span>εκτίμηση για όλους τους ταξιδιώτες</span>`;else if(d.transportMode==='ferry')firstBreak.innerHTML=`<span>Ακτοπλοϊκά μετ’ επιστροφής</span><b>€${d.transport.toLocaleString('el-GR')}</b><span>εκτίμηση για όλους τους ταξιδιώτες</span>`}}});const p=document.querySelector('#resultsCard>p.muted');if(p){const excluded=before-scored.length;if(limit)p.innerHTML+=`<br><span class="tiny">Σκληρό φίλτρο μετακίνησης: έως ${limit.toLocaleString('el-GR')} ώρες ανά μονή διαδρομή · αποκλείστηκαν ${excluded} μη συμβατοί προορισμοί.</span>`;if(state.transport==='car')p.innerHTML+=`<br><span class="tiny">ΙΧ: ${currentConsumption().toLocaleString('el-GR')} L/100 km · βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L · καύσιμα + διόδια/οδικά τέλη.</span>`}if(!scored.length){const grid=document.querySelector('#resultsCard .destinations');if(grid)grid.innerHTML='<div style="grid-column:1/-1;padding:24px;border:1px solid rgba(255,122,22,.3);border-radius:16px">Δεν βρέθηκαν προορισμοί που να ικανοποιούν ταυτόχρονα το μέσο μεταφοράς και το όριο χρόνου. Αύξησε το όριο ή επίλεξε διαφορετικό μέσο.</div>'}}}setTimeout(injectTransportExtras,0)});
 })();
