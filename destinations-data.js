@@ -1,10 +1,45 @@
 (()=>{
 const out=[];
 const travelByRegion={'Ελλάδα':90,'Ανατολική Μεσόγειος':170,'Βαλκάνια':135,'Βαλτική':220,'Βόρεια Ευρώπη':260,'Δυτική Ευρώπη':225,'Κεντρική Ευρώπη':195,'Νότια Ευρώπη':195,'Μέση Ανατολή':300,'Βόρεια Αφρική':300,'Ανατολική Ασία':660,'Νοτιοανατολική Ασία':610,'Βόρεια Αμερική':740,'Λατινική Αμερική':830,'Καραϊβική':810,'Υποσαχάρια Αφρική':790,'Ωκεανία':1270};
-const daily=[0,58,76,102,145],activity=[0,14,18,25,34];
+const dailyBase=[0,58,76,102,145],activityBase=[0,14,18,25,34];
 const tags={city:['history','food','nightlife'],island:['sea','food','family','nature'],nature:['nature','food','family'],mixed:['sea','food','history','nature']};
 const desc={city:'City break με ιστορία, γαστρονομία και αστική εμπειρία.',island:'Νησιωτική απόδραση με παραλίες, τοπικές γεύσεις και χαλάρωση.',nature:'Απόδραση φύσης με τοπία, outdoor εμπειρίες και χαλαρό ρυθμό.',mixed:'Συνδυαστική εμπειρία με πόλη, φύση, φαγητό και διαφορετικές δραστηριότητες.'};
-function G(country,region,type,tier,names){names.split('|').forEach(name=>{let transport=['plane'];if(region==='Ελλάδα')transport=type==='island'?['ferry','plane']:['car','plane'];else if(region==='Βαλκάνια')transport=['plane','car'];let stay=['hotel','airbnb'];if(type==='island'||type==='nature')stay=['hotel','airbnb','camping'];let travel=(travelByRegion[region]||250)+(tier-2)*20;if(region==='Ελλάδα'){travel=type==='island'?105+(tier-2)*18:55+(tier-2)*10}out.push({name,country,region,type,tags:[...tags[type]],transport,stay,daily:daily[tier],travel,activity:activity[tier],desc:desc[type]})})}
+const greekPrice={
+'Ναύπλιο':[72,22,13],'Θεσσαλονίκη':[78,45,18],'Μονεμβασιά':[82,32,14],'Ιωάννινα':[70,42,15],'Δελφοί':[65,25,14],
+'Νάξος':[88,92,17],'Σύρος':[80,75,15],'Ρόδος':[92,115,20],'Κέρκυρα':[90,105,18],'Λευκάδα':[82,28,16],
+'Σαντορίνη':[135,120,24],'Μύκονος':[155,125,28],'Πάρος':[105,95,20],'Μήλος':[98,100,18],'Τήνος':[84,70,15],
+'Άνδρος':[78,58,14],'Σίφνος':[95,85,18],'Σέριφος':[82,70,14],'Χίος':[76,95,15],'Λέσβος':[74,100,15],
+'Σάμος':[78,105,16],'Κως':[88,110,18],'Κάρπαθος':[80,125,17],'Σκιάθος':[95,90,18],'Σκόπελος':[82,82,16],
+'Αλόννησος':[80,88,16],'Κρήτη':[82,100,20],'Μάνη':[76,30,15],'Καλαμάτα':[70,24,14],'Πάργα':[86,35,17],
+'Χαλκιδική':[88,35,18],'Πήλιο':[72,28,15],'Ζαγόρι':[76,38,17],'Μετέωρα':[68,30,16],'Αράχωβα':[90,25,18]
+};
+const transportOverride={
+'Ναύπλιο':['car'],'Μονεμβασιά':['car'],'Δελφοί':['car'],'Λευκάδα':['car'],'Μάνη':['car'],'Καλαμάτα':['car'],
+'Πάργα':['car'],'Χαλκιδική':['car'],'Πήλιο':['car'],'Ζαγόρι':['car'],'Μετέωρα':['car'],'Αράχωβα':['car'],
+'Θεσσαλονίκη':['plane','car'],'Ιωάννινα':['plane','car']
+};
+function hash01(text,salt=0){let h=2166136261^salt;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619)}return ((h>>>0)%10000)/9999}
+function G(country,region,type,tier,names){
+ names.split('|').forEach(name=>{
+  let transport=['plane'];
+  if(region==='Ελλάδα')transport=type==='island'?['ferry','plane']:['car','plane'];
+  else if(region==='Βαλκάνια')transport=['plane','car'];
+  if(transportOverride[name])transport=transportOverride[name];
+  let stay=['hotel','airbnb'];
+  if(type==='island'||type==='nature')stay=['hotel','airbnb','camping'];
+  const key=`${country}-${name}`;
+  const dailyFactor=.84+hash01(key,11)*.34;
+  const travelFactor=.78+hash01(key,29)*.44;
+  const activityFactor=.78+hash01(key,47)*.44;
+  const typeFactor=type==='island'?1.06:type==='nature'?.94:type==='mixed'?1.03:1;
+  let daily=Math.round(dailyBase[tier]*dailyFactor*typeFactor);
+  let activity=Math.round(activityBase[tier]*activityFactor);
+  let travel=Math.round(((travelByRegion[region]||250)+(tier-2)*20)*travelFactor);
+  if(region==='Ελλάδα')travel=Math.round((type==='island'?105+(tier-2)*18:55+(tier-2)*10)*travelFactor);
+  if(greekPrice[name]){daily=greekPrice[name][0];travel=greekPrice[name][1];activity=greekPrice[name][2]}
+  out.push({name,country,region,type,tags:[...tags[type]],transport,stay,daily,travel,activity,desc:desc[type]});
+ });
+}
 G('Ιαπωνία','Ανατολική Ασία','city',4,'Τόκιο|Κιότο');
 G('Νότια Κορέα','Ανατολική Ασία','city',3,'Σεούλ');
 G('Κύπρος','Ανατολική Μεσόγειος','mixed',2,'Λεμεσός|Πάφος');
