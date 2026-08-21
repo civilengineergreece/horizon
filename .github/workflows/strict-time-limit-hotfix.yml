@@ -1,0 +1,45 @@
+name: Apply strict travel-time hotfix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/strict-time-limit-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce strict travel-time filtering
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('destinations-data.js')
+          s = p.read_text(encoding='utf-8')
+
+          old_choose = "const limit=parseHoursFromSpecial(),within=limit?candidates.filter(c=>c.hours<=limit):candidates,pool=within.length?within:candidates;\n  return pool.sort((a,b)=>a.cost-b.cost)[0];"
+          new_choose = "const limit=parseHoursFromSpecial();\n  const pool=limit?candidates.filter(c=>c.hours<=limit):candidates;\n  if(!pool.length)return null;\n  return pool.sort((a,b)=>a.cost-b.cost)[0];"
+          if old_choose not in s:
+              raise SystemExit('chooseTransport target not found')
+          s = s.replace(old_choose, new_choose, 1)
+
+          old_score = "const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),timeCompatible=!limit||r.travelHours<=limit,seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea');\n    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible,timeLimit:limit,seaRequired};"
+          new_score = "const r=originalScore(d),limit=parseHoursFromSpecial(),modeCompatible=state.transport==='any'||d.transport.includes(state.transport),chosen=chooseTransport(d),timeCompatible=!!chosen&&(!limit||chosen.hours<=limit),seaRequired=Array.isArray(state.interests)&&state.interests.includes('sea'),seaCompatible=!seaRequired||d.tags.includes('sea');\n    return {...r,hardExcluded:!modeCompatible||!timeCompatible||!seaCompatible,timeLimit:limit,seaRequired,travelHours:chosen?.hours??Infinity};"
+          if old_score not in s:
+              raise SystemExit('score target not found')
+          s = s.replace(old_score, new_score, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit strict filter and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/strict-time-limit-hotfix.yml
+          git add destinations-data.js .github/workflows/strict-time-limit-hotfix.yml
+          git commit -m "Enforce strict maximum travel time"
+          git push
