@@ -111,33 +111,110 @@ G('Πορτογαλία','Νότια Ευρώπη','nature',3,'Μαδέρα');
 G('Νότια Αφρική','Υποσαχάρια Αφρική','mixed',3,'Κέιπ Τάουν');
 G('Τανζανία','Υποσαχάρια Αφρική','island',3,'Ζανζιβάρη');
 G('Αυστραλία','Ωκεανία','mixed',4,'Σίδνεϊ');
+
 window.HORIZON_DESTINATIONS=out;
 window.HORIZON_CAR_ASSUMPTIONS={consumptionL100:CAR_CONSUMPTION,fuelPricePerL:FUEL_PRICE,roadProfiles};
-function isAthensOrigin(value){const s=String(value||'').toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');return s.includes('αθην')||s.includes('athen')}
+
+function isAthensOrigin(value){
+ const s=String(value||'').toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+ return s.includes('αθην')||s.includes('athen');
+}
+function validConsumption(v){const n=Number(v);return Number.isFinite(n)&&n>=2&&n<=25}
+function currentConsumption(){
+ const v=state?.carConsumption?.value;
+ return validConsumption(v)?Number(v):CAR_CONSUMPTION;
+}
+function injectCarConsumption(){
+ if(typeof current==='undefined'||current!==7||!state||state.transport!=='car')return;
+ const card=document.getElementById('questionCard');
+ if(!card||card.querySelector('#carConsumptionPanel'))return;
+ const choices=card.querySelector('.choices');
+ const error=card.querySelector('#error');
+ if(!choices||!error)return;
+ const saved=validConsumption(state.carConsumption?.value)?Number(state.carConsumption.value):'';
+ const panel=document.createElement('div');
+ panel.id='carConsumptionPanel';
+ panel.style.cssText='margin:18px 0 4px;padding:18px;border:1px solid rgba(255,122,22,.35);border-radius:14px;background:rgba(255,122,22,.07)';
+ panel.innerHTML=`<div style="font-weight:800;margin-bottom:6px">Κατανάλωση ΙΧ</div>
+ <div class="tiny muted" style="margin-bottom:12px">Γράψε τη μέση κατανάλωση του αυτοκινήτου σου. Ο υπολογισμός καυσίμων γίνεται με βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L.</div>
+ <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+  <div class="field" style="flex:1;min-width:190px"><label>Λίτρα / 100 χλμ.</label><input class="control" id="carConsumptionInput" type="number" min="2" max="25" step="0.1" value="${saved}" placeholder="π.χ. 6,5"></div>
+  <button type="button" class="btn ghost" id="carUnknownBtn">Δεν γνωρίζω — βάλε 7,5 L/100 km</button>
+ </div>
+ <div class="tiny" id="carConsumptionStatus" style="margin-top:10px;color:#ffb1a3"></div>`;
+ error.parentNode.insertBefore(panel,error);
+ const input=panel.querySelector('#carConsumptionInput');
+ const status=panel.querySelector('#carConsumptionStatus');
+ const persist=(value,defaulted)=>{
+   const n=Number(value);
+   if(!validConsumption(n)){delete state.carConsumption;save();status.textContent='Βάλε κατανάλωση από 2,0 έως 25,0 L/100 km ή πάτησε «Δεν γνωρίζω».';return false}
+   state.carConsumption={value:Math.round(n*10)/10,defaulted:!!defaulted,fuel:'petrol',fuelPrice:FUEL_PRICE};
+   save();
+   input.value=state.carConsumption.value;
+   status.style.color='#65d39a';
+   status.textContent=defaulted?'Θα χρησιμοποιήσουμε 7,5 L/100 km βενζίνης.':`Θα χρησιμοποιήσουμε ${state.carConsumption.value.toLocaleString('el-GR')} L/100 km βενζίνης.`;
+   return true;
+ };
+ input.addEventListener('input',()=>{status.style.color='#ffb1a3';const raw=input.value.replace(',','.');if(raw===''){delete state.carConsumption;save();status.textContent='';return}persist(raw,false)});
+ panel.querySelector('#carUnknownBtn').addEventListener('click',()=>persist(CAR_CONSUMPTION,true));
+ if(saved!=='')persist(saved,!!state.carConsumption?.defaulted);
+ const nextBtn=document.getElementById('nextBtn');
+ if(nextBtn)nextBtn.addEventListener('click',e=>{
+   if(state.transport==='car'&&!validConsumption(state.carConsumption?.value)){
+     e.preventDefault();e.stopImmediatePropagation();
+     status.style.color='#ffb1a3';
+     status.textContent='Συμπλήρωσε την κατανάλωση ή πάτησε «Δεν γνωρίζω».';
+     input.focus();
+   }
+ },true);
+}
+
 window.addEventListener('DOMContentLoaded',()=>{
  if(typeof window.calcCost!=='function')return;
  const originalCalc=window.calcCost;
  window.calcCost=function(d){
   const base=originalCalc(d);
-  if(state.budget?.transport==='no')return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:null};
+  if(state.budget?.transport==='no')return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:null,consumptionL100:currentConsumption()};
   const adults=Math.max(1,state.travelers?.adults||1),children=Math.max(0,state.travelers?.children||0),passengers=adults+children,cars=Math.max(1,Math.ceil(passengers/5));
   const profile=roadProfiles[d.name],canUseCar=d.transport?.includes('car'),carRequested=state.transport==='car',carCandidate=state.transport==='any'&&canUseCar&&profile&&isAthensOrigin(state.origin);
+  const consumption=currentConsumption();
   if((carRequested||carCandidate)&&canUseCar){
    if(profile&&isAthensOrigin(state.origin)){
-    const roadKm=Math.round(profile.km*2),fuelLiters=roadKm*CAR_CONSUMPTION/100*cars,fuelCost=Math.round(fuelLiters*FUEL_PRICE),tolls=Math.round(profile.toll*2*cars*100)/100,carTotal=Math.round(fuelCost+tolls);
-    if(carRequested||carTotal<base.transport)return {...base,transport:carTotal,total:base.total-base.transport+carTotal,fuelCost,tolls,fuelLiters:Math.round(fuelLiters*10)/10,roadKm,transportMode:'car',cars};
-   } else if(carRequested){const fallback=Math.max(25,Math.round(d.travel*cars));return {...base,transport:fallback,total:base.total-base.transport+fallback,fuelCost:null,tolls:null,fuelLiters:null,roadKm:null,transportMode:'car-estimate',cars};}
+    const roadKm=Math.round(profile.km*2),fuelLiters=roadKm*consumption/100*cars,fuelCost=Math.round(fuelLiters*FUEL_PRICE),tolls=Math.round(profile.toll*2*cars*100)/100,carTotal=Math.round(fuelCost+tolls);
+    if(carRequested||carTotal<base.transport)return {...base,transport:carTotal,total:base.total-base.transport+carTotal,fuelCost,tolls,fuelLiters:Math.round(fuelLiters*10)/10,roadKm,transportMode:'car',cars,consumptionL100:consumption};
+   } else if(carRequested){
+    const fallback=Math.max(25,Math.round(d.travel*cars));
+    return {...base,transport:fallback,total:base.total-base.transport+fallback,fuelCost:null,tolls:null,fuelLiters:null,roadKm:null,transportMode:'car-estimate',cars,consumptionL100:consumption};
+   }
   }
-  return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:state.transport};
+  return {...base,fuelCost:0,tolls:0,fuelLiters:0,roadKm:0,transportMode:state.transport,consumptionL100:consumption};
  };
+
+ const originalRender=window.render;
+ window.render=function(){originalRender();setTimeout(injectCarConsumption,0)};
+
  if(typeof window.renderResults==='function'){
-  const originalRender=window.renderResults;
+  const originalRenderResults=window.renderResults;
   window.renderResults=function(sort='match',region='all'){
-   originalRender(sort,region);
-   let pool=region==='all'?[...scored]:scored.filter(d=>d.region===region);pool.sort((a,b)=>sort==='cheap'?a.total-b.total:sort==='fit'?b.fit-a.fit:b.score-a.score||a.total-b.total);const list=pool.slice(0,8),cards=[...document.querySelectorAll('#resultsCard .destination')];
-   cards.forEach((card,i)=>{const d=list[i];if(!d)return;const firstBreak=card.querySelector('.break');if(firstBreak&&d.transportMode==='car'&&d.fuelCost!=null){firstBreak.innerHTML=`<span>Μεταφορά ΙΧ · ${d.roadKm} χλμ μετ' επιστροφής</span><b>€${d.transport.toLocaleString('el-GR')}</b><span>Καύσιμα €${d.fuelCost.toLocaleString('el-GR')} + διόδια €${Number(d.tolls).toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;}});
-   const p=document.querySelector('#resultsCard>p.muted');if(p&&state.transport==='car')p.innerHTML+=`<br><span class="tiny">Υπόθεση ΙΧ: ${CAR_CONSUMPTION.toLocaleString('el-GR')} L/100 χλμ · βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L · διόδια ΙΧ κατηγορίας 2. Όπου υπάρχει οδικό προφίλ, η εκτίμηση αφορά πήγαινε-έλα από Αθήνα.</span>`;
+   originalRenderResults(sort,region);
+   let pool=region==='all'?[...scored]:scored.filter(d=>d.region===region);
+   pool.sort((a,b)=>sort==='cheap'?a.total-b.total:sort==='fit'?b.fit-a.fit:b.score-a.score||a.total-b.total);
+   const list=pool.slice(0,8),cards=[...document.querySelectorAll('#resultsCard .destination')];
+   cards.forEach((card,i)=>{
+    const d=list[i];if(!d)return;
+    const firstBreak=card.querySelector('.break');
+    if(firstBreak&&d.transportMode==='car'&&d.fuelCost!=null){
+     firstBreak.innerHTML=`<span>Μεταφορά ΙΧ · ${d.roadKm} χλμ μετ' επιστροφής</span><b>€${d.transport.toLocaleString('el-GR')}</b><span>${d.consumptionL100.toLocaleString('el-GR')} L/100 km · καύσιμα €${d.fuelCost.toLocaleString('el-GR')} + διόδια €${Number(d.tolls).toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>`;
+    }
+   });
+   const p=document.querySelector('#resultsCard>p.muted');
+   if(p&&state.transport==='car'){
+    const c=currentConsumption();
+    const defaultNote=state.carConsumption?.defaulted?' (επιλογή «Δεν γνωρίζω»)':'';
+    p.innerHTML+=`<br><span class="tiny">ΙΧ: ${c.toLocaleString('el-GR')} L/100 km${defaultNote} · βενζίνη €${FUEL_PRICE.toLocaleString('el-GR',{minimumFractionDigits:2})}/L · διόδια ΙΧ κατηγορίας 2. Όπου υπάρχει οδικό προφίλ, η εκτίμηση αφορά πήγαινε-έλα από Αθήνα.</span>`;
+   }
   };
  }
+ setTimeout(injectCarConsumption,0);
 });
 })();
