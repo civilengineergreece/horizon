@@ -6,7 +6,7 @@ window.HORIZON_LIVE_CONFIG={
   const load=()=>{
     if(document.querySelector('script[data-horizon-travelpayouts]'))return;
     const s=document.createElement('script');
-    s.src='travelpayouts.js?v=20260822-3';
+    s.src='travelpayouts.js?v=20260822-4';
     s.dataset.horizonTravelpayouts='1';
     document.body.appendChild(s);
   };
