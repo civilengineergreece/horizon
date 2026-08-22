@@ -2,11 +2,33 @@
 'use strict';
 
 const WL_ID='21163';
+const STYLE_ID='horizon-travelpayouts-style';
 let root=null;
 let loaded=false;
 
 function travelState(){return typeof state!=='undefined'&&state?state:{};}
 function scoredByName(name){return (typeof scored!=='undefined'&&Array.isArray(scored)?scored:[]).find(d=>d.name===name)||{};}
+
+function ensureStyles(){
+  if(document.getElementById(STYLE_ID))return;
+  const style=document.createElement('style');
+  style.id=STYLE_ID;
+  style.textContent=`
+    #horizon-travelpayouts{overflow:visible}
+    #horizon-travelpayouts .hz-flight-class-help{margin:0 0 14px;padding:10px 12px;border:1px solid rgba(255,122,22,.24);border-radius:12px;background:rgba(255,122,22,.07);color:#cbd6de;font-size:.78rem;line-height:1.5}
+    #horizon-travelpayouts .hz-flight-class-help b{color:#fff}
+    #horizon-travelpayouts #tpwl-search input,
+    #horizon-travelpayouts #tpwl-search textarea,
+    #horizon-travelpayouts #tpwl-search select{color:#102538!important;-webkit-text-fill-color:#102538!important}
+    #horizon-travelpayouts #tpwl-search input::placeholder,
+    #horizon-travelpayouts #tpwl-search textarea::placeholder{color:#718096!important;-webkit-text-fill-color:#718096!important;opacity:1!important}
+    #horizon-travelpayouts #tpwl-search [role="listbox"],
+    #horizon-travelpayouts #tpwl-search [role="option"],
+    #horizon-travelpayouts #tpwl-search [role="dialog"]{color:#102538!important;background:#fff!important}
+    #horizon-travelpayouts #tpwl-search [role="option"] *{color:#102538!important;-webkit-text-fill-color:#102538!important}
+  `;
+  document.head.appendChild(style);
+}
 
 function isPlaneOverlay(overlay,name){
   const d=scoredByName(name);
@@ -18,13 +40,15 @@ function isPlaneOverlay(overlay,name){
 
 function createRoot(pane){
   if(root)return root;
+  ensureStyles();
   root=document.createElement('section');
   root.id='horizon-travelpayouts';
   root.className='hd-section';
   root.style.marginTop='22px';
   root.innerHTML=`
     <h4 style="margin:0 0 6px">Πτήσεις</h4>
-    <div class="hd-note" style="margin-bottom:14px">Αναζήτησε πραγματικές διαθέσιμες πτήσεις και low-cost επιλογές μέσα στο Horizon. Η τελική αγορά ολοκληρώνεται στον πάροχο του εισιτηρίου.</div>
+    <div class="hd-note" style="margin-bottom:10px">Αναζήτησε πραγματικές διαθέσιμες πτήσεις και low-cost επιλογές μέσα στο Horizon. Η τελική αγορά ολοκληρώνεται στον πάροχο του εισιτηρίου.</div>
+    <div class="hz-flight-class-help"><b>Θέση ταξιδιού:</b> «Οικονομία» = Οικονομική θέση (Economy). Ανάλογα με τη διαδρομή μπορείς επίσης να επιλέξεις Business, Comfort/Premium Economy ή First Class.</div>
     <div id="tpwl-search"></div>
     <div id="tpwl-tickets"></div>`;
   pane.appendChild(root);
@@ -70,6 +94,7 @@ function refresh(){
 }
 
 function init(){
+  ensureStyles();
   const obs=new MutationObserver(refresh);
   obs.observe(document.body,{childList:true,subtree:true});
   refresh();
