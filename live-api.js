@@ -17,15 +17,9 @@ function destinationByName(name){return (window.HORIZON_DESTINATIONS||[]).find(d
 function scoredByName(name){return (typeof scored!=='undefined'&&Array.isArray(scored)?scored:[]).find(d=>d.name===name)||{};}
 function travelState(){return typeof state!=='undefined'&&state?state:{};}
 function fmtMoney(v,c='EUR'){return new Intl.NumberFormat('el-GR',{style:'currency',currency:c||'EUR',maximumFractionDigits:0}).format(Number(v)||0);}
-function fmtHours(v){const n=Number(v)||0,h=Math.floor(n),m=Math.round((n-h)*60);return `${h}ω ${m}λ`;}
 function panelBox(){return '<div class="hz-live-result" style="margin-top:14px;padding:14px;border:1px solid rgba(101,211,154,.24);background:rgba(101,211,154,.055);border-radius:14px"></div>';}
 function button(label){return `<button type="button" class="hd-cta primary hz-live-btn">${label}</button>`;}
 
-async function road(name){
-  const s=travelState(),d=destinationByName(name),cons=Number(s.carConsumption?.value)||7.5;
-  const destination=`${name}, ${d.country||''}`;
-  return call('/road',{origin:s.origin,destination,consumptionL100:cons,fuelPriceEur:2,departureDateTime:s.dates?.from||undefined});
-}
 async function flights(name){
   const s=travelState(),d=destinationByName(name);
   return call('/flights',{origin:s.origin,destination:`${name} ${d.country||''}`,departureDate:s.dates?.from,flexDays:Number(s.dates?.flex)||0,duration:Number(s.duration)||1,adults:Number(s.travelers?.adults)||1,children:Number(s.travelers?.children)||0});
@@ -33,18 +27,6 @@ async function flights(name){
 async function hotels(name){
   const s=travelState(),d=destinationByName(name);
   return call('/hotels',{destination:`${name} ${d.country||''}`,checkInDate:s.dates?.from,duration:Number(s.duration)||1,adults:Number(s.travelers?.adults)||1,rooms:Math.max(1,Math.ceil(((Number(s.travelers?.adults)||1)+(Number(s.travelers?.children)||0))/2))});
-}
-function roadHtml(data){
-  const r=data.routes?.[0];
-  if(!r)return '<div class="hd-note">Δεν βρέθηκε live οδική διαδρομή.</div>';
-  const roundKm=r.distanceKm*2;
-  const roundHours=r.hours*2;
-  const roundFuel=r.fuelCost*2;
-  const roundTolls=r.tollCost*2;
-  const roundCost=r.totalRoadCost*2;
-  const outbound=`<div class="hd-card"><small>Μετάβαση · LIVE</small><b>${Math.round(r.distanceKm)} km · ${fmtHours(r.hours)}</b><div class="hd-note">Καύσιμα ${fmtMoney(r.fuelCost)} · διόδια/τέλη ${fmtMoney(r.tollCost)} · <b>σύνολο ${fmtMoney(r.totalRoadCost)}</b></div></div>`;
-  const inbound=`<div class="hd-card"><small>Επιστροφή · εκτίμηση</small><b>${Math.round(r.distanceKm)} km · ${fmtHours(r.hours)}</b><div class="hd-note">Με βάση τη live μετάβαση: καύσιμα ${fmtMoney(r.fuelCost)} · διόδια/τέλη ${fmtMoney(r.tollCost)} · <b>σύνολο ${fmtMoney(r.totalRoadCost)}</b></div></div>`;
-  return `<div class="hd-hero"><small>LIVE · TollGuru μετάβαση + εκτίμηση επιστροφής</small><strong>${Math.round(roundKm)} km · ${fmtHours(roundHours)} · ${fmtMoney(roundCost)}</strong><div class="hd-note">Σύνολο καυσίμων ${fmtMoney(roundFuel)} · <b>σύνολο διοδίων/οδικών τελών ${fmtMoney(roundTolls)}</b>. Η επιστροφή υπολογίζεται προσωρινά ίση με τη live μετάβαση ώστε να μην καταναλώνεται δεύτερο API lookup.</div></div><div class="hd-grid">${outbound}${inbound}<div class="hd-card"><small>Κατανάλωση</small><b>${data.consumptionL100} L/100 km</b></div><div class="hd-card"><small>Τιμή καυσίμου</small><b>${data.fuelPriceEur} €/L</b></div></div>`;
 }
 function flightsHtml(data){
   const offers=data.offers||[];if(!offers.length)return `<div class="hd-note">Δεν βρέθηκαν διαθέσιμες πτήσεις για αυτές τις ημερομηνίες${data.environment==='test'?' στο Amadeus test environment':''}.</div>`;
@@ -77,11 +59,6 @@ function enhanceOverlay(overlay){
   const d=scoredByName(name),mode=d.transportMode||travelState().transport;
   wirePane(overlay,name,'stay','Έλεγχος live ξενοδοχείων',hotels,hotelsHtml);
   if(mode==='plane')wirePane(overlay,name,'transport','Έλεγχος live πτήσεων',flights,flightsHtml);
-  else if(mode==='car')wirePane(overlay,name,'transport','Live διαδρομή + διόδια',road,roadHtml);
-  else {
-    const pane=overlay.querySelector('[data-pane="transport"]');
-    if(pane&&!pane.querySelector('.hz-live-wrap')){const w=document.createElement('div');w.className='hz-live-wrap hd-section';w.innerHTML='<h4>Live έλεγχος</h4><div class="hd-note">Η συγκεκριμένη μετακίνηση δεν έχει ακόμη live provider σε αυτή την έκδοση.</div>';pane.appendChild(w);}
-  }
 }
 function observe(){
   if(!enabled)return;
@@ -89,6 +66,6 @@ function observe(){
   obs.observe(document.body,{childList:true,subtree:true});
   document.querySelectorAll('.horizon-detail-overlay').forEach(enhanceOverlay);
 }
-window.HorizonLive={enabled,apiBase:base,call,road,flights,hotels};
+window.HorizonLive={enabled,apiBase:base,call,flights,hotels};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',observe);else observe();
 })();
