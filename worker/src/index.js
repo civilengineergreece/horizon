@@ -50,7 +50,7 @@ function flatTolls(route){
   }));
 }
 function routeCost(costs={}){
-  const preferred=[costs.cash,costs.creditCard,costs.prepaidCard,costs.tag,costs.licensePlate].map(Number).filter(Number.isFinite);
+  const preferred=[costs.cash,costs.creditCard,costs.prepaidCard,costs.tag,costs.licensePlate].filter(v=>v!==null&&v!==undefined&&v!==false&&v!=='').map(Number).filter(Number.isFinite);
   const base=preferred.length?preferred[0]:0;
   return Math.max(0,base+number(costs.otherCost,0));
 }
