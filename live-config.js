@@ -22,7 +22,7 @@ window.HORIZON_LIVE_CONFIG={
 
   const loadEnhancements=()=>{
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
-    loadScript('hotels-panel.js?v=20260822-3','data-horizon-hotels-panel');
+    loadScript('hotels-panel.js?v=20260822-4','data-horizon-hotels-panel');
     loadScript('travelpayouts-lazy.js?v=20260822-1','data-horizon-flights-lazy');
   };
 
