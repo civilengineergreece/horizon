@@ -22,6 +22,8 @@ function timeOnly(v){const s=String(v||'');const m=s.match(/(\d{2}:\d{2})$/);ret
 function cacheKey(origin,dest,from,to,t){return `${CACHE_PREFIX}${[origin,dest,from,to,t.adults,t.children,t.infants].join('|')}`;}
 function readCache(key){try{const v=JSON.parse(localStorage.getItem(key)||'null');if(v&&Date.now()-v.at<CACHE_TTL)return v.data;}catch{}return null;}
 function writeCache(key,data){try{localStorage.setItem(key,JSON.stringify({at:Date.now(),data}));}catch{}}
+function cheapest(data){const prices=(Array.isArray(data?.results)?data.results:[]).map(x=>Number(x?.price)).filter(x=>Number.isFinite(x)&&x>0);return prices.length?Math.min(...prices):null;}
+function publish(name,data){const price=cheapest(data);if(!price)return;document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:name,price,currency:data?.currency||'EUR'}}));}
 function renderResults(panel,data,cached=false){
   const out=panel.querySelector('.hz-flight-results'),status=panel.querySelector('.hz-flight-status'),items=Array.isArray(data?.results)?data.results:[];
   status.textContent=items.length?`${items.length} live επιλογές${cached?' · από προσωρινή cache':''}.`:'Δεν βρέθηκαν πτήσεις για αυτά τα στοιχεία.';
@@ -34,19 +36,19 @@ function renderResults(panel,data,cached=false){
 async function search(panel,name){
   const from=panel.querySelector('.hz-flight-from')?.value||'',to=panel.querySelector('.hz-flight-to')?.value||'',origin=stateNow().origin||'Αθήνα',t=travelers(),btn=panel.querySelector('.hz-flight-search'),status=panel.querySelector('.hz-flight-status');
   if(!from){status.textContent='Διάλεξε ημερομηνία αναχώρησης.';return;}if(to&&to<from){status.textContent='Η επιστροφή πρέπει να είναι μετά την αναχώρηση.';return;}
-  const key=cacheKey(origin,name,from,to,t),cached=readCache(key);if(cached){renderResults(panel,cached,true);return;}
+  const key=cacheKey(origin,name,from,to,t),cached=readCache(key);if(cached){renderResults(panel,cached,true);publish(name,cached);return;}
   const base=window.HORIZON_LIVE_CONFIG?.apiBase;if(!base){status.textContent='Το live API δεν είναι διαθέσιμο.';return;}
   btn.disabled=true;btn.textContent='Αναζήτηση live πτήσεων…';status.textContent='Αναζητώ πραγματικές πτήσεις και τιμές…';panel.querySelector('.hz-flight-results').innerHTML='';
   try{
     const u=new URL(`${base}/flights`);u.searchParams.set('origin',origin);u.searchParams.set('destination',name);u.searchParams.set('outboundDate',from);if(to)u.searchParams.set('returnDate',to);u.searchParams.set('adults',t.adults);u.searchParams.set('children',t.children);u.searchParams.set('infants',t.infants);
-    const res=await fetch(u.toString());const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||`HTTP ${res.status}`);writeCache(key,data);renderResults(panel,data,false);
+    const res=await fetch(u.toString());const data=await res.json().catch(()=>({}));if(!res.ok||!data.ok)throw new Error(data.error||`HTTP ${res.status}`);writeCache(key,data);renderResults(panel,data,false);publish(name,data);
   }catch(e){status.textContent=`Δεν ολοκληρώθηκε η live αναζήτηση: ${e.message||e}`;}
   finally{btn.disabled=false;btn.textContent='Αναζήτηση live πτήσεων';}
 }
 function enhanceOverlay(overlay){
   if(!overlay||overlay.querySelector('.hz-flights-panel'))return;const name=overlay.querySelector('.hd-head h3')?.textContent?.trim();if(!name||!supportsPlane(name))return;const pane=overlay.querySelector('[data-pane="transport"]');if(!pane)return;
   const dates=defaultDates(),t=travelers(),box=document.createElement('section');box.className='hz-flights-panel';
-  box.innerHTML=`<div class="hz-flights-title">Live πτήσεις μέσα στο Horizon</div><div class="hz-flights-copy">Οι τιμές που θα εμφανιστούν εδώ προέρχονται από Google Flights για τις συγκεκριμένες ημερομηνίες και ταξιδιώτες. Δεν χρησιμοποιούμε πλέον το προβληματικό εξωτερικό ημερολόγιο/widget.</div><div class="hz-flight-form"><div class="hz-flight-field"><label>Αναχώρηση</label><input class="hz-flight-from" type="date" value="${esc(dates.from)}"></div><div class="hz-flight-field"><label>Επιστροφή</label><input class="hz-flight-to" type="date" value="${esc(dates.to)}"></div><div class="hz-flight-summary">${esc(stateNow().origin||'Αθήνα')} → ${esc(name)} · ${t.adults} ενήλικες${t.children?` · ${t.children} παιδιά`:''}${t.infants?` · ${t.infants} βρέφη`:''}</div><button type="button" class="hz-flight-search">Αναζήτηση live πτήσεων</button></div><div class="hz-flight-status"></div><div class="hz-flight-results"></div>`;
+  box.innerHTML=`<div class="hz-flights-title">Live πτήσεις μέσα στο Horizon</div><div class="hz-flights-copy">Οι τιμές που θα εμφανιστούν εδώ προέρχονται από Google Flights για τις συγκεκριμένες ημερομηνίες και ταξιδιώτες. Μόλις γίνει η αναζήτηση, η χαμηλότερη live τιμή ενημερώνει αυτόματα και την εξωτερική κάρτα του προορισμού.</div><div class="hz-flight-form"><div class="hz-flight-field"><label>Αναχώρηση</label><input class="hz-flight-from" type="date" value="${esc(dates.from)}"></div><div class="hz-flight-field"><label>Επιστροφή</label><input class="hz-flight-to" type="date" value="${esc(dates.to)}"></div><div class="hz-flight-summary">${esc(stateNow().origin||'Αθήνα')} → ${esc(name)} · ${t.adults} ενήλικες${t.children?` · ${t.children} παιδιά`:''}${t.infants?` · ${t.infants} βρέφη`:''}</div><button type="button" class="hz-flight-search">Αναζήτηση live πτήσεων</button></div><div class="hz-flight-status"></div><div class="hz-flight-results"></div>`;
   pane.appendChild(box);box.querySelector('.hz-flight-search').addEventListener('click',()=>search(box,name));
 }
 function enhanceAll(){document.querySelectorAll('.horizon-detail-overlay').forEach(enhanceOverlay);}
