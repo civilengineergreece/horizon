@@ -120,7 +120,7 @@ function enhanceDurationStep(){
     const dep=localDateFromISO(state?.dates?.from);
     if(dep&&n>=1){
       const whole=Math.floor(n),ret=addDays(dep,whole-1),flex=Math.max(0,Math.min(3,Number(state?.dates?.flex)||0));
-      let html=whole===1?`<b>Μονοήμερη εκδρομή:</b> αναχώρηση και επιστροφή <b>${fmt(dep)}</b>, χωρίς διανυκτέρευση.`:`Αν φύγεις <b>${fmt(dep)}</b>, επιστρέφεις περίπου <b>${fmt(ret)}</b> · ${whole-1} διανυκτερεύσεις.`;
+      let html=whole===1?`<b>Μονοήμερη εκδρομή:</b> αναχώρηση και επιστροφή <b>${fmt(dep)}</b>, χωρίς διανυκτέρευση.`:`Αν φύγεις <b>${fmt(dep)}</b>, επιστρέφεις <b>${fmt(ret)}</b> · ${whole-1} διανυκτερεύσεις.`;
       if(flex)html+=` Με ευελιξία ±${flex}, μετακινείται αντίστοιχα και η επιστροφή.`;
       summary.innerHTML=html;
     }else summary.innerHTML='Διάλεξε πόσες ημέρες θέλεις να λείψεις.';
