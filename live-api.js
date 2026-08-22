@@ -14,31 +14,20 @@ async function call(path,payload){
   return data;
 }
 function destinationByName(name){return (window.HORIZON_DESTINATIONS||[]).find(d=>d.name===name)||{};}
-function scoredByName(name){return (typeof scored!=='undefined'&&Array.isArray(scored)?scored:[]).find(d=>d.name===name)||{};}
 function travelState(){return typeof state!=='undefined'&&state?state:{};}
 function fmtMoney(v,c='EUR'){return new Intl.NumberFormat('el-GR',{style:'currency',currency:c||'EUR',maximumFractionDigits:0}).format(Number(v)||0);}
 function panelBox(){return '<div class="hz-live-result" style="margin-top:14px;padding:14px;border:1px solid rgba(101,211,154,.24);background:rgba(101,211,154,.055);border-radius:14px"></div>';}
 function button(label){return `<button type="button" class="hd-cta primary hz-live-btn">${label}</button>`;}
 
-async function flights(name){
-  const s=travelState(),d=destinationByName(name);
-  return call('/flights',{origin:s.origin,destination:`${name} ${d.country||''}`,departureDate:s.dates?.from,flexDays:Number(s.dates?.flex)||0,duration:Number(s.duration)||1,adults:Number(s.travelers?.adults)||1,children:Number(s.travelers?.children)||0});
-}
 async function hotels(name){
   const s=travelState(),d=destinationByName(name);
   return call('/hotels',{destination:`${name} ${d.country||''}`,checkInDate:s.dates?.from,duration:Number(s.duration)||1,adults:Number(s.travelers?.adults)||1,rooms:Math.max(1,Math.ceil(((Number(s.travelers?.adults)||1)+(Number(s.travelers?.children)||0))/2))});
-}
-function flightsHtml(data){
-  const offers=data.offers||[];if(!offers.length)return `<div class="hd-note">Δεν βρέθηκαν διαθέσιμες πτήσεις για αυτές τις ημερομηνίες${data.environment==='test'?' στο Amadeus test environment':''}.</div>`;
-  const rows=offers.slice(0,6).map((o,i)=>{const out=o.legs?.[0],back=o.legs?.[1];return `<div class="hd-item"><span class="hd-num">${i+1}</span><div style="min-width:0"><b>${fmtMoney(o.total,o.currency)} · ${esc(o.date)}</b><div class="hd-note">${esc((out?.departure?.iataCode||data.origin?.iataCode||''))} → ${esc(out?.arrival?.iataCode||data.destination?.iataCode||'')} · ${out?.stops||0} στάσεις${back?` · επιστροφή ${back.stops||0} στάσεις`:''}</div></div></div>`;}).join('');
-  const badge=data.live?'LIVE παραγωγής':'TEST δεδομένα';
-  return `<div class="hd-hero"><small>${badge} · Amadeus Flight Offers Search</small><strong>Από ${fmtMoney(offers[0].total,offers[0].currency)}</strong><div class="hd-note">${esc(data.origin?.name||'')} (${esc(data.origin?.iataCode||'')}) → ${esc(data.destination?.name||'')} (${esc(data.destination?.iataCode||'')})</div></div><div class="hd-section"><h4>Καλύτερες διαθέσιμες προσφορές</h4><div class="hd-list">${rows}</div></div>`;
 }
 function hotelsHtml(data){
   if(data.dayTrip)return '<div class="hd-hero"><small>Μονοήμερη εκδρομή</small><strong>Δεν απαιτείται διαμονή</strong></div>';
   const offers=data.offers||[];if(!offers.length)return `<div class="hd-note">Δεν βρέθηκαν διαθέσιμα ξενοδοχεία για αυτές τις ημερομηνίες${data.environment==='test'?' στο Amadeus test environment':''}.</div>`;
   const rows=offers.slice(0,8).map((o,i)=>`<div class="hd-item"><span class="hd-num">${i+1}</span><div><b>${esc(o.name)} · ${fmtMoney(o.total,o.currency)}</b><div class="hd-note">${esc(o.checkInDate||'')} → ${esc(o.checkOutDate||'')}${o.roomQuantity?` · ${esc(o.roomQuantity)} δωμάτιο/α`:''}</div></div></div>`).join('');
-  return `<div class="hd-hero"><small>${data.live?'LIVE παραγωγής':'TEST δεδομένα'} · Amadeus Hotel Search</small><strong>Από ${fmtMoney(offers[0].total,offers[0].currency)}</strong><div class="hd-note">Real-time availability/price response για τις επιλεγμένες ημερομηνίες.</div></div><div class="hd-section"><h4>Διαθέσιμες επιλογές</h4><div class="hd-list">${rows}</div></div>`;
+  return `<div class="hd-hero"><small>${data.live?'LIVE παραγωγής':'TEST δεδομένα'} · Hotel Search</small><strong>Από ${fmtMoney(offers[0].total,offers[0].currency)}</strong><div class="hd-note">Διαθεσιμότητα/τιμή για τις επιλεγμένες ημερομηνίες.</div></div><div class="hd-section"><h4>Διαθέσιμες επιλογές</h4><div class="hd-list">${rows}</div></div>`;
 }
 function wirePane(overlay,name,paneName,label,loader,renderer){
   const pane=overlay.querySelector(`[data-pane="${paneName}"]`);if(!pane||pane.querySelector('.hz-live-wrap'))return;
@@ -56,9 +45,9 @@ function wirePane(overlay,name,paneName,label,loader,renderer){
 function enhanceOverlay(overlay){
   if(!enabled||!overlay||overlay.dataset.liveWired)return;overlay.dataset.liveWired='1';
   const name=overlay.querySelector('.hd-head h3')?.textContent?.trim();if(!name)return;
-  const d=scoredByName(name),mode=d.transportMode||travelState().transport;
+  // Flights are handled exclusively by the free Travelpayouts metasearch widget.
+  // Keep the Worker live layer only for hotel functionality for now.
   wirePane(overlay,name,'stay','Έλεγχος live ξενοδοχείων',hotels,hotelsHtml);
-  if(mode==='plane')wirePane(overlay,name,'transport','Έλεγχος live πτήσεων',flights,flightsHtml);
 }
 function observe(){
   if(!enabled)return;
@@ -66,6 +55,6 @@ function observe(){
   obs.observe(document.body,{childList:true,subtree:true});
   document.querySelectorAll('.horizon-detail-overlay').forEach(enhanceOverlay);
 }
-window.HorizonLive={enabled,apiBase:base,call,flights,hotels};
+window.HorizonLive={enabled,apiBase:base,call,hotels};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',observe);else observe();
 })();
