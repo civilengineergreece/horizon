@@ -2,6 +2,7 @@
 'use strict';
 
 const STYLE_ID='horizon-hotels-panel-style';
+const DEMO_AID='demo_affiliate_id';
 
 function installStyles(){
   if(document.getElementById(STYLE_ID))return;
@@ -13,10 +14,15 @@ function installStyles(){
     .hz-hotels-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:14px}
     .hz-hotel-chip{padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08)}
     .hz-hotel-chip small{display:block;color:#8fa3b2;margin-bottom:3px}.hz-hotel-chip b{font-size:.9rem}
-    .hz-hotels-actions{display:flex;gap:9px;flex-wrap:wrap}.hz-hotel-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.13);border-radius:11px;padding:11px 13px;background:#0b1d2b;color:#fff;font-weight:800;text-decoration:none}
-    .hz-hotel-btn.primary{border-color:transparent;background:linear-gradient(180deg,#ff8b29,#df5e08)}
-    .hz-hotels-status{margin-top:10px;color:#8fa3b2;font-size:.78rem;line-height:1.45}
-    @media(max-width:620px){.hz-hotels-grid{grid-template-columns:1fr}.hz-hotels-actions{display:grid}.hz-hotel-btn{width:100%}}
+    .hz-stay-load{border:0;border-radius:11px;padding:11px 14px;background:linear-gradient(180deg,#ff8b29,#df5e08);color:#fff;font-weight:800;cursor:pointer}
+    .hz-stay-load:disabled{opacity:.62;cursor:wait}
+    .hz-stay-status{margin-top:9px;color:#8fa3b2;font-size:.78rem;line-height:1.45}
+    .hz-stay-frame-wrap{display:none;margin-top:14px;border:1px solid rgba(255,255,255,.10);border-radius:16px;overflow:hidden;background:#0b1d2b}
+    .hz-stay-frame-wrap.active{display:block}
+    .hz-stay-frame{display:block;width:100%;height:610px;border:0;background:#0b1d2b}
+    .hz-stay-legend{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0;color:#9fb0bd;font-size:.76rem}
+    .hz-stay-pill{border:1px solid rgba(255,255,255,.10);border-radius:999px;padding:5px 8px;background:rgba(255,255,255,.03)}
+    @media(max-width:620px){.hz-hotels-grid{grid-template-columns:1fr}.hz-stay-load{width:100%}.hz-stay-frame{height:690px}}
   `;
   document.head.appendChild(s);
 }
@@ -40,18 +46,36 @@ function hotelInfo(name){
   return {name,days,nights,checkIn,checkOut,adults,children,infants};
 }
 
-function bookingUrl(info){
-  const u=new URL('https://www.booking.com/searchresults.html');
-  u.searchParams.set('ss',info.name);
+function stay22Url(info){
+  const u=new URL('https://www.stay22.com/embed/gm');
+  u.searchParams.set('aid',DEMO_AID);
+  u.searchParams.set('address',info.name);
   if(info.checkIn)u.searchParams.set('checkin',info.checkIn);
   if(info.checkOut)u.searchParams.set('checkout',info.checkOut);
-  u.searchParams.set('group_adults',String(info.adults));
-  u.searchParams.set('group_children',String(info.children+info.infants));
-  u.searchParams.set('no_rooms','1');
+  u.searchParams.set('adults',String(info.adults));
+  u.searchParams.set('children',String(info.children));
+  u.searchParams.set('infants',String(info.infants));
+  u.searchParams.set('rooms','1');
+  u.searchParams.set('currency','EUR');
+  u.searchParams.set('supportedcurrencies','EUR,USD');
+  u.searchParams.set('unitsystem','metric');
+  u.searchParams.set('priceper','total');
+  u.searchParams.set('limit','30');
+  u.searchParams.set('viewmode','all');
+  u.searchParams.set('listviewexpand','true');
+  u.searchParams.set('mapstyle','dark');
+  u.searchParams.set('maincolor','ff7a16');
+  u.searchParams.set('hotelscolor','ff7a16');
+  u.searchParams.set('rentalscolor','65d39a');
+  u.searchParams.set('hotelsapi','booking');
+  u.searchParams.set('rentalsapi','vrbo');
+  u.searchParams.set('showhotels','true');
+  u.searchParams.set('campaign','horizon_stay_panel');
   return u.toString();
 }
 
 function renderPanel(pane,name){
+  // Remove the old Amadeus hotel lookup if it appears.
   pane.querySelectorAll('.hz-live-wrap').forEach(el=>el.remove());
   let panel=pane.querySelector('.hz-hotels-panel');
   const info=hotelInfo(name);
@@ -63,9 +87,13 @@ function renderPanel(pane,name){
     return;
   }
 
+  const signature=[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants].join('|');
+  if(panel.dataset.signature===signature)return;
+  panel.dataset.signature=signature;
+
   panel.innerHTML=`
-    <h4>Ξενοδοχεία & καταλύματα</h4>
-    <div class="hz-hotels-copy">Ο Horizon έχει ήδη τα βασικά στοιχεία της αναζήτησης. Αυτή είναι η βάση για το live hotel search, χωρίς να τα ξαναγράφεις.</div>
+    <h4>Ξενοδοχεία & σπίτια διακοπών</h4>
+    <div class="hz-hotels-copy">Πραγματική αναζήτηση μέσα στο Horizon για ξενοδοχεία και ενοικιαζόμενα σπίτια/διαμερίσματα. Η τελική κράτηση γίνεται στον πάροχο.</div>
     <div class="hz-hotels-grid">
       <div class="hz-hotel-chip"><small>Προορισμός</small><b>${esc(info.name)}</b></div>
       <div class="hz-hotel-chip"><small>Διανυκτερεύσεις</small><b>${info.nights}</b></div>
@@ -74,10 +102,27 @@ function renderPanel(pane,name){
       <div class="hz-hotel-chip"><small>Ταξιδιώτες</small><b>${people} συνολικά</b></div>
       <div class="hz-hotel-chip"><small>Κατηγορίες</small><b>${info.adults} × 12+ · ${info.children} παιδιά · ${info.infants} βρέφη</b></div>
     </div>
-    <div class="hz-hotels-actions">
-      <a class="hz-hotel-btn primary" href="${bookingUrl(info)}" target="_blank" rel="noopener">Αναζήτηση τώρα στο Booking.com ↗</a>
-    </div>
-    <div class="hz-hotels-status">Προσωρινή ασφαλής λύση: ανοίγει πραγματικά αποτελέσματα Booking.com σε νέα καρτέλα. Το panel είναι ήδη έτοιμο για σύνδεση live αποτελεσμάτων μέσα στο Horizon όταν ενεργοποιήσουμε provider με κατάλληλη πρόσβαση.</div>`;
+    <button type="button" class="hz-stay-load">Φόρτωση πραγματικών καταλυμάτων</button>
+    <div class="hz-stay-status">Prototype χωρίς χρέωση/API key. Πηγές δοκιμής: Booking.com για ξενοδοχεία και Vrbo για σπίτια/διαμερίσματα.</div>
+    <div class="hz-stay-legend"><span class="hz-stay-pill">Ξενοδοχεία</span><span class="hz-stay-pill">Διαμερίσματα / σπίτια</span><span class="hz-stay-pill">Χάρτης + λίστα</span></div>
+    <div class="hz-stay-frame-wrap"><iframe class="hz-stay-frame" title="Αναζήτηση ξενοδοχείων και καταλυμάτων" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+
+  const btn=panel.querySelector('.hz-stay-load');
+  const wrap=panel.querySelector('.hz-stay-frame-wrap');
+  const frame=panel.querySelector('.hz-stay-frame');
+  const status=panel.querySelector('.hz-stay-status');
+  btn.addEventListener('click',()=>{
+    if(!frame.src){
+      btn.disabled=true;btn.textContent='Φόρτωση καταλυμάτων…';
+      status.textContent='Φορτώνω live ξενοδοχεία και rentals μέσα στο Horizon…';
+      frame.src=stay22Url(info);
+      frame.addEventListener('load',()=>{
+        btn.disabled=false;btn.textContent='Καταλύματα φορτώθηκαν';
+        status.textContent='Μπορείς να ψάξεις, να φιλτράρεις και να συγκρίνεις μέσα στη σελίδα. Η τελική κράτηση ανοίγει τον πάροχο.';
+      },{once:true});
+    }
+    wrap.classList.add('active');
+  });
 }
 
 function addPanel(overlay){
