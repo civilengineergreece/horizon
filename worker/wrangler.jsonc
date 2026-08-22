@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "horizon-live-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "vars": {
+    "AMADEUS_ENV": "test",
+    "ALLOWED_ORIGIN": "https://civilengineergreece.github.io"
+  }
+}
