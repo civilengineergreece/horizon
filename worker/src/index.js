@@ -15,10 +15,15 @@ function cors(request,env){
 function reply(request,env,data,status=200,extra={}){
   return new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(request,env),...extra}});
 }
-function fail(request,env,status,message,details,extra={}){return reply(request,env,{ok:false,error:message,details:details||null,...extra},status);}
+function fail(request,env,status,message,details,extra={}){
+  return reply(request,env,{ok:false,error:message,details:details||null,...extra},status);
+}
 function cleanText(v,max=160){return String(v||'').trim().slice(0,max);}
 function number(v,fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback;}
 function isoDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):null;}
+function safeUrl(v){
+  try{const u=new URL(String(v||''));return u.protocol==='https:'?u.toString():null;}catch{return null;}
+}
 async function body(request){
   const type=request.headers.get('content-type')||'';
   if(!type.includes('application/json'))throw new Error('Απαιτείται JSON request.');
@@ -28,52 +33,49 @@ async function body(request){
 }
 async function fetchJson(url,options={}){
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),12000);
+  const timer=setTimeout(()=>controller.abort(),18000);
   try{
     const res=await fetch(url,{...options,signal:controller.signal});
     const text=await res.text();
     let data={};
     try{data=text?JSON.parse(text):{};}catch{data={raw:text};}
-    if(!res.ok){const e=new Error(data?.message||data?.error||`Provider HTTP ${res.status}`);e.status=res.status;e.data=data;throw e;}
-    return {data,headers:res.headers};
+    if(!res.ok||data?.error){
+      const e=new Error(data?.error||data?.message||`Provider HTTP ${res.status}`);
+      e.status=res.status||502;e.data=data;throw e;
+    }
+    return data;
   }finally{clearTimeout(timer);}
 }
-function safeUrl(v){
-  try{const u=new URL(String(v||''));return /^https:$/.test(u.protocol)?u.toString():null;}catch{return null;}
-}
-function firstImage(media){
-  const list=Array.isArray(media)?media:[];
-  for(const item of list){
-    const candidates=[item?.url,item?.src,item?.href,item?.images?.large,item?.images?.medium,item?.images?.small];
-    for(const c of candidates){const u=safeUrl(c);if(u)return u;}
+function firstSerpImage(item){
+  const images=Array.isArray(item?.images)?item.images:[];
+  for(const image of images){
+    const u=safeUrl(image?.thumbnail)||safeUrl(image?.original_image)||safeUrl(image?.url);
+    if(u)return u;
   }
-  return null;
+  return safeUrl(item?.thumbnail);
 }
-function normalizeStay(item,currency,nights){
-  const suppliers=item?.suppliers&&typeof item.suppliers==='object'?item.suppliers:{};
-  const offers=Object.entries(suppliers).map(([provider,s])=>{
-    const total=number(s?.price?.total,0);
-    return {provider,link:safeUrl(s?.link),total:total>0?total:null};
-  }).filter(x=>x.link||x.total).sort((a,b)=>(a.total??1e15)-(b.total??1e15));
-  const priced=offers.filter(x=>x.total!==null);
-  const best=priced[0]||offers[0]||null;
-  const coords=item?.location?.coordinates||{};
+function normalizeGoogleHotel(item,currency,nights){
+  const nightly=number(item?.rate_per_night?.extracted_lowest,0)||null;
+  let total=number(item?.total_rate?.extracted_lowest,0)||null;
+  if(!total&&nightly&&nights)total=Math.round(nightly*nights*100)/100;
+  const gps=item?.gps_coordinates||{};
+  const amenities=(Array.isArray(item?.amenities)?item.amenities:[]).slice(0,5).map(x=>cleanText(x,60)).filter(Boolean);
   return {
-    id:String(item?.id||''),
+    id:cleanText(item?.property_token||item?.name||'',220),
     name:cleanText(item?.name||'Κατάλυμα',180),
-    type:cleanText(item?.type||'Accommodation',80),
-    rating:number(item?.rating,0)||null,
-    address:cleanText(item?.location?.address||'',220)||null,
-    distanceInMeters:number(item?.location?.distanceInMeters,0)||null,
-    latitude:number(coords?.latitude??coords?.lat,NaN),
-    longitude:number(coords?.longitude??coords?.lng??coords?.lon,NaN),
-    image:firstImage(item?.media),
-    url:safeUrl(item?.url),
-    bestProvider:best?.provider||null,
-    bestTotal:best?.total??null,
-    nightly:best?.total&&nights?Math.round((best.total/nights)*100)/100:null,
+    type:cleanText(item?.type||'hotel',80),
+    hotelClass:number(item?.hotel_class,0)||null,
+    rating:number(item?.overall_rating,0)||null,
+    reviews:number(item?.reviews,0)||null,
+    nightly,
+    total,
     currency,
-    suppliers:offers.slice(0,4)
+    image:firstSerpImage(item),
+    latitude:number(gps?.latitude,NaN),
+    longitude:number(gps?.longitude,NaN),
+    amenities,
+    priceSource:cleanText(item?.price_source||'Google Hotels',100),
+    source:'Google Hotels'
   };
 }
 async function stays(request,env){
@@ -84,42 +86,49 @@ async function stays(request,env){
   if(destination.length<2)return fail(request,env,400,'Χρειάζεται προορισμός.');
   if(!checkIn||!checkOut)return fail(request,env,400,'Χρειάζονται έγκυρες ημερομηνίες check-in και check-out.');
   if(checkOut<=checkIn)return fail(request,env,400,'Το check-out πρέπει να είναι μετά το check-in.');
-
-  if(!env.STAY22_API_KEY){
-    return fail(
-      request,
-      env,
-      503,
-      'Οι live κάρτες καταλυμάτων χρειάζονται Stay22 API key.',
-      null,
-      {code:'STAY22_API_KEY_REQUIRED',fallbackAvailable:true}
-    );
+  if(!env.SERPAPI_API_KEY){
+    return fail(request,env,503,'Χρειάζεται το δωρεάν SerpApi key για live τιμές μέσα στο Horizon.',null,{code:'SERPAPI_KEY_REQUIRED'});
   }
 
-  const page=Math.min(10,Math.max(1,Math.floor(number(b.page,1))));
+  const adults=Math.min(10,Math.max(1,Math.floor(number(b.adults,2))));
+  const children=Math.min(10,Math.max(0,Math.floor(number(b.children,0)+number(b.infants,0))));
   const pageSize=Math.min(20,Math.max(5,Math.floor(number(b.pageSize,12))));
-  const url=new URL('https://api.stay22.com/v2/accommodations');
-  url.searchParams.set('address',destination);
-  url.searchParams.set('checkin',checkIn);
-  url.searchParams.set('checkout',checkOut);
-  url.searchParams.set('currency','EUR');
-  url.searchParams.set('page',String(page));
-  url.searchParams.set('pageSize',String(pageSize));
-  const headers={accept:'application/json','X-API-KEY':env.STAY22_API_KEY};
-  const {data,headers:providerHeaders}=await fetchJson(url.toString(),{headers});
-  const meta=data?.meta||{};
-  const nights=Math.max(1,number(meta.nights,Math.round((Date.parse(checkOut)-Date.parse(checkIn))/86400000)));
-  const currency=String(meta.currency||'EUR');
-  const results=(Array.isArray(data?.results)?data.results:[]).map(x=>normalizeStay(x,currency,nights));
-  results.sort((a,b)=>(a.bestTotal??1e15)-(b.bestTotal??1e15));
+  const nights=Math.max(1,Math.round((Date.parse(checkOut)-Date.parse(checkIn))/86400000));
+  const currency='EUR';
+  const url=new URL('https://serpapi.com/search.json');
+  url.searchParams.set('engine','google_hotels');
+  url.searchParams.set('q',destination);
+  url.searchParams.set('check_in_date',checkIn);
+  url.searchParams.set('check_out_date',checkOut);
+  url.searchParams.set('adults',String(adults));
+  url.searchParams.set('children',String(children));
+  url.searchParams.set('currency',currency);
+  url.searchParams.set('gl','gr');
+  url.searchParams.set('hl','el');
+  url.searchParams.set('sort_by','3');
+  url.searchParams.set('api_key',env.SERPAPI_API_KEY);
+
+  const data=await fetchJson(url.toString(),{headers:{accept:'application/json'}});
+  const properties=Array.isArray(data?.properties)?data.properties:[];
+  const results=properties.slice(0,pageSize).map(x=>normalizeGoogleHotel(x,currency,nights)).filter(x=>x.name);
+  results.sort((a,b)=>(a.nightly??1e15)-(b.nightly??1e15));
+
   return reply(request,env,{
     ok:true,
-    provider:'Stay22 Direct Travel API',
-    demo:false,
-    destination,checkInDate:checkIn,checkOutDate:checkOut,nights,currency,
-    meta:{page:number(meta.page,page),pageSize:number(meta.pageSize,pageSize),total:number(meta.total,results.length),hasMore:!!meta.hasMore},
-    rateLimit:{limit:providerHeaders.get('X-RateLimit-Limit'),remaining:providerHeaders.get('X-RateLimit-Remaining'),reset:providerHeaders.get('X-RateLimit-Reset')},
-    results
+    provider:'Google Hotels via SerpApi',
+    destination,
+    checkInDate:checkIn,
+    checkOutDate:checkOut,
+    nights,
+    adults,
+    children,
+    currency,
+    results,
+    meta:{
+      total:number(data?.search_information?.total_results,results.length),
+      returned:results.length,
+      cachedByProvider:!data?.search_metadata?.processed_at?null:false
+    }
   });
 }
 
@@ -132,20 +141,20 @@ export default {
         ok:true,
         service:'Horizon Live API',
         providers:{
-          stay22:true,
-          stay22Mode:env.STAY22_API_KEY?'api-key':'api-key-required',
-          liveCards:!!env.STAY22_API_KEY,
-          fallback:true
+          googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi',freeTier:'250 searches/month'},
+          liveCards:!!env.SERPAPI_API_KEY
         }
       });
       if(request.method!=='POST')return fail(request,env,405,'Χρησιμοποίησε POST.');
       if(url.pathname==='/stays')return await stays(request,env);
       return fail(request,env,404,'Άγνωστο endpoint.');
     }catch(e){
-      const providerStatus=Number(e.status)||0;
-      if(providerStatus===429)return fail(request,env,429,'Έφτασες προσωρινά το όριο αναζητήσεων. Περίμενε περίπου ένα λεπτό και ξαναδοκίμασε.',e.data||null);
-      const status=providerStatus>=400&&providerStatus<600?502:400;
-      return fail(request,env,status,e.message||'Σφάλμα live provider',e.data||null);
+      const status=Number(e.status)||0;
+      const text=String(e.message||'');
+      if(status===429||/quota|limit|searches per month/i.test(text)){
+        return fail(request,env,429,'Έφτασες το δωρεάν όριο αναζητήσεων του μήνα.',e.data||null,{code:'FREE_QUOTA_REACHED'});
+      }
+      return fail(request,env,status>=400&&status<600?502:400,text||'Σφάλμα live provider',e.data||null);
     }
   }
 };
