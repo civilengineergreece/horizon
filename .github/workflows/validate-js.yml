@@ -1,0 +1,33 @@
+name: Validate Horizon JavaScript
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '*.js'
+      - 'worker/**/*.js'
+      - '.github/workflows/validate-js.yml'
+  pull_request:
+    paths:
+      - '*.js'
+      - 'worker/**/*.js'
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check destinations-data.js
+          node --check destination-details.js
+          node --check calendar-duration.js
+          node --check live-config.js
+          node --check live-api.js
+          node --check worker/src/index.js
