@@ -2,9 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "horizon-live-api",
   "main": "src/index.js",
-  "compatibility_date": "2026-08-01",
+  "compatibility_date": "2026-08-22",
   "workers_dev": true,
   "keep_vars": true,
+  "cache": {
+    "enabled": true
+  },
   "secrets": {
     "required": ["SERPAPI_API_KEY"]
   },
