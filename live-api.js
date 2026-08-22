@@ -5,7 +5,7 @@ const cfg=window.HORIZON_LIVE_CONFIG||{};
 const base=String(cfg.apiBase||'').replace(/\/$/,'');
 const enabled=!!(cfg.enabled&&base);
 
-function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[m]));}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 async function call(path,payload){
   if(!enabled)throw new Error('Το live API δεν έχει ενεργοποιηθεί ακόμη.');
   const res=await fetch(base+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
@@ -20,16 +20,18 @@ function fmtMoney(v,c='EUR'){return new Intl.NumberFormat('el-GR',{style:'curren
 function fmtHours(v){const n=Number(v)||0,h=Math.floor(n),m=Math.round((n-h)*60);return `${h}ω ${m}λ`;}
 function panelBox(){return '<div class="hz-live-result" style="margin-top:14px;padding:14px;border:1px solid rgba(101,211,154,.24);background:rgba(101,211,154,.055);border-radius:14px"></div>';}
 function button(label){return `<button type="button" class="hd-cta primary hz-live-btn">${label}</button>`;}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 
 async function road(name){
   const s=travelState(),d=destinationByName(name),cons=Number(s.carConsumption?.value)||7.5;
   const destination=`${name}, ${d.country||''}`;
-  const common={consumptionL100:cons,fuelPriceEur:2,departureDateTime:s.dates?.from||undefined};
-  const [outbound,inbound]=await Promise.all([
-    call('/road',{origin:s.origin,destination,...common}),
-    call('/road',{origin:destination,destination:s.origin,consumptionL100:cons,fuelPriceEur:2})
-  ]);
-  return {...outbound,returnRoutes:inbound.routes||[],returnProvider:inbound.provider||outbound.provider};
+  const outbound=await call('/road',{origin:s.origin,destination,consumptionL100:cons,fuelPriceEur:2,departureDateTime:s.dates?.from||undefined});
+  let inbound=null,returnError='';
+  try{
+    await sleep(1200);
+    inbound=await call('/road',{origin:destination,destination:s.origin,consumptionL100:cons,fuelPriceEur:2});
+  }catch(e){returnError=e.message||'Δεν ολοκληρώθηκε η live επιστροφή.';}
+  return {...outbound,returnRoutes:inbound?.routes||[],returnProvider:inbound?.provider||outbound.provider,returnError};
 }
 async function flights(name){
   const s=travelState(),d=destinationByName(name);
@@ -42,23 +44,16 @@ async function hotels(name){
 function roadHtml(data){
   const r=data.routes?.[0],back=data.returnRoutes?.[0];
   if(!r)return '<div class="hd-note">Δεν βρέθηκε live οδική διαδρομή.</div>';
-  const stationCost=t=>[t.cashCost,t.creditCardCost,t.prepaidCardCost,t.tagCost,t.licensePlateCost].find(v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v)));
-  const tollRows=(route,title)=>{
-    const rows=(route?.tolls||[]).slice(0,12).map(t=>{
-      const c=stationCost(t);
-      const meta=[t.road?`Οδός ${t.road}`:'',t.country,t.type].filter(Boolean).join(' · ');
-      return `<div class="hd-item"><span class="hd-num">${c!==undefined?'€':'↗'}</span><div><b>${esc(t.name||t.road||'Σημείο χρέωσης')}${c!==undefined?` · ${fmtMoney(c,t.currency||'EUR')}`:''}</b><div class="hd-note">${esc(meta)}</div></div></div>`;
-    }).join('');
-    return rows?`<div class="hd-section"><h4>${title}</h4><div class="hd-list">${rows}</div></div>`:'';
-  };
   const totalKm=r.distanceKm+(back?.distanceKm||0);
   const totalHours=r.hours+(back?.hours||0);
   const totalFuel=r.fuelCost+(back?.fuelCost||0);
   const totalTolls=r.tollCost+(back?.tollCost||0);
   const totalCost=r.totalRoadCost+(back?.totalRoadCost||0);
-  const outbound=`<div class="hd-card"><small>Μετάβαση</small><b>${Math.round(r.distanceKm)} km · ${fmtHours(r.hours)}</b><div class="hd-note">Καύσιμα ${fmtMoney(r.fuelCost)} · διόδια ${fmtMoney(r.tollCost)} · <b>σύνολο ${fmtMoney(r.totalRoadCost)}</b></div></div>`;
-  const inbound=back?`<div class="hd-card"><small>Επιστροφή</small><b>${Math.round(back.distanceKm)} km · ${fmtHours(back.hours)}</b><div class="hd-note">Καύσιμα ${fmtMoney(back.fuelCost)} · διόδια ${fmtMoney(back.tollCost)} · <b>σύνολο ${fmtMoney(back.totalRoadCost)}</b></div></div>`:`<div class="hd-card"><small>Επιστροφή</small><b>Δεν βρέθηκε live αποτέλεσμα</b></div>`;
-  return `<div class="hd-hero"><small>LIVE · TollGuru · μετ’ επιστροφής</small><strong>${Math.round(totalKm)} km · ${fmtHours(totalHours)} · ${fmtMoney(totalCost)}</strong><div class="hd-note">Σύνολο καυσίμων ${fmtMoney(totalFuel)} · σύνολο διοδίων/οδικών τελών ${fmtMoney(totalTolls)}.</div></div><div class="hd-grid">${outbound}${inbound}<div class="hd-card"><small>Κατανάλωση</small><b>${data.consumptionL100} L/100 km</b></div><div class="hd-card"><small>Τιμή καυσίμου</small><b>${data.fuelPriceEur} €/L</b></div></div>${tollRows(r,'Διόδια / σημεία χρέωσης μετάβασης')}${tollRows(back,'Διόδια / σημεία χρέωσης επιστροφής')}`;
+  const outbound=`<div class="hd-card"><small>Μετάβαση</small><b>${Math.round(r.distanceKm)} km · ${fmtHours(r.hours)}</b><div class="hd-note">Καύσιμα ${fmtMoney(r.fuelCost)} · διόδια/τέλη ${fmtMoney(r.tollCost)} · <b>σύνολο ${fmtMoney(r.totalRoadCost)}</b></div></div>`;
+  const inbound=back?`<div class="hd-card"><small>Επιστροφή</small><b>${Math.round(back.distanceKm)} km · ${fmtHours(back.hours)}</b><div class="hd-note">Καύσιμα ${fmtMoney(back.fuelCost)} · διόδια/τέλη ${fmtMoney(back.tollCost)} · <b>σύνολο ${fmtMoney(back.totalRoadCost)}</b></div></div>`:`<div class="hd-card"><small>Επιστροφή</small><b>Δεν βρέθηκε live αποτέλεσμα</b><div class="hd-note">${esc(data.returnError||'Θα χρησιμοποιηθεί προσωρινά μόνο η live μετάβαση.')}</div></div>`;
+  const topLabel=back?'LIVE · TollGuru · μετ’ επιστροφής':'LIVE · TollGuru · μετάβαση';
+  const totalNote=back?`Σύνολο καυσίμων ${fmtMoney(totalFuel)} · <b>σύνολο διοδίων/οδικών τελών ${fmtMoney(totalTolls)}</b> · τελικό οδικό κόστος ${fmtMoney(totalCost)}.`:`Καύσιμα ${fmtMoney(r.fuelCost)} · <b>σύνολο διοδίων/οδικών τελών ${fmtMoney(r.tollCost)}</b> · σύνολο ${fmtMoney(r.totalRoadCost)}.`;
+  return `<div class="hd-hero"><small>${topLabel}</small><strong>${Math.round(totalKm)} km · ${fmtHours(totalHours)} · ${fmtMoney(totalCost)}</strong><div class="hd-note">${totalNote}</div></div><div class="hd-grid">${outbound}${inbound}<div class="hd-card"><small>Κατανάλωση</small><b>${data.consumptionL100} L/100 km</b></div><div class="hd-card"><small>Τιμή καυσίμου</small><b>${data.fuelPriceEur} €/L</b></div></div>`;
 }
 function flightsHtml(data){
   const offers=data.offers||[];if(!offers.length)return `<div class="hd-note">Δεν βρέθηκαν διαθέσιμες πτήσεις για αυτές τις ημερομηνίες${data.environment==='test'?' στο Amadeus test environment':''}.</div>`;
