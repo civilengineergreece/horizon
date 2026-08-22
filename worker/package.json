@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "node deploy-with-runtime-secret.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
