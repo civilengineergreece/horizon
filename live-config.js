@@ -58,7 +58,7 @@ window.HORIZON_LIVE_CONFIG={
   const loadEnhancements=()=>{
     installHotelFetchBridge();
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
-    loadScript('flight-duration-fix.js?v=20260822-1','data-horizon-flight-duration-fix');
+    loadScript('flight-duration-fix.js?v=20260822-2','data-horizon-flight-duration-fix');
     loadScript('hotels-panel.js?v=20260822-8','data-horizon-hotels-panel',()=>{
       loadScript('stay-ui-el.js?v=20260822-1','data-horizon-stay-ui-el');
     });
