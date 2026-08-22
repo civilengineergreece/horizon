@@ -1,6 +1,5 @@
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8'};
-const EDGE_CACHE_TTL=6*60*60;
-const CACHE_VERSION='stays-v3';
+const WORKER_CACHE_TTL=6*60*60;
 
 function cors(request,env){
   const origin=request.headers.get('Origin')||'';
@@ -10,7 +9,7 @@ function cors(request,env){
     'access-control-allow-origin':ok?(origin||allowed):allowed,
     'access-control-allow-methods':'GET,POST,OPTIONS',
     'access-control-allow-headers':'content-type',
-    'access-control-expose-headers':'x-horizon-cache',
+    'access-control-expose-headers':'cf-cache-status,x-horizon-cache',
     'access-control-max-age':'86400',
     'vary':'Origin'
   };
@@ -19,7 +18,7 @@ function reply(request,env,data,status=200,extra={}){
   return new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(request,env),...extra}});
 }
 function fail(request,env,status,message,details,extra={}){
-  return reply(request,env,{ok:false,error:message,details:details||null,...extra},status);
+  return reply(request,env,{ok:false,error:message,details:details||null,...extra},status,{'cache-control':'no-store'});
 }
 function cleanText(v,max=160){return String(v||'').trim().slice(0,max);}
 function number(v,fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback;}
@@ -81,63 +80,19 @@ function normalizeGoogleHotel(item,currency,nights){
     source:'Google Hotels'
   };
 }
-function stableSearchKey({destination,checkIn,checkOut,adults,children}){
-  const u=new URL('https://horizon-cache.invalid/stays');
-  u.searchParams.set('v',CACHE_VERSION);
-  u.searchParams.set('destination',destination.toLocaleLowerCase('el-GR'));
-  u.searchParams.set('checkIn',checkIn);
-  u.searchParams.set('checkOut',checkOut);
-  u.searchParams.set('adults',String(adults));
-  u.searchParams.set('children',String(children));
-  u.searchParams.set('currency','EUR');
-  return new Request(u.toString(),{method:'GET'});
+function inputFromUrl(url){
+  return {
+    destination:url.searchParams.get('destination'),
+    checkInDate:url.searchParams.get('checkInDate'),
+    checkOutDate:url.searchParams.get('checkOutDate'),
+    adults:url.searchParams.get('adults'),
+    children:url.searchParams.get('children')
+  };
 }
-async function edgeCacheGet(cacheRequest,request,env){
-  try{
-    const hit=await caches.default.match(cacheRequest);
-    if(!hit)return null;
-    const data=await hit.json();
-    const cachedAt=Number(data?.cache?.cachedAt||0);
-    const ageSeconds=cachedAt?Math.max(0,Math.floor((Date.now()-cachedAt)/1000)):null;
-    return reply(request,env,{
-      ...data,
-      cache:{
-        ...(data.cache||{}),
-        hit:true,
-        layer:'cloudflare-edge',
-        ageSeconds,
-        ttlSeconds:EDGE_CACHE_TTL
-      }
-    },200,{'x-horizon-cache':'HIT'});
-  }catch{
-    return null;
-  }
-}
-function edgeCachePut(cacheRequest,payload,ctx){
-  try{
-    const stored={
-      ...payload,
-      cache:{
-        hit:false,
-        layer:'cloudflare-edge',
-        cachedAt:Date.now(),
-        ttlSeconds:EDGE_CACHE_TTL
-      }
-    };
-    const response=new Response(JSON.stringify(stored),{
-      headers:{
-        ...JSON_HEADERS,
-        'cache-control':`public, max-age=${EDGE_CACHE_TTL}`
-      }
-    });
-    ctx.waitUntil(caches.default.put(cacheRequest,response));
-  }catch{}
-}
-async function stays(request,env,ctx){
-  const b=await body(request);
-  const destination=cleanText(b.destination,120);
-  const checkIn=isoDate(b.checkInDate);
-  const checkOut=isoDate(b.checkOutDate);
+async function stays(request,env,input){
+  const destination=cleanText(input.destination,120);
+  const checkIn=isoDate(input.checkInDate);
+  const checkOut=isoDate(input.checkOutDate);
   if(destination.length<2)return fail(request,env,400,'Χρειάζεται προορισμός.');
   if(!checkIn||!checkOut)return fail(request,env,400,'Χρειάζονται έγκυρες ημερομηνίες check-in και check-out.');
   if(checkOut<=checkIn)return fail(request,env,400,'Το check-out πρέπει να είναι μετά το check-in.');
@@ -145,33 +100,30 @@ async function stays(request,env,ctx){
     return fail(request,env,503,'Χρειάζεται το δωρεάν SerpApi key για live τιμές μέσα στο Horizon.',null,{code:'SERPAPI_KEY_REQUIRED'});
   }
 
-  const adults=Math.min(10,Math.max(1,Math.floor(number(b.adults,2))));
-  const children=Math.min(10,Math.max(0,Math.floor(number(b.children,0)+number(b.infants,0))));
+  const adults=Math.min(10,Math.max(1,Math.floor(number(input.adults,2))));
+  const children=Math.min(10,Math.max(0,Math.floor(number(input.children,0))));
   const nights=Math.max(1,Math.round((Date.parse(checkOut)-Date.parse(checkIn))/86400000));
   const currency='EUR';
-  const cacheRequest=stableSearchKey({destination,checkIn,checkOut,adults,children});
-  const cached=await edgeCacheGet(cacheRequest,request,env);
-  if(cached)return cached;
 
-  const url=new URL('https://serpapi.com/search.json');
-  url.searchParams.set('engine','google_hotels');
-  url.searchParams.set('q',destination);
-  url.searchParams.set('check_in_date',checkIn);
-  url.searchParams.set('check_out_date',checkOut);
-  url.searchParams.set('adults',String(adults));
-  url.searchParams.set('children',String(children));
-  url.searchParams.set('currency',currency);
-  url.searchParams.set('gl','gr');
-  url.searchParams.set('hl','el');
-  url.searchParams.set('sort_by','3');
-  url.searchParams.set('api_key',env.SERPAPI_API_KEY);
+  const providerUrl=new URL('https://serpapi.com/search.json');
+  providerUrl.searchParams.set('engine','google_hotels');
+  providerUrl.searchParams.set('q',destination);
+  providerUrl.searchParams.set('check_in_date',checkIn);
+  providerUrl.searchParams.set('check_out_date',checkOut);
+  providerUrl.searchParams.set('adults',String(adults));
+  providerUrl.searchParams.set('children',String(children));
+  providerUrl.searchParams.set('currency',currency);
+  providerUrl.searchParams.set('gl','gr');
+  providerUrl.searchParams.set('hl','el');
+  providerUrl.searchParams.set('sort_by','3');
+  providerUrl.searchParams.set('api_key',env.SERPAPI_API_KEY);
 
-  const data=await fetchJson(url.toString(),{headers:{accept:'application/json'}});
+  const data=await fetchJson(providerUrl.toString(),{headers:{accept:'application/json'}});
   const properties=Array.isArray(data?.properties)?data.properties:[];
   const results=properties.slice(0,20).map(x=>normalizeGoogleHotel(x,currency,nights)).filter(x=>x.name);
   results.sort((a,b)=>(a.nightly??1e15)-(b.nightly??1e15));
 
-  const payload={
+  return reply(request,env,{
     ok:true,
     provider:'Google Hotels via SerpApi',
     destination,
@@ -188,18 +140,18 @@ async function stays(request,env,ctx){
       cachedByProvider:!data?.search_metadata?.processed_at?null:false
     },
     cache:{
-      hit:false,
-      layer:'cloudflare-edge',
-      cachedAt:Date.now(),
-      ttlSeconds:EDGE_CACHE_TTL
+      enabled:true,
+      layer:'cloudflare-workers-cache',
+      ttlSeconds:WORKER_CACHE_TTL
     }
-  };
-  edgeCachePut(cacheRequest,payload,ctx);
-  return reply(request,env,payload,200,{'x-horizon-cache':'MISS'});
+  },200,{
+    'cache-control':`public, max-age=0, s-maxage=${WORKER_CACHE_TTL}`,
+    'x-horizon-cache':'MISS'
+  });
 }
 
 export default {
-  async fetch(request,env,ctx){
+  async fetch(request,env){
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request,env)});
     const url=new URL(request.url);
     try{
@@ -210,10 +162,13 @@ export default {
           googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi',freeTier:'250 searches/month'},
           liveCards:!!env.SERPAPI_API_KEY
         },
-        cache:{enabled:true,layer:'cloudflare-edge',ttlHours:EDGE_CACHE_TTL/3600}
-      });
-      if(request.method!=='POST')return fail(request,env,405,'Χρησιμοποίησε POST.');
-      if(url.pathname==='/stays')return await stays(request,env,ctx);
+        cache:{enabled:true,layer:'cloudflare-workers-cache',ttlHours:WORKER_CACHE_TTL/3600}
+      },200,{'cache-control':'no-store'});
+      if(url.pathname==='/stays'){
+        if(request.method==='GET')return await stays(request,env,inputFromUrl(url));
+        if(request.method==='POST')return await stays(request,env,await body(request));
+        return fail(request,env,405,'Χρησιμοποίησε GET ή POST.');
+      }
       return fail(request,env,404,'Άγνωστο endpoint.');
     }catch(e){
       const status=Number(e.status)||0;
