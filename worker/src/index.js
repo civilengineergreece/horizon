@@ -61,7 +61,7 @@ function normalizeGoogleHotel(item,currency,nights){
   let total=number(item?.total_rate?.extracted_lowest,0)||null;
   if(!total&&nightly&&nights)total=Math.round(nightly*nights*100)/100;
   const gps=item?.gps_coordinates||{};
-  const amenities=(Array.isArray(item?.amenities)?item.amenities:[]).slice(0,16).map(x=>cleanText(x,70)).filter(Boolean);
+  const amenities=(Array.isArray(item?.amenities)?item.amenities:[]).slice(0,12).map(x=>cleanText(x,70)).filter(Boolean);
   return {
     id:cleanText(item?.property_token||item?.name||'',220),
     name:cleanText(item?.name||'Κατάλυμα',180),
@@ -86,8 +86,7 @@ function inputFromUrl(url){
     checkInDate:url.searchParams.get('checkInDate'),
     checkOutDate:url.searchParams.get('checkOutDate'),
     adults:url.searchParams.get('adults'),
-    children:url.searchParams.get('children'),
-    kind:url.searchParams.get('kind')
+    children:url.searchParams.get('children')
   };
 }
 async function stays(request,env,input){
@@ -103,7 +102,6 @@ async function stays(request,env,input){
 
   const adults=Math.min(10,Math.max(1,Math.floor(number(input.adults,2))));
   const children=Math.min(10,Math.max(0,Math.floor(number(input.children,0))));
-  const kind=String(input.kind||'hotels').toLowerCase()==='rentals'?'rentals':'hotels';
   const nights=Math.max(1,Math.round((Date.parse(checkOut)-Date.parse(checkIn))/86400000));
   const currency='EUR';
 
@@ -118,7 +116,6 @@ async function stays(request,env,input){
   providerUrl.searchParams.set('gl','gr');
   providerUrl.searchParams.set('hl','el');
   providerUrl.searchParams.set('sort_by','3');
-  if(kind==='rentals')providerUrl.searchParams.set('vacation_rentals','true');
   providerUrl.searchParams.set('api_key',env.SERPAPI_API_KEY);
 
   const data=await fetchJson(providerUrl.toString(),{headers:{accept:'application/json'}});
@@ -129,7 +126,6 @@ async function stays(request,env,input){
   return reply(request,env,{
     ok:true,
     provider:'Google Hotels via SerpApi',
-    kind,
     destination,
     checkInDate:checkIn,
     checkOutDate:checkOut,
@@ -163,7 +159,7 @@ export default {
         ok:true,
         service:'Horizon Live API',
         providers:{
-          googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi',freeTier:'250 searches/month',supportsVacationRentals:true},
+          googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi',freeTier:'250 searches/month'},
           liveCards:!!env.SERPAPI_API_KEY
         },
         cache:{enabled:true,layer:'cloudflare-workers-cache',ttlHours:WORKER_CACHE_TTL/3600}
