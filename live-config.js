@@ -3,6 +3,7 @@ window.HORIZON_LIVE_CONFIG={
   enabled:true
 };
 (()=>{
+  // Safety cleanup for the old Travelpayouts deep-link parameter.
   try{
     const u=new URL(location.href);
     if(u.searchParams.has('flightSearch')){
@@ -11,20 +12,13 @@ window.HORIZON_LIVE_CONFIG={
     }
   }catch(e){}
 
-  const loadFlights=()=>{
-    if(document.querySelector('script[data-horizon-travelpayouts]'))return;
-    const s=document.createElement('script');
-    s.src='travelpayouts.js?v=20260822-5';
-    s.dataset.horizonTravelpayouts='1';
-    document.body.appendChild(s);
-  };
+  // Keep the improved traveler age categories, but do NOT load
+  // Travelpayouts until we re-integrate it without URL/deep-link side effects.
   const load=()=>{
-    if(document.querySelector('script[data-horizon-travelers]')){loadFlights();return;}
+    if(document.querySelector('script[data-horizon-travelers]'))return;
     const s=document.createElement('script');
-    s.src='traveler-categories.js?v=20260822-2';
+    s.src='traveler-categories.js?v=20260822-3';
     s.dataset.horizonTravelers='1';
-    s.onload=loadFlights;
-    s.onerror=loadFlights;
     document.body.appendChild(s);
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
