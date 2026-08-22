@@ -11,6 +11,16 @@ window.HORIZON_LIVE_CONFIG={
     }
   }catch(e){}
 
+  const loadScript=(src,attr,done)=>{
+    const existing=document.querySelector(`script[${attr}]`);
+    if(existing){done?.();return;}
+    const s=document.createElement('script');
+    s.src=src;
+    s.setAttribute(attr,'1');
+    if(done){s.onload=done;s.onerror=done;}
+    document.body.appendChild(s);
+  };
+
   const installHotelFetchBridge=()=>{
     if(window.__HORIZON_STAYS_FETCH_BRIDGE__)return;
     window.__HORIZON_STAYS_FETCH_BRIDGE__=true;
@@ -46,34 +56,40 @@ window.HORIZON_LIVE_CONFIG={
     };
   };
 
-  const loadScript=(src,attr,done)=>{
-    if(document.querySelector(`script[${attr}]`)){done?.();return;}
-    const s=document.createElement('script');
-    s.src=src;
-    s.setAttribute(attr,'1');
-    if(done){s.onload=done;s.onerror=done;}
-    document.body.appendChild(s);
-  };
-
-  const loadEnhancements=()=>{
-    installHotelFetchBridge();
-    loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
-    loadScript('flight-duration-fix.js?v=20260822-2','data-horizon-flight-duration-fix');
-    loadScript('hotels-panel.js?v=20260822-8','data-horizon-hotels-panel',()=>{
-      loadScript('stay-ui-el.js?v=20260822-1','data-horizon-stay-ui-el');
+  const loadStayTools=()=>{
+    loadScript('hotels-panel.js?v=20260822-9','data-horizon-hotels-panel',()=>{
+      loadScript('stay-ui-el-safe.js?v=20260822-1','data-horizon-stay-ui-safe',()=>window.HorizonStayUiSafe?.attach?.());
+      setTimeout(()=>window.HorizonHotels?.refresh?.(),0);
     });
-    loadScript('travelpayouts-lazy.js?v=20260822-2','data-horizon-flights-lazy');
   };
 
-  const load=()=>{
-    if(document.querySelector('script[data-horizon-travelers]')){loadEnhancements();return;}
-    const s=document.createElement('script');
-    s.src='traveler-categories.js?v=20260822-3';
-    s.dataset.horizonTravelers='1';
-    s.onload=loadEnhancements;
-    s.onerror=loadEnhancements;
-    document.body.appendChild(s);
+  const loadFlightTools=()=>{
+    loadScript('travelpayouts-lazy.js?v=20260822-3','data-horizon-flights-lazy',()=>{
+      setTimeout(()=>window.HorizonFlightsLazy?.refresh?.(),0);
+    });
+    setTimeout(()=>window.HorizonFlightDurationCore?.patch?.(),25);
   };
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+  const installLazyActionLoader=()=>{
+    if(window.__HORIZON_LAZY_ACTION_LOADER__)return;
+    window.__HORIZON_LAZY_ACTION_LOADER__=true;
+    document.addEventListener('click',e=>{
+      const action=e.target.closest('.destination .actions a,.destination .actions button');
+      if(!action)return;
+      const txt=(action.textContent||'').trim().toLowerCase();
+      if(txt.includes('διαμον'))setTimeout(loadStayTools,0);
+      else if(txt.includes('μεταφορ'))setTimeout(loadFlightTools,0);
+    },true);
+  };
+
+  const boot=()=>{
+    installHotelFetchBridge();
+    installLazyActionLoader();
+    loadScript('flight-duration-core.js?v=20260822-1','data-horizon-flight-duration-core');
+    if(!document.querySelector('script[data-horizon-travelers]')){
+      loadScript('traveler-categories.js?v=20260822-3','data-horizon-travelers');
+    }
+  };
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
