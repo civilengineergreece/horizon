@@ -29,6 +29,7 @@ window.HORIZON_LIVE_CONFIG={
           u.searchParams.set('checkOutDate',String(payload.checkOutDate||''));
           u.searchParams.set('adults',String(payload.adults||2));
           u.searchParams.set('children',String((Number(payload.children)||0)+(Number(payload.infants)||0)));
+          u.searchParams.set('kind',String(payload.kind||window.__HORIZON_STAY_KIND__||'hotels'));
           const res=await nativeFetch(u.toString(),{method:'GET',signal:init?.signal});
           const cacheStatus=String(res.headers.get('cf-cache-status')||res.headers.get('x-horizon-cache')||'').toUpperCase();
           const data=await res.clone().json().catch(()=>null);
@@ -57,7 +58,9 @@ window.HORIZON_LIVE_CONFIG={
   const loadEnhancements=()=>{
     installHotelFetchBridge();
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
-    loadScript('hotels-panel.js?v=20260822-7','data-horizon-hotels-panel');
+    loadScript('hotels-panel.js?v=20260822-8','data-horizon-hotels-panel',()=>{
+      loadScript('stay-ui-el.js?v=20260822-1','data-horizon-stay-ui-el');
+    });
     loadScript('travelpayouts-lazy.js?v=20260822-1','data-horizon-flights-lazy');
   };
 
