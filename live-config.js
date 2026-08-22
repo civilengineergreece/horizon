@@ -3,7 +3,6 @@ window.HORIZON_LIVE_CONFIG={
   enabled:true
 };
 (()=>{
-  // Safety cleanup for the old Travelpayouts deep-link parameter.
   try{
     const u=new URL(location.href);
     if(u.searchParams.has('flightSearch')){
@@ -12,21 +11,28 @@ window.HORIZON_LIVE_CONFIG={
     }
   }catch(e){}
 
-  const loadFlightsGate=()=>{
-    if(document.querySelector('script[data-horizon-flights-lazy]'))return;
+  const loadScript=(src,attr,done)=>{
+    if(document.querySelector(`script[${attr}]`)){done?.();return;}
     const s=document.createElement('script');
-    s.src='travelpayouts-lazy.js?v=20260822-1';
-    s.dataset.horizonFlightsLazy='1';
+    s.src=src;
+    s.setAttribute(attr,'1');
+    if(done){s.onload=done;s.onerror=done;}
     document.body.appendChild(s);
   };
 
+  const loadEnhancements=()=>{
+    loadScript('transport-label-fix.js?v=20260822-1','data-horizon-transport-labels');
+    loadScript('hotels-panel.js?v=20260822-1','data-horizon-hotels-panel');
+    loadScript('travelpayouts-lazy.js?v=20260822-1','data-horizon-flights-lazy');
+  };
+
   const load=()=>{
-    if(document.querySelector('script[data-horizon-travelers]')){loadFlightsGate();return;}
+    if(document.querySelector('script[data-horizon-travelers]')){loadEnhancements();return;}
     const s=document.createElement('script');
     s.src='traveler-categories.js?v=20260822-3';
     s.dataset.horizonTravelers='1';
-    s.onload=loadFlightsGate;
-    s.onerror=loadFlightsGate;
+    s.onload=loadEnhancements;
+    s.onerror=loadEnhancements;
     document.body.appendChild(s);
   };
 
