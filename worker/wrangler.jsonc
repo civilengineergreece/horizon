@@ -4,6 +4,10 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-01",
   "workers_dev": true,
+  "keep_vars": true,
+  "secrets": {
+    "required": ["SERPAPI_API_KEY"]
+  },
   "vars": {
     "AMADEUS_ENV": "test",
     "ALLOWED_ORIGIN": "https://civilengineergreece.github.io"
