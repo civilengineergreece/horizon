@@ -8,6 +8,6 @@
     "deploy": "node deploy-with-runtime-secret.mjs"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.69.0"
   }
 }
