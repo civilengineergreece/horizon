@@ -23,7 +23,10 @@ function installStyles(){
     .hz-stay-price{font-weight:900;white-space:nowrap}.hz-stay-night{color:#8fa3b2;font-size:.72rem;text-align:right;margin-top:2px}
     .hz-provider-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.hz-provider-link{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:7px 9px;color:#fff;text-decoration:none;font-size:.72rem;font-weight:800;background:#0b1d2b}.hz-provider-link.best{border-color:#ff7a16;background:rgba(255,122,22,.10)}
     .hz-stay-empty{padding:16px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;color:#9fb0bd;text-align:center}.hz-stay-summary{margin-top:10px;color:#9fb0bd;font-size:.76rem}
-    @media(max-width:620px){.hz-hotels-grid{grid-template-columns:1fr}.hz-stay-load{width:100%}.hz-stay-card{grid-template-columns:82px 1fr}.hz-stay-img{width:82px;height:92px}.hz-stay-head{display:block}.hz-stay-price,.hz-stay-night{text-align:left;margin-top:5px}}
+    .hz-stay-fallback{margin-top:14px;padding:14px;border:1px solid rgba(255,122,22,.24);border-radius:14px;background:rgba(255,122,22,.06)}
+    .hz-stay-fallback b{display:block;margin-bottom:5px}.hz-stay-fallback p{margin:0 0 10px;color:#aebdc7;font-size:.79rem;line-height:1.5}
+    .hz-stay-fallback-actions{display:flex;gap:8px;flex-wrap:wrap}.hz-stay-fallback-actions a{display:inline-flex;align-items:center;padding:9px 11px;border-radius:10px;text-decoration:none;font-weight:800;font-size:.76rem;color:#fff;background:#0b1d2b;border:1px solid rgba(255,255,255,.12)}.hz-stay-fallback-actions a.primary{border-color:#ff7a16;background:rgba(255,122,22,.15)}
+    @media(max-width:620px){.hz-hotels-grid{grid-template-columns:1fr}.hz-stay-load{width:100%}.hz-stay-card{grid-template-columns:82px 1fr}.hz-stay-img{width:82px;height:92px}.hz-stay-head{display:block}.hz-stay-price,.hz-stay-night{text-align:left;margin-top:5px}.hz-stay-fallback-actions a{width:100%;justify-content:center}}
   `;
   document.head.appendChild(s);
 }
@@ -48,6 +51,40 @@ function hotelInfo(name){
   const children=Math.max(0,Math.floor(Number(s.travelers?.children)||0));
   const infants=Math.max(0,Math.floor(Number(s.travelers?.infants)||0));
   return {name,days,nights,checkIn,checkOut,adults,children,infants};
+}
+
+function bookingSearchUrl(info){
+  const u=new URL('https://www.booking.com/searchresults.html');
+  u.searchParams.set('ss',info.name);
+  u.searchParams.set('checkin',info.checkIn);
+  u.searchParams.set('checkout',info.checkOut);
+  u.searchParams.set('group_adults',String(info.adults));
+  u.searchParams.set('group_children',String(info.children));
+  u.searchParams.set('no_rooms','1');
+  return u.toString();
+}
+
+function googleHotelsUrl(info){
+  const q=`ξενοδοχεία ${info.name} ${info.checkIn} ${info.checkOut}`;
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}
+
+function renderFallback(panel,info,message=''){
+  const resultsEl=panel.querySelector('.hz-stay-results');
+  const toolbar=panel.querySelector('.hz-stay-toolbar');
+  const summary=panel.querySelector('.hz-stay-summary');
+  toolbar?.classList.remove('active');
+  if(summary)summary.textContent='';
+  if(!resultsEl)return;
+  resultsEl.innerHTML=`
+    <div class="hz-stay-fallback">
+      <b>Η αναζήτηση παραμένει διαθέσιμη.</b>
+      <p>Οι live κάρτες του Horizon χρειάζονται ενεργό Stay22 API key. Μέχρι να συνδεθεί, άνοιξε την ίδια αναζήτηση με τις επιλεγμένες ημερομηνίες σε Booking.com ή Google Hotels.${message?` ${esc(message)}`:''}</p>
+      <div class="hz-stay-fallback-actions">
+        <a class="primary" href="${esc(bookingSearchUrl(info))}" target="_blank" rel="noopener">Booking.com με ημερομηνίες ↗</a>
+        <a href="${esc(googleHotelsUrl(info))}" target="_blank" rel="noopener">Google Hotels ↗</a>
+      </div>
+    </div>`;
 }
 
 function category(item){
@@ -107,14 +144,24 @@ async function searchStays(panel,info){
   try{
     const res=await fetch(`${API_BASE}/stays`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({destination:info.name,checkInDate:info.checkIn,checkOutDate:info.checkOut,pageSize:12}),signal:controller.signal});
     const data=await res.json().catch(()=>({}));
-    if(!res.ok||data.ok===false)throw new Error(data.error||`HTTP ${res.status}`);
+    if(!res.ok||data.ok===false){
+      if(data?.code==='STAY22_API_KEY_REQUIRED'||/api key/i.test(String(data?.error||''))){
+        renderFallback(panel,info);
+        btn.textContent='Έλεγχος live καρτών';
+        status.classList.remove('error');
+        status.textContent='Οι live κάρτες θα ενεργοποιηθούν αυτόματα μόλις προστεθεί Stay22 API key.';
+        return;
+      }
+      throw new Error(data.error||`HTTP ${res.status}`);
+    }
     renderResults(panel,data);
     btn.textContent='Ανανέωση αναζήτησης';
-    status.textContent=data.demo?'Live demo αναζήτηση · έως 5 αναζητήσεις/λεπτό.':'Live αναζήτηση καταλυμάτων.';
+    status.textContent='Live αναζήτηση καταλυμάτων.';
   }catch(e){
-    btn.textContent='Δοκίμασε ξανά';
-    status.classList.add('error');
-    status.textContent=e.name==='AbortError'?'Η αναζήτηση άργησε πολύ και σταμάτησε χωρίς να επηρεάσει το Horizon. Δοκίμασε ξανά.':`Δεν ολοκληρώθηκε η αναζήτηση: ${e.message}`;
+    btn.textContent='Εναλλακτική αναζήτηση';
+    status.classList.remove('error');
+    status.textContent=e.name==='AbortError'?'Η live υπηρεσία άργησε. Σου δίνω άμεσα εναλλακτική αναζήτηση με τις ίδιες ημερομηνίες.':'Η live υπηρεσία δεν είναι διαθέσιμη αυτή τη στιγμή. Χρησιμοποίησε την εναλλακτική αναζήτηση παρακάτω.';
+    renderFallback(panel,info);
   }finally{clearTimeout(timer);btn.disabled=false;}
 }
 
@@ -132,7 +179,7 @@ function renderPanel(pane,name){
   panel.dataset.signature=signature;
   panel.innerHTML=`
     <h4>Ξενοδοχεία & σπίτια διακοπών</h4>
-    <div class="hz-hotels-copy">Live αναζήτηση μέσα στο Horizon. Δεν φορτώνεται κανένα ξένο widget ή iframe· τα αποτελέσματα εμφανίζονται ως δικές μας κάρτες.</div>
+    <div class="hz-hotels-copy">Live αναζήτηση μέσα στο Horizon. Με ενεργό Stay22 API key, τα αποτελέσματα εμφανίζονται ως δικές μας κάρτες. Χωρίς key, το Horizon περνάει αυτόματα σε ασφαλή εναλλακτική αναζήτηση χωρίς να εμφανίζει σφάλμα.</div>
     <div class="hz-hotels-grid">
       <div class="hz-hotel-chip"><small>Προορισμός</small><b>${esc(info.name)}</b></div>
       <div class="hz-hotel-chip"><small>Διανυκτερεύσεις</small><b>${info.nights}</b></div>
@@ -142,7 +189,7 @@ function renderPanel(pane,name){
       <div class="hz-hotel-chip"><small>Κατηγορίες</small><b>${info.adults} × 12+ · ${info.children} παιδιά · ${info.infants} βρέφη</b></div>
     </div>
     <button type="button" class="hz-stay-load">Αναζήτηση πραγματικών καταλυμάτων</button>
-    <div class="hz-stay-status">Δωρεάν prototype μέσω Stay22 Direct Travel API. Περιλαμβάνει ξενοδοχεία και vacation rentals από Booking.com, Vrbo, Expedia και Hotels.com.</div>
+    <div class="hz-stay-status">Το Horizon δοκιμάζει πρώτα τις live κάρτες και, αν ο πάροχος απαιτεί API key, περνάει αυτόματα σε λειτουργική εναλλακτική.</div>
     <div class="hz-stay-toolbar"><button class="hz-stay-filter active" data-kind="all">Όλα</button><button class="hz-stay-filter" data-kind="hotel">Ξενοδοχεία</button><button class="hz-stay-filter" data-kind="rental">Σπίτια / διαμερίσματα</button></div>
     <div class="hz-stay-results"></div><div class="hz-stay-summary"></div>`;
   panel.querySelector('.hz-stay-load').addEventListener('click',()=>searchStays(panel,info));
