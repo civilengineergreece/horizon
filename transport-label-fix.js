@@ -18,16 +18,36 @@ function fixOverlay(overlay){
   overlay.querySelectorAll('.hd-card').forEach(card=>{
     const small=card.querySelector('small');
     const value=card.querySelector('b');
-    if(small?.textContent?.trim()==='Μέσο'&&value)value.textContent='Αεροπλάνο';
+    if(small?.textContent?.trim()==='Μέσο'&&value&&value.textContent!=='Αεροπλάνο'){
+      value.textContent='Αεροπλάνο';
+    }
   });
 
   overlay.querySelectorAll('.hd-hero small,.hd-hero p,.hd-hero div').forEach(el=>{
     const txt=el.textContent?.trim()||'';
-    if(/^Μεταφορά\s*·/i.test(txt))el.textContent=txt.replace(/^Μεταφορά/i,'Αεροπορικά μετ’ επιστροφής');
+    if(/^Μεταφορά\s*·/i.test(txt)){
+      const next=txt.replace(/^Μεταφορά/i,'Αεροπορικά μετ’ επιστροφής');
+      if(next!==txt)el.textContent=next;
+    }
   });
 }
 
-function refresh(){document.querySelectorAll('.horizon-detail-overlay').forEach(fixOverlay);}
-function init(){new MutationObserver(refresh).observe(document.body,{childList:true,subtree:true,characterData:true});refresh();}
+let scheduled=false;
+function refresh(){
+  scheduled=false;
+  document.querySelectorAll('.horizon-detail-overlay').forEach(fixOverlay);
+}
+function scheduleRefresh(){
+  if(scheduled)return;
+  scheduled=true;
+  requestAnimationFrame(refresh);
+}
+function init(){
+  const observer=new MutationObserver(mutations=>{
+    if(mutations.some(m=>m.addedNodes&&m.addedNodes.length))scheduleRefresh();
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+  scheduleRefresh();
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
