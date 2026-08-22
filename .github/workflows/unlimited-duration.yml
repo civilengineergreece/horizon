@@ -1,0 +1,77 @@
+name: Upgrade Horizon duration range
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/unlimited-duration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Allow day trips and unlimited duration
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # index.html
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+            ("{key:'duration',title:'Διάρκεια',hint:'Πόσες ημέρες θέλεις να λείψεις;',type:'number',min:2,max:30,placeholder:'π.χ. 5',required:true},",
+             "{key:'duration',title:'Διάρκεια',hint:'Πόσες ημέρες θέλεις να λείψεις;',type:'number',min:1,placeholder:'π.χ. 5',required:true},"),
+            ("<input class=\"control\" id=\"value\" type=\"number\" min=\"${step.min}\" max=\"${step.max}\" value=\"${esc(v||'')}\" placeholder=\"${step.placeholder}\">",
+             "<input class=\"control\" id=\"value\" type=\"number\" min=\"${step.min}\" value=\"${esc(v||'')}\" placeholder=\"${step.placeholder}\">"),
+            ("function calcCost(d){const adults=Math.max(1,state.travelers?.adults||1),children=Math.max(0,state.travelers?.children||0),days=Math.max(2,Number(state.duration)||4),weighted=adults+children*.55;let stayFactor=.94;if(state.stay==='hotel')stayFactor=1.12;else if(state.stay==='airbnb')stayFactor=.98;else if(state.stay==='camping')stayFactor=.66;const accommodation=Math.round(d.daily*days*weighted*.52*stayFactor),foodLocal=Math.round(d.daily*days*weighted*.34),activities=Math.round(d.activity*days*weighted),transport=state.budget?.transport==='no'?0:Math.round(d.travel*(adults+children*.7));return {accommodation,foodLocal,activities,transport,total:accommodation+foodLocal+activities+transport}}",
+             "function calcCost(d){const adults=Math.max(1,state.travelers?.adults||1),children=Math.max(0,state.travelers?.children||0),days=Math.max(1,Number(state.duration)||1),nights=Math.max(0,days-1),weighted=adults+children*.55;let stayFactor=.94;if(state.stay==='hotel')stayFactor=1.12;else if(state.stay==='airbnb')stayFactor=.98;else if(state.stay==='camping')stayFactor=.66;const accommodation=Math.round(d.daily*nights*weighted*.52*stayFactor),foodLocal=Math.round(d.daily*days*weighted*.34),activities=Math.round(d.activity*days*weighted),transport=state.budget?.transport==='no'?0:Math.round(d.travel*(adults+children*.7));return {accommodation,foodLocal,activities,transport,total:accommodation+foodLocal+activities+transport}}"),
+            ("function formatDateRange(){const v=state.dates;if(!v?.from)return '—';const f=new Date(v.from+'T12:00:00'),days=Math.max(2,Number(state.duration)||2),t=new Date(f);t.setDate(t.getDate()+days-1);const flex=Math.max(0,Math.min(3,Number(v.flex)||0));const base=`${f.toLocaleDateString('el-GR',{day:'numeric',month:'short'})} – ${t.toLocaleDateString('el-GR',{day:'numeric',month:'short'})}`;return flex?`${base} · ±${flex} ημ. αναχώρηση`:base}",
+             "function formatDateRange(){const v=state.dates;if(!v?.from)return '—';const f=new Date(v.from+'T12:00:00'),days=Math.max(1,Number(state.duration)||1),t=new Date(f);t.setDate(t.getDate()+days-1);const flex=Math.max(0,Math.min(3,Number(v.flex)||0));const base=days===1?`${f.toLocaleDateString('el-GR',{day:'numeric',month:'short'})} · μονοήμερη`:`${f.toLocaleDateString('el-GR',{day:'numeric',month:'short'})} – ${t.toLocaleDateString('el-GR',{day:'numeric',month:'short'})}`;return flex?`${base} · ±${flex} ημ. αναχώρηση`:base}"),
+            ("<div class=\"sum\"><small>Διάρκεια</small><strong>${esc(state.duration)} ημέρες</strong></div>",
+             "<div class=\"sum\"><small>Διάρκεια</small><strong>${Number(state.duration)===1?'1 ημέρα · χωρίς διανυκτέρευση':`${esc(state.duration)} ημέρες · ${Math.max(0,Number(state.duration)-1)} διανυκτερεύσεις`}</strong></div>")
+          ]
+
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit('index.html expected block not found: ' + old[:90])
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+          # calendar-duration.js
+          p = Path('calendar-duration.js')
+          s = p.read_text(encoding='utf-8')
+          replacements = [
+            (".hz-duration-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:14px}",
+             ".hz-duration-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;margin-bottom:14px}"),
+            ("if(duration>=2){const ret=addDays(selected,duration-1);html+=`<br>Με ${duration} ημέρες ταξιδιού, ενδεικτική επιστροφή: <b>${fmt(ret)}</b>`;}",
+             "if(duration>=1){const ret=addDays(selected,duration-1);html+=duration===1?`<br><b>Μονοήμερη εκδρομή</b> · επιστροφή την ίδια ημέρα, χωρίς διανυκτέρευση.`:`<br>Με ${duration} ημέρες ταξιδιού, ενδεικτική επιστροφή: <b>${fmt(ret)}</b>`;}"),
+            ("const presets=[2,3,4,5,7,10,14];",
+             "const presets=[1,2,3,4,5,7,10,14];"),
+            ("${presets.map(n=>`<button type=\"button\" class=\"hz-duration-btn\" data-duration=\"${n}\"><strong>${n}</strong><span>${n===1?'ημέρα':'ημέρες'}</span></button>`).join('')}</div><div class=\"hz-duration-custom\"><label for=\"hzDurationCustom\">Άλλη διάρκεια</label><input class=\"control\" id=\"hzDurationCustom\" type=\"number\" min=\"2\" max=\"30\" value=\"${input.value||''}\" placeholder=\"2–30 ημέρες\"></div>",
+             "${presets.map(n=>`<button type=\"button\" class=\"hz-duration-btn\" data-duration=\"${n}\"><strong>${n}</strong><span>${n===1?'μονοήμερη':'ημέρες'}</span></button>`).join('')}</div><div class=\"hz-duration-custom\"><label for=\"hzDurationCustom\">Άλλη διάρκεια</label><input class=\"control\" id=\"hzDurationCustom\" type=\"number\" min=\"1\" value=\"${input.value||''}\" placeholder=\"1 ή περισσότερες ημέρες\"></div>"),
+            ("if(Number.isFinite(n)&&n>=2&&n<=30){input.value=String(n);custom.value=String(n);}",
+             "if(Number.isFinite(n)&&n>=1){input.value=String(Math.floor(n));custom.value=String(Math.floor(n));}"),
+            ("if(dep&&n>=2&&n<=30){\n      const ret=addDays(dep,n-1),flex=Math.max(0,Math.min(3,Number(state?.dates?.flex)||0));\n      let html=`Αν φύγεις <b>${fmt(dep)}</b>, επιστρέφεις περίπου <b>${fmt(ret)}</b>.`;",
+             "if(dep&&n>=1){\n      const whole=Math.floor(n),ret=addDays(dep,whole-1),flex=Math.max(0,Math.min(3,Number(state?.dates?.flex)||0));\n      let html=whole===1?`<b>Μονοήμερη εκδρομή:</b> αναχώρηση και επιστροφή <b>${fmt(dep)}</b>, χωρίς διανυκτέρευση.`:`Αν φύγεις <b>${fmt(dep)}</b>, επιστρέφεις περίπου <b>${fmt(ret)}</b> · ${whole-1} διανυκτερεύσεις.`;"),
+            ("if(!Number.isFinite(n)||n<2||n>30){e.preventDefault();e.stopImmediatePropagation();const err=card.querySelector('#error');if(err)err.textContent='Η διάρκεια πρέπει να είναι από 2 έως 30 ημέρες.';custom.focus();}",
+             "if(!Number.isFinite(n)||n<1||!Number.isInteger(n)){e.preventDefault();e.stopImmediatePropagation();const err=card.querySelector('#error');if(err)err.textContent='Η διάρκεια πρέπει να είναι ακέραιος αριθμός από 1 ημέρα και πάνω.';custom.focus();}")
+          ]
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit('calendar-duration.js expected block not found: ' + old[:90])
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit duration upgrade
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html calendar-duration.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Allow day trips and unlimited trip duration"
+          git push
