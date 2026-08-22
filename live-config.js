@@ -11,6 +11,40 @@ window.HORIZON_LIVE_CONFIG={
     }
   }catch(e){}
 
+  const installHotelFetchBridge=()=>{
+    if(window.__HORIZON_STAYS_FETCH_BRIDGE__)return;
+    window.__HORIZON_STAYS_FETCH_BRIDGE__=true;
+    const nativeFetch=window.fetch.bind(window);
+    const apiOrigin=(()=>{try{return new URL(window.HORIZON_LIVE_CONFIG.apiBase).origin;}catch{return '';}})();
+    window.fetch=async(input,init={})=>{
+      try{
+        const raw=typeof input==='string'?input:input?.url;
+        const reqUrl=new URL(raw,location.href);
+        const method=String(init?.method||(typeof input!=='string'&&input?.method)||'GET').toUpperCase();
+        if(apiOrigin&&reqUrl.origin===apiOrigin&&reqUrl.pathname==='/stays'&&method==='POST'){
+          const payload=JSON.parse(String(init?.body||'{}'));
+          const u=new URL(`${apiOrigin}/stays`);
+          u.searchParams.set('destination',String(payload.destination||''));
+          u.searchParams.set('checkInDate',String(payload.checkInDate||''));
+          u.searchParams.set('checkOutDate',String(payload.checkOutDate||''));
+          u.searchParams.set('adults',String(payload.adults||2));
+          u.searchParams.set('children',String((Number(payload.children)||0)+(Number(payload.infants)||0)));
+          const res=await nativeFetch(u.toString(),{method:'GET',signal:init?.signal});
+          const cacheStatus=String(res.headers.get('cf-cache-status')||res.headers.get('x-horizon-cache')||'').toUpperCase();
+          const data=await res.clone().json().catch(()=>null);
+          if(data&&typeof data==='object'){
+            data.cache={...(data.cache||{}),hit:cacheStatus==='HIT'};
+            const headers=new Headers(res.headers);
+            headers.set('content-type','application/json; charset=utf-8');
+            return new Response(JSON.stringify(data),{status:res.status,statusText:res.statusText,headers});
+          }
+          return res;
+        }
+      }catch(e){}
+      return nativeFetch(input,init);
+    };
+  };
+
   const loadScript=(src,attr,done)=>{
     if(document.querySelector(`script[${attr}]`)){done?.();return;}
     const s=document.createElement('script');
@@ -21,8 +55,9 @@ window.HORIZON_LIVE_CONFIG={
   };
 
   const loadEnhancements=()=>{
+    installHotelFetchBridge();
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
-    loadScript('hotels-panel.js?v=20260822-6','data-horizon-hotels-panel');
+    loadScript('hotels-panel.js?v=20260822-7','data-horizon-hotels-panel');
     loadScript('travelpayouts-lazy.js?v=20260822-1','data-horizon-flights-lazy');
   };
 
