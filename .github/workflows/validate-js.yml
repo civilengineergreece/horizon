@@ -1,16 +1,8 @@
 name: Validate Horizon JavaScript
 
+# Manual only: avoid a validation run (and failure email) after every frontend commit.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '*.js'
-      - 'worker/**/*.js'
-      - '.github/workflows/validate-js.yml'
-  pull_request:
-    paths:
-      - '*.js'
-      - 'worker/**/*.js'
+  workflow_dispatch:
 
 permissions:
   contents: read
