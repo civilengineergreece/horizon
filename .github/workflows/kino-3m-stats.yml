@@ -6,6 +6,11 @@ on:
     paths:
       - 'kino-monitor/export_3m_stats.py'
       - '.github/workflows/kino-3m-stats.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kino-monitor/export_3m_stats.py'
+      - '.github/workflows/kino-3m-stats.yml'
   workflow_dispatch:
 
 jobs:
