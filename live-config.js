@@ -61,6 +61,7 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('trip-prefill-ui.js?v=20260823-1','data-horizon-trip-prefill');
     loadScript('multimodal-transport.js?v=20260823-3','data-horizon-multimodal');
     loadScript('multimodal-safety.js?v=20260823-2','data-horizon-multimodal-safety');
+    loadScript('transport-results-compare.js?v=20260823-1','data-horizon-transport-results-compare');
   };
 
   const load=()=>{
