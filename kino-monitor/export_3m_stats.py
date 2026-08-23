@@ -17,7 +17,7 @@ END_DATE = date(2026, 8, 23)  # last complete day
 API_DAY = f"https://api.opap.gr/draws/v3.0/{GAME_ID}/draw-date/{{day}}/{{day}}"
 ATHENS = ZoneInfo("Europe/Athens")
 OUT = Path("export_3m")
-MAX_WORKERS = 8
+MAX_WORKERS = 2
 
 
 def classify(numbers):
@@ -32,54 +32,45 @@ def classify(numbers):
     return odd, even, result
 
 
-def get_json(session, url, params, attempts=6):
+def get_json(session, url, params, attempts=10):
     last = None
     for i in range(attempts):
         try:
             r = session.get(url, params=params, timeout=30)
-            if r.status_code == 429:
-                time.sleep(min(20, 2 ** i))
+            if r.status_code in (403, 429):
+                time.sleep(min(30, 2 + i * 3))
                 continue
             r.raise_for_status()
             return r.json()
         except Exception as e:
             last = e
-            time.sleep(min(10, 1.4 ** i))
-    raise RuntimeError(last)
+            if i < attempts - 1:
+                time.sleep(min(20, 1.5 ** i))
+    raise RuntimeError(last or "request failed")
 
 
 def fetch_day(day):
     s = requests.Session()
-    s.headers.update({"User-Agent": "Kino3MonthStats/1.0", "Accept": "application/json"})
+    s.headers.update({"User-Agent": "Mozilla/5.0 Kino3MonthStats/1.1", "Accept": "application/json"})
     url = API_DAY.format(day=day.isoformat())
-    rows, seen, page = [], set(), 0
-    while True:
-        data = get_json(s, url, {"size": 300, "page": page})
-        content = data.get("content", []) if isinstance(data, dict) else data
-        total_pages = data.get("totalPages") if isinstance(data, dict) else 1
-        for obj in content:
-            nums = (obj.get("winningNumbers") or {}).get("list") or []
-            if len(nums) != 20:
-                continue
-            draw_id = int(obj["drawId"])
-            if draw_id in seen:
-                continue
-            seen.add(draw_id)
-            odd, even, result = classify(nums)
-            dt = datetime.fromtimestamp(int(obj["drawTime"]) / 1000, tz=timezone.utc).astimezone(ATHENS)
-            rows.append({
-                "draw_id": draw_id,
-                "dt": dt,
-                "odd": odd,
-                "even": even,
-                "result": result,
-            })
-        page += 1
-        if total_pages is not None:
-            if page >= int(total_pages):
-                break
-        elif len(content) < 300:
-            break
+    # OPAP uses `limit`, not `size`. KINO has 288 draws/day, so limit=300
+    # retrieves a complete day in one request and avoids dozens of pages.
+    data = get_json(s, url, {"limit": 300, "page": 0, "sort": "asc"})
+    content = data.get("content", []) if isinstance(data, dict) else data
+    rows, seen = [], set()
+    for obj in content:
+        nums = (obj.get("winningNumbers") or {}).get("list") or []
+        if len(nums) != 20:
+            continue
+        draw_id = int(obj["drawId"])
+        if draw_id in seen:
+            continue
+        seen.add(draw_id)
+        odd, even, result = classify(nums)
+        dt = datetime.fromtimestamp(int(obj["drawTime"]) / 1000, tz=timezone.utc).astimezone(ATHENS)
+        rows.append({"draw_id": draw_id, "dt": dt, "odd": odd, "even": even, "result": result})
+    if len(rows) < 250:
+        raise RuntimeError(f"incomplete day {day}: only {len(rows)} draws")
     return day.isoformat(), rows
 
 
@@ -96,8 +87,7 @@ def run_lengths(results, target):
         if r == target:
             cur += 1
         elif cur:
-            lengths.append(cur)
-            cur = 0
+            lengths.append(cur); cur = 0
     if cur:
         lengths.append(cur)
     return lengths
@@ -109,8 +99,7 @@ def gaps_without(results, target):
         if r != target:
             cur += 1
         elif cur:
-            lengths.append(cur)
-            cur = 0
+            lengths.append(cur); cur = 0
     if cur:
         lengths.append(cur)
     return lengths
@@ -125,8 +114,7 @@ def main():
         for i, fut in enumerate(as_completed(futs), 1):
             d = futs[fut]
             try:
-                _, rows = fut.result()
-                all_rows.extend(rows)
+                _, rows = fut.result(); all_rows.extend(rows)
             except Exception as e:
                 failed.append((d.isoformat(), str(e)))
             if i % 20 == 0:
@@ -135,40 +123,24 @@ def main():
         raise SystemExit(json.dumps({"failed": failed}, ensure_ascii=False, indent=2))
 
     all_rows = [r for r in all_rows if START_DATE <= r["dt"].date() <= END_DATE]
-    all_rows.sort(key=lambda r: (r["dt"], r["draw_id"]))
-    unique = {}
-    for r in all_rows:
-        unique[r["draw_id"]] = r
+    unique = {r["draw_id"]: r for r in all_rows}
     all_rows = sorted(unique.values(), key=lambda r: (r["dt"], r["draw_id"]))
-
     results = [r["result"] for r in all_rows]
-    counts = Counter(results)
-    total = len(results)
+    counts, total = Counter(results), len(results)
     percentages = {k: round(100 * counts.get(k, 0) / total, 3) for k in ["ΜΟΝΑ", "ΖΥΓΑ", "ΙΣΟΠΑΛΙΑ"]}
 
     same_streaks = {}
     for k in ["ΜΟΝΑ", "ΖΥΓΑ", "ΙΣΟΠΑΛΙΑ"]:
         ls = run_lengths(results, k)
-        same_streaks[k] = {
-            "max": max(ls, default=0),
-            "runs_ge_5": sum(x >= 5 for x in ls),
-            "runs_ge_10": sum(x >= 10 for x in ls),
-            "runs_ge_12": sum(x >= 12 for x in ls),
-        }
+        same_streaks[k] = {"max": max(ls, default=0), "runs_ge_5": sum(x >= 5 for x in ls), "runs_ge_10": sum(x >= 10 for x in ls), "runs_ge_12": sum(x >= 12 for x in ls)}
 
     absence = {}
     for k in ["ΜΟΝΑ", "ΖΥΓΑ"]:
         gs = gaps_without(results, k)
-        absence[k] = {
-            "max_without": max(gs, default=0),
-            "gaps_ge_12": sum(x >= 12 for x in gs),
-        }
+        absence[k] = {"max_without": max(gs, default=0), "gaps_ge_12": sum(x >= 12 for x in gs)}
 
     distribution = Counter((r["odd"], r["even"]) for r in all_rows)
-    by_split = [
-        {"odd": o, "even": e, "count": c, "percent": round(100*c/total, 3)}
-        for (o, e), c in sorted(distribution.items())
-    ]
+    by_split = [{"odd": o, "even": e, "count": c, "percent": round(100*c/total, 3)} for (o, e), c in sorted(distribution.items())]
 
     summary = {
         "period": [START_DATE.isoformat(), END_DATE.isoformat()],
@@ -184,8 +156,7 @@ def main():
     }
     (OUT / "summary_3m.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     with (OUT / "draws_3m.csv").open("w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
-        w.writerow(["draw_id", "datetime_greece", "odd_count", "even_count", "result"])
+        w = csv.writer(f); w.writerow(["draw_id", "datetime_greece", "odd_count", "even_count", "result"])
         for r in all_rows:
             w.writerow([r["draw_id"], r["dt"].isoformat(timespec="seconds"), r["odd"], r["even"], r["result"]])
     print(json.dumps(summary, ensure_ascii=False, indent=2), flush=True)
