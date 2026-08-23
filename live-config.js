@@ -65,7 +65,8 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('transport-results-compare.js?v=20260823-1','data-horizon-transport-results-compare');
     loadScript('airport-transport-fix.js?v=20260823-1','data-horizon-airport-transport-fix');
     loadScript('surface-live.js?v=20260823-2','data-horizon-surface-live');
-    loadScript('prototype-transport-policy.js?v=20260823-1','data-horizon-prototype-transport-policy');
+    loadScript('prototype-transport-policy.js?v=20260823-2','data-horizon-prototype-transport-policy');
+    loadScript('train-live.js?v=20260823-1','data-horizon-train-live');
   };
 
   const load=()=>{
