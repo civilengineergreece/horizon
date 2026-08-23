@@ -9,6 +9,7 @@ const OPTIONS=[
   ['any','Όλοι οι τρόποι','Δείξε κάθε διαθέσιμη επιλογή']
 ];
 function getState(){try{return typeof state!=='undefined'&&state?state:null;}catch{return null;}}
+function hasCurrentStep(key){try{return typeof steps!=='undefined'&&Array.isArray(steps)&&steps.some(x=>x?.key===key);}catch{return false;}}
 function normalize(){
   const st=getState();if(!st)return;
   let arr=Array.isArray(st.transport)?[...st.transport]:(st.transport?[st.transport]:['any']);
@@ -16,6 +17,10 @@ function normalize(){
   if(!arr.length)arr=['any'];
   if(arr.includes('any')&&arr.length>1)arr=['any'];
   st.transport=arr;
+  // Παλαιότερη δοκιμαστική έκδοση αποθήκευε maxTravelHours στο localStorage.
+  // Η τρέχουσα έκδοση δεν έχει τέτοια ερώτηση, άρα η παλιά τιμή δεν πρέπει να
+  // αποκλείει αόρατα προορισμούς (π.χ. Τρένο + Νυχτερινή ζωή → 0 αποτελέσματα).
+  if(!hasCurrentStep('maxTravelHours')&&Object.prototype.hasOwnProperty.call(st,'maxTravelHours'))delete st.maxTravelHours;
   try{if(typeof save==='function')save();}catch{}
 }
 function patchStep(){
@@ -61,6 +66,7 @@ function patchClicks(){
         if(!arr.length)arr=['any'];
       }
       st.transport=arr;
+      normalize();
       try{if(typeof save==='function')save();}catch{}
       if(typeof render==='function')render();
       setTimeout(addNote,0);
