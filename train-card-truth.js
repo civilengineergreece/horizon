@@ -15,7 +15,17 @@ function round5(n){return Math.max(5,Math.round(Number(n||0)/5)*5);}
 function estimate(name){const p=TRAIN[name];if(!p)return null;const center=round5(p.adultRT*peopleWeight()),low=round5(center*(1-RANGE)),high=Math.max(low+5,round5(center*(1+RANGE)));return {center,low,high,hours:p.hours};}
 function euro(n){return `€${Math.round(Number(n)||0).toLocaleString('el-GR')}`;}
 function resultByName(name){try{return Array.isArray(scored)?scored.find(x=>x.name===name):null;}catch{return null;}}
-function fixData(name,x){const r=resultByName(name);if(!r)return null;const old=Number(r.transport)||0;base=Number(r.total)||0;const without=Math.max(0,base-old);r.transport=x.center;r.total=without+x.center;r.remaining=(Number(stateNow().budget?.amount)||0)-r.total;r.transportMode='train';r.travelHours=x.hours;r.transportDetails={mode:'train',cost:x.center,rawCost:x.center,hours:x.hours,label:'Εκτίμηση τιμής',note:`περ. ${euro(x.low)}–${euro(x.high)} · live δρομολόγιο μέσω Transitous`};return r;}
+function fixData(name,x){
+  const r=resultByName(name);if(!r)return null;
+  const old=Number(r.transport)||0,base=Number(r.total)||0,without=Math.max(0,base-old);
+  r.transport=x.center;
+  r.total=without+x.center;
+  r.remaining=(Number(stateNow().budget?.amount)||0)-r.total;
+  r.transportMode='train';
+  r.travelHours=x.hours;
+  r.transportDetails={mode:'train',cost:x.center,rawCost:x.center,hours:x.hours,label:'Εκτίμηση τιμής',note:`περ. ${euro(x.low)}–${euro(x.high)} · live δρομολόγιο μέσω Transitous`};
+  return r;
+}
 function fixCard(card){
   const name=card.querySelector('h4')?.textContent?.trim();if(!TRAIN[name])return;
   const r=resultByName(name);if(!trainOnly()&&r?.transportMode!=='train')return;
