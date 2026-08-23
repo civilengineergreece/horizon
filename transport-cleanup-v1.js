@@ -8,6 +8,8 @@ function styles(){
   [data-pane="transport"].hz-transport-clean > .hd-hero,
   [data-pane="transport"].hz-transport-clean > .hd-grid{display:none!important}
   .hz-live-hidden{display:none!important}
+  .hz-live-tools-group{display:grid;gap:12px;margin:14px 0 18px}
+  .hz-live-tools-group>.hz-surface-live,.hz-live-tools-group>.hz-flights-panel{margin:0!important}
   `;document.head.appendChild(s);
 }
 function stateNow(){try{return typeof state!=='undefined'&&state?state:{};}catch{return {};}}
@@ -27,10 +29,11 @@ function dedupeTrainCards(box){
   if(found){if(count)found.textContent=`✓ Βρέθηκαν ${count} μοναδικά live δρομολόγια τρένων.`;else found.remove();}
 }
 function cleanComparison(pane){
-  if(!pane)return;
+  if(!pane)return null;
   const compares=[...pane.querySelectorAll('.hz-tr-compare')];
   compares.slice(1).forEach(x=>x.remove());
   if(compares.length)pane.classList.add('hz-transport-clean');
+  return compares[0]||null;
 }
 function cleanFlightPanels(){
   document.querySelectorAll('.horizon-detail-overlay .hz-flights-panel').forEach(panel=>{
@@ -72,10 +75,27 @@ function cleanSurfaceBoxes(){
     dedupeTrainCards(box);
   });
 }
+function groupLiveTools(pane,compare){
+  if(!pane||!compare)return;
+  let group=pane.querySelector(':scope > .hz-live-tools-group');
+  if(!group){group=document.createElement('div');group.className='hz-live-tools-group';compare.after(group);}
+  else if(group.previousElementSibling!==compare)compare.after(group);
+
+  const surface=pane.querySelector(':scope > .hz-surface-live');
+  const flight=pane.querySelector(':scope > .hz-flights-panel');
+  if(surface)group.appendChild(surface);
+  if(flight)group.appendChild(flight);
+
+  [...group.children].forEach(el=>{
+    if(!el.matches('.hz-surface-live,.hz-flights-panel'))el.remove();
+  });
+  const hasVisible=[...group.children].some(el=>!el.classList.contains('hz-live-hidden'));
+  group.classList.toggle('hz-live-hidden',!hasVisible);
+}
 function cleanOverlay(){
   styles();
   const pane=document.querySelector('.horizon-detail-overlay [data-pane="transport"]');
-  cleanComparison(pane);cleanFlightPanels();cleanSurfaceBoxes();
+  const compare=cleanComparison(pane);cleanFlightPanels();cleanSurfaceBoxes();groupLiveTools(pane,compare);
 }
 function syncModeClick(e){
   const b=e.target.closest?.('[data-surface]');
