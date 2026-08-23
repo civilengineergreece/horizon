@@ -9,18 +9,32 @@ function stateNow(){try{return typeof state!=='undefined'&&state?state:{};}catch
 function addDays(iso,n){const d=new Date(`${iso}T12:00:00`);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 function tripDates(){const s=stateNow(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1);return {from,to:from?addDays(from,Math.max(0,days-1)):''};}
 function destinationName(){return document.querySelector('.horizon-detail-overlay .hd-head h3')?.textContent?.trim()||'';}
-function selectedModes(){const raw=stateNow().transport;if(Array.isArray(raw))return raw;return raw?[raw]:['any'];}
 function destData(name){return (window.HORIZON_DESTINATIONS||[]).find(d=>d.name===name)||{};}
-function hasMode(name,mode){const d=destData(name);return Array.isArray(d.transport)&&d.transport.includes(mode);}
 function euro(v,c='EUR'){const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat('el-GR',{style:'currency',currency:c||'EUR',maximumFractionDigits:0}).format(n):'—';}
 function time(v){if(!v)return '—';const s=String(v);const m=s.match(/(\d{1,2}):(\d{2})/);return m?`${m[1].padStart(2,'0')}:${m[2]}`:s.slice(0,16);}
+function duration(v){const n=Number(v);if(!Number.isFinite(n)||n<=0)return '—';const h=Math.floor(n/60),m=Math.round(n%60);return h?(m?`${h}ω ${m}λ`:`${h}ω`):`${m}λ`;}
 function cacheKey(name,from,to){const s=stateNow();return `hz-ferries-v1:${[s.origin||'Αθήνα',name,from,to].join('|')}`;}
 function cacheGet(k){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v&&Date.now()-v.at<FERRY_TTL?v.data:null;}catch{return null;}}
 function cacheSet(k,data){try{localStorage.setItem(k,JSON.stringify({at:Date.now(),data}));}catch{}}
+function cheapest(list){return (Array.isArray(list)?list:[]).filter(x=>Number.isFinite(Number(x?.price))&&Number(x.price)>=0).sort((a,b)=>Number(a.price)-Number(b.price))[0]||null;}
+function updateComparisonTable(data){
+  const ov=document.querySelector('.horizon-detail-overlay');if(!ov)return;
+  const table=ov.querySelector('[data-pane="transport"] .hz-tr-table');if(!table)return;
+  const row=[...table.querySelectorAll('tbody tr')].find(r=>/Πλοίο/.test(r.textContent||''));if(!row)return;
+  const out=cheapest(data?.outbound),back=cheapest(data?.inbound),cells=row.querySelectorAll('td');if(cells.length<4)return;
+  if(!out){return;}
+  const total=Number(out.price)+(back?Number(back.price):0),currency=out.currency||back?.currency||'EUR';
+  cells[1].textContent=duration(out.durationMinutes);
+  cells[2].innerHTML=`<b>${euro(total,currency)}</b><span class="hz-tr-note">${back?'φθηνότερη live επιλογή μετ’ επιστροφής':'φθηνότερη live επιλογή απλής μετάβασης'}</span>`;
+  cells[3].innerHTML=`<span class="hz-tr-status-live">Live Ferryhopper</span><span class="hz-tr-note">${time(out.departure)} → ${time(out.arrival)}${data?.ferryPort?` · αναχώρηση από ${data.ferryPort}`:''}</span>`;
+  row.classList.add('hz-tr-selected');
+  document.dispatchEvent(new CustomEvent('horizon:live-ferry-price',{detail:{destination:destinationName(),price:total,currency,roundTrip:!!back,data}}));
+}
 function renderTrips(target,data){
   const trips=Array.isArray(data?.outbound)?data.outbound:[];
   if(!trips.length){target.innerHTML='<div class="hz-surface-note">Δεν επέστρεψε διαθέσιμα δρομολόγια για αυτή την ημερομηνία. Δοκίμασε άλλη ημερομηνία ή έλεγξε αν ο προορισμός εξυπηρετείται από άλλο λιμάνι.</div>';return;}
-  target.innerHTML=trips.slice(0,10).map(x=>`<div class="hz-surface-card"><div class="hz-surface-row"><div><b>${x.operator||x.vessel||'Ακτοπλοϊκό δρομολόγιο'} <span class="hz-surface-badge">LIVE</span></b><div class="hz-surface-meta">${time(x.departure)} → ${time(x.arrival)}${x.vessel?` · ${x.vessel}`:''}</div></div><div class="hz-surface-price">${euro(x.price,x.currency)}</div></div>${x.bookingUrl?`<div class="hz-surface-meta"><a href="${x.bookingUrl}" target="_blank" rel="noopener">Συνέχεια κράτησης ↗</a></div>`:''}</div>`).join('');
+  updateComparisonTable(data);
+  target.innerHTML=trips.slice(0,10).map(x=>`<div class="hz-surface-card"><div class="hz-surface-row"><div><b>${x.operator||x.vessel||'Ακτοπλοϊκό δρομολόγιο'} <span class="hz-surface-badge">LIVE</span></b><div class="hz-surface-meta">${time(x.departure)} → ${time(x.arrival)}${x.vessel?` · ${x.vessel}`:''}${x.durationMinutes?` · ${duration(x.durationMinutes)}`:''}</div></div><div class="hz-surface-price">${euro(x.price,x.currency)}</div></div>${x.bookingUrl?`<div class="hz-surface-meta"><a href="${x.bookingUrl}" target="_blank" rel="noopener">Συνέχεια κράτησης ↗</a></div>`:''}</div>`).join('');
 }
 async function loadFerries(btn,target){
   const name=destinationName(),s=stateNow(),dt=tripDates();if(!name||!dt.from)return;
@@ -40,7 +54,7 @@ function patch(){
   const ov=document.querySelector('.horizon-detail-overlay');if(!ov)return;const pane=ov.querySelector('[data-pane="transport"]');if(!pane||pane.querySelector('.hz-surface-live'))return;const name=destinationName();if(!name)return;
   const d=destData(name),modes=d.transport||[],wrap=document.createElement('section');wrap.className='hz-surface-live';
   const buttons=[];if(modes.includes('ferry'))buttons.push('<button type="button" class="hz-surface-btn live" data-surface="ferry">⛴ Πραγματικά πλοία</button>');if(modes.includes('train'))buttons.push('<button type="button" class="hz-surface-btn" data-surface="train">🚆 Live τρένα</button>');if(modes.includes('bus'))buttons.push('<button type="button" class="hz-surface-btn" data-surface="bus">🚌 Live λεωφορεία</button>');if(!buttons.length)return;
-  wrap.innerHTML=`<div class="hz-surface-head">Πραγματικά δρομολόγια</div><div class="hz-surface-copy">Χρησιμοποιούνται αυτόματα η αφετηρία, ο προορισμός και οι ημερομηνίες που έδωσες στο Planner. Τα πλοία συνδέονται με το επίσημο Ferryhopper MCP. Για τρένα/λεωφορεία έχει προετοιμαστεί η σύνδεση Omio και ενεργοποιείται μόλις δοθεί partner API access.</div><div class="hz-surface-actions">${buttons.join('')}</div><div class="hz-surface-results"></div>`;
+  wrap.innerHTML=`<div class="hz-surface-head">Πραγματικά δρομολόγια</div><div class="hz-surface-copy">Χρησιμοποιούνται αυτόματα η αφετηρία, ο προορισμός και οι ημερομηνίες που έδωσες στο Planner. Μόλις φορτωθεί live τιμή, ενημερώνεται αυτόματα και ο ενιαίος συγκριτικός πίνακας παραπάνω. Τα πλοία συνδέονται με Ferryhopper· για τρένα/λεωφορεία η σύνδεση Omio ενεργοποιείται μόλις δοθεί partner API access.</div><div class="hz-surface-actions">${buttons.join('')}</div><div class="hz-surface-results"></div>`;
   const compare=pane.querySelector('.hz-tr-compare');(compare||pane.firstElementChild)?.after(wrap);const target=wrap.querySelector('.hz-surface-results');wrap.querySelectorAll('[data-surface]').forEach(b=>b.onclick=()=>{const m=b.dataset.surface;if(m==='ferry')loadFerries(b,target);else groundStatus(m,target);});
 }
 styles();document.addEventListener('click',()=>setTimeout(patch,0),true);setTimeout(patch,200);
