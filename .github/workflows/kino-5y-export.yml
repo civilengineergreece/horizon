@@ -1,0 +1,49 @@
+name: Export KINO 5-year odds-evens database
+
+on:
+  push:
+    branches: [kino-5y-export]
+    paths:
+      - 'kino-monitor/export_5y_odds_evens.py'
+      - '.github/workflows/kino-5y-export.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kino-monitor/export_5y_odds_evens.py'
+      - '.github/workflows/kino-5y-export.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: kino-monitor
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install requests
+        run: pip install 'requests>=2.32,<3'
+
+      - name: Export 5 years of KINO odds-evens draws
+        run: python export_5y_odds_evens.py
+
+      - name: Show summary
+        run: cat export_5y/summary.json
+
+      - name: List output files
+        run: ls -lh export_5y
+
+      - name: Upload database and CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: KINO-5Y-Odds-Evens-2021-08-24-to-2026-08-24
+          path: kino-monitor/export_5y/*
+          retention-days: 30
