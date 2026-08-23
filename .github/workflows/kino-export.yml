@@ -1,0 +1,85 @@
+name: KINO 1-year export
+on:
+  push:
+    branches: [kino-data-export-temp]
+  workflow_dispatch:
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests openpyxl
+      - name: Download OPAP KINO draws and build files
+        run: |
+          cat > /tmp/build_kino.py <<'PY'
+          import requests, time, csv, sqlite3
+          from datetime import date, timedelta, datetime, timezone
+          from openpyxl import Workbook
+          from openpyxl.styles import Font
+          from openpyxl.utils import get_column_letter
+
+          START=date(2025,8,23); END=date(2026,8,23)
+          rows=[]; d=START
+          s=requests.Session(); s.headers.update({'User-Agent':'Mozilla/5.0 KINO archive exporter'})
+          while d<=END:
+              ds=d.isoformat(); url=f'https://api.opap.gr/draws/v3.0/1100/draw-date/{ds}/{ds}?size=300'
+              last=None
+              for attempt in range(6):
+                  try:
+                      r=s.get(url,timeout=40); r.raise_for_status(); data=r.json(); break
+                  except Exception as e:
+                      last=e; time.sleep(2*(attempt+1))
+              else: raise RuntimeError(f'Failed {ds}: {last}')
+              content=data.get('content',[])
+              for g in content:
+                  nums=g.get('winningNumbers',{}).get('list',[])
+                  if len(nums)!=20: continue
+                  draw_id=g.get('drawId')
+                  dtms=g.get('drawTime')
+                  if dtms:
+                      dt=datetime.fromtimestamp(dtms/1000, tz=timezone.utc).astimezone()
+                      draw_date=dt.strftime('%Y-%m-%d'); draw_time=dt.strftime('%H:%M:%S')
+                  else: draw_date=ds; draw_time=''
+                  rows.append([draw_id,draw_date,draw_time,*nums])
+              print(ds, len(content), 'total', len(rows), flush=True)
+              d += timedelta(days=1)
+
+          # de-duplicate and sort by draw id
+          byid={r[0]:r for r in rows if r[0] is not None}; rows=sorted(byid.values(), key=lambda x:x[0])
+          header=['draw_id','date','time']+[f'n{i}' for i in range(1,21)]
+          with open('kino_2025-08-23_to_2026-08-23.csv','w',newline='',encoding='utf-8-sig') as f:
+              w=csv.writer(f); w.writerow(header); w.writerows(rows)
+
+          db=sqlite3.connect('kino_2025-08-23_to_2026-08-23.sqlite')
+          cols=', '.join([f'n{i} INTEGER' for i in range(1,21)])
+          db.execute(f'CREATE TABLE draws (draw_id INTEGER PRIMARY KEY, date TEXT, time TEXT, {cols})')
+          qs=','.join(['?']*23)
+          db.executemany(f'INSERT INTO draws VALUES ({qs})', rows); db.commit(); db.close()
+
+          wb=Workbook(); ws=wb.active; ws.title='KINO draws'; ws.append(header)
+          for c in ws[1]: c.font=Font(bold=True)
+          for r in rows: ws.append(r)
+          ws.freeze_panes='A2'; ws.auto_filter.ref=ws.dimensions
+          widths=[14,12,10]+[5]*20
+          for i,w in enumerate(widths,1): ws.column_dimensions[get_column_letter(i)].width=w
+          wb.save('kino_2025-08-23_to_2026-08-23.xlsx')
+
+          # validation summary
+          dates={r[1] for r in rows}
+          with open('VALIDATION.txt','w',encoding='utf-8') as f:
+              f.write(f'Period: {START} to {END} inclusive\nRows: {len(rows)}\nDistinct draw IDs: {len(byid)}\nDistinct dates represented: {len(dates)}\nFirst draw id: {rows[0][0] if rows else None}\nLast draw id: {rows[-1][0] if rows else None}\n')
+          print('FINAL',len(rows),rows[0][0] if rows else None,rows[-1][0] if rows else None)
+          PY
+          python /tmp/build_kino.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kino-one-year-database
+          path: |
+            kino_2025-08-23_to_2026-08-23.xlsx
+            kino_2025-08-23_to_2026-08-23.csv
+            kino_2025-08-23_to_2026-08-23.sqlite
+            VALIDATION.txt
+          retention-days: 7
