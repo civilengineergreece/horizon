@@ -64,7 +64,7 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('multimodal-safety.js?v=20260823-2','data-horizon-multimodal-safety');
     loadScript('transport-results-compare.js?v=20260823-1','data-horizon-transport-results-compare');
     loadScript('airport-transport-fix.js?v=20260823-1','data-horizon-airport-transport-fix');
-    loadScript('surface-live.js?v=20260823-1','data-horizon-surface-live');
+    loadScript('surface-live.js?v=20260823-2','data-horizon-surface-live');
   };
 
   const load=()=>{
