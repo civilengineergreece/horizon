@@ -1,0 +1,42 @@
+name: Build KINO Monitor for Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kino-monitor/**'
+      - '.github/workflows/kino-monitor-windows.yml'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: kino-monitor
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run logic tests
+        run: python test_logic.py
+
+      - name: Build EXE
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name KinoMonitor app.py
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: KinoMonitor-Windows
+          path: kino-monitor/dist/KinoMonitor.exe
+          retention-days: 30
