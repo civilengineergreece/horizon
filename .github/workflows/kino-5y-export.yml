@@ -6,6 +6,11 @@ on:
     paths:
       - 'kino-monitor/export_5y_odds_evens.py'
       - '.github/workflows/kino-5y-export.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kino-monitor/export_5y_odds_evens.py'
+      - '.github/workflows/kino-5y-export.yml'
   workflow_dispatch:
 
 jobs:
