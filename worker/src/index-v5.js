@@ -104,7 +104,14 @@ async function queryTransitous(from,to,date){
   u.searchParams.set('language','el,en');
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);
   try{
-    const r=await fetch(u.toString(),{headers:{accept:'application/json'},signal:controller.signal});
+    const r=await fetch(u.toString(),{
+      headers:{
+        accept:'application/json',
+        'user-agent':'Horizon-Travel-Planner/0.1 (+https://civilengineergreece.github.io/horizon/)',
+        referer:'https://civilengineergreece.github.io/horizon/'
+      },
+      signal:controller.signal
+    });
     const data=await r.json().catch(()=>null);
     if(!r.ok||!data)throw new Error(`Transitous HTTP ${r.status}`);
     return normalizeResponse(data);
