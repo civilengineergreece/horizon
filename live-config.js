@@ -71,7 +71,7 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('train-card-truth.js?v=20260823-1','data-horizon-train-card-truth');
     loadScript('live-transport-cta.js?v=20260823-1','data-horizon-live-transport-cta');
     loadScript('planner-uncertain-options.js?v=20260823-1','data-horizon-planner-uncertain');
-    loadScript('transport-cleanup-v1.js?v=20260823-1','data-horizon-transport-cleanup');
+    loadScript('transport-cleanup-v1.js?v=20260823-2','data-horizon-transport-cleanup');
   };
 
   const load=()=>{
