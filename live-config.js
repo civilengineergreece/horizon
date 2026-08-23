@@ -46,7 +46,7 @@ window.HORIZON_LIVE_CONFIG={
 
   const loadScript=(src,attr,done)=>{
     if(document.querySelector(`script[${attr}]`)){done?.();return;}
-    const s=document.createElement('script');s.src=src;s.setAttribute(attr,'1');
+    const s=document.createElement('script');s.async=false;s.src=src;s.setAttribute(attr,'1');
     if(done){s.onload=done;s.onerror=done;}document.body.appendChild(s);
   };
 
@@ -58,11 +58,12 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('hotels-panel.js?v=20260822-7','data-horizon-hotels-panel');
     loadScript('flights-panel.js?v=20260822-2','data-horizon-flights-panel');
     loadScript('trip-prefill-ui.js?v=20260823-1','data-horizon-trip-prefill');
+    loadScript('multimodal-transport.js?v=20260823-1','data-horizon-multimodal');
   };
 
   const load=()=>{
     if(document.querySelector('script[data-horizon-travelers]')){loadEnhancements();return;}
-    const s=document.createElement('script');s.src='traveler-categories.js?v=20260822-3';s.dataset.horizonTravelers='1';
+    const s=document.createElement('script');s.async=false;s.src='traveler-categories.js?v=20260822-3';s.dataset.horizonTravelers='1';
     s.onload=loadEnhancements;s.onerror=loadEnhancements;document.body.appendChild(s);
   };
 
