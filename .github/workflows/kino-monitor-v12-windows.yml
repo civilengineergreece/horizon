@@ -1,9 +1,17 @@
 name: Build KINO Monitor v1.3 for Windows
 
-# Manual-only workflow. This prevents automatic GitHub Actions runs and
-# notification emails on every push / pull request while keeping the build
-# available when explicitly requested.
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'kino-monitor/launcher.py'
+      - 'kino-monitor/app.py'
+      - 'kino-monitor/requirements.txt'
+      - '.github/workflows/kino-monitor-v12-windows.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kino-monitor/**'
   workflow_dispatch:
 
 jobs:
