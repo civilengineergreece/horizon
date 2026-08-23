@@ -69,6 +69,7 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('train-live.js?v=20260823-1','data-horizon-train-live');
     loadScript('train-match-fix.js?v=20260823-1','data-horizon-train-match-fix');
     loadScript('train-card-truth.js?v=20260823-1','data-horizon-train-card-truth');
+    loadScript('live-transport-cta.js?v=20260823-1','data-horizon-live-transport-cta');
   };
 
   const load=()=>{
