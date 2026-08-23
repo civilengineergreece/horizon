@@ -65,12 +65,14 @@ function patchCards(){
     const breaks=[...card.querySelectorAll('.break')];
     for(const b of breaks){
       const txt=b.textContent||'';
-      if(/Μεταφορά/i.test(txt)&&/Εκτίμηση|~€/.test(txt)&&!/εύρος/i.test(txt)){
-        const small=document.createElement('small');
-        small.style.cssText='display:block;color:#8fa0ac;margin-top:3px;font-size:.66rem';
-        small.textContent='Ενδεικτικό κόστος — η πραγματική τιμή ελέγχεται όπου υπάρχει live provider.';
-        b.appendChild(small);
-      }
+      if(!/Μεταφορά/i.test(txt)||!/Εκτίμηση|~€/i.test(txt))continue;
+      const notes=[...b.querySelectorAll('.hz-card-est-note')];
+      if(notes.length){notes.slice(1).forEach(n=>n.remove());continue;}
+      const small=document.createElement('small');
+      small.className='hz-card-est-note';
+      small.style.cssText='display:block;color:#8fa0ac;margin-top:3px;font-size:.66rem';
+      small.textContent='Ενδεικτικό κόστος — η πραγματική τιμή ελέγχεται όπου υπάρχει live provider.';
+      b.appendChild(small);
     }
   });
 }
