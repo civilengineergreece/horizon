@@ -73,7 +73,7 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('planner-uncertain-options.js?v=20260823-1','data-horizon-planner-uncertain');
     loadScript('transport-cleanup-v1.js?v=20260823-3','data-horizon-transport-cleanup');
     loadScript('itinerary-editor.js?v=20260823-1','data-horizon-itinerary-editor');
-    loadScript('itinerary-pdf-fix.js?v=20260823-1','data-horizon-itinerary-pdf-fix');
+    loadScript('itinerary-pdf-fix.js?v=20260823-2','data-horizon-itinerary-pdf-fix');
   };
 
   const load=()=>{
