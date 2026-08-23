@@ -1,4 +1,4 @@
-name: Build KINO Monitor v1.2 for Windows
+name: Build KINO Monitor v1.3 for Windows
 
 on:
   push:
@@ -40,12 +40,15 @@ jobs:
       - name: Syntax check launcher
         run: python -m py_compile launcher.py
 
+      - name: Verify 12-draw alert threshold
+        run: python -c "import launcher; assert launcher.core.ALERT_THRESHOLD == 11; print('OK: first alert is draw 12')"
+
       - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --name KinoMonitor-v1.2 launcher.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name KinoMonitor-v1.3 launcher.py
 
       - name: Upload Windows executable
         uses: actions/upload-artifact@v4
         with:
-          name: KinoMonitor-v1.2-Windows
-          path: kino-monitor/dist/KinoMonitor-v1.2.exe
+          name: KinoMonitor-v1.3-Windows
+          path: kino-monitor/dist/KinoMonitor-v1.3.exe
           retention-days: 30
