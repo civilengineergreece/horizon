@@ -2,9 +2,18 @@ name: Deploy Horizon Live API
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-live-api.yml'
 
 permissions:
   contents: read
+
+concurrency:
+  group: horizon-live-api
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -17,8 +26,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Wrangler
+      - name: Install dependencies
         run: npm install
+      - name: Check Worker syntax
+        run: |
+          node --check src/index.js
+          node --check src/index-v4.js
+          if [ -f src/index-v5.js ]; then node --check src/index-v5.js; fi
       - name: Deploy Worker
         run: npx wrangler deploy
         env:
