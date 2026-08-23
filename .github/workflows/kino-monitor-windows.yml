@@ -1,15 +1,9 @@
 name: Build KINO Monitor for Windows
 
+# Manual-only workflow. This prevents automatic GitHub Actions runs and
+# notification emails on every push / pull request while keeping the build
+# available when explicitly requested.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'kino-monitor/**'
-      - '.github/workflows/kino-monitor-windows.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'kino-monitor/**'
   workflow_dispatch:
 
 jobs:
