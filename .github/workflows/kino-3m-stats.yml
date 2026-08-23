@@ -1,0 +1,36 @@
+name: KINO 3-month stats one-off
+
+on:
+  push:
+    branches: [kino-3m-stats]
+    paths:
+      - 'kino-monitor/export_3m_stats.py'
+      - '.github/workflows/kino-3m-stats.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: kino-monitor
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install requests
+        run: pip install 'requests>=2.32,<3'
+      - name: Generate 3-month stats
+        run: python export_3m_stats.py
+      - name: Show summary
+        run: cat export_3m/summary_3m.json
+      - name: Upload stats
+        uses: actions/upload-artifact@v4
+        with:
+          name: KINO-3M-stats-2026-05-24-to-2026-08-23
+          path: kino-monitor/export_3m/*
+          retention-days: 7
