@@ -37,6 +37,22 @@ function cleanFlightPanels(){
     panel.classList.toggle('hz-live-hidden',!allows('plane'));
   });
 }
+function tuneSurfaceCopy(box,trainOn,ferryOn){
+  const copy=box.querySelector('.hz-surface-copy'),head=box.querySelector('.hz-surface-head');
+  const trainDecor=[box.querySelector('.hz-live-cta-kicker.train'),box.querySelector('.hz-live-cta-sub.train'),box.querySelector('.hz-live-found.train')].filter(Boolean);
+  trainDecor.forEach(x=>x.classList.toggle('hz-live-hidden',!trainOn));
+  box.classList.toggle('hz-live-train-box',trainOn);
+  if(trainOn&&ferryOn){
+    if(head)head.textContent='Ζωντανός έλεγχος μεταφοράς';
+    if(copy)copy.textContent='Live/realtime τρένα μέσω Transitous/MOTIS και πραγματικά πλοία μέσω Ferryhopper για τις ημερομηνίες του Planner.';
+  }else if(trainOn){
+    if(head)head.textContent='Ζωντανός έλεγχος τρένων';
+    if(copy)copy.textContent='Πραγματικές ώρες, διάρκεια και realtime ενημέρωση τρένων μέσω Transitous/MOTIS. Αν το feed δεν δώσει fare, η τιμή παραμένει καθαρή εκτίμηση.';
+  }else if(ferryOn){
+    if(head)head.textContent='Ζωντανός έλεγχος πλοίων';
+    if(copy)copy.textContent='Πραγματικά ακτοπλοϊκά δρομολόγια και διαθέσιμες τιμές μέσω Ferryhopper για τις ημερομηνίες του Planner.';
+  }
+}
 function cleanSurfaceBoxes(){
   document.querySelectorAll('.horizon-detail-overlay .hz-surface-live').forEach(box=>{
     const buttons=[...box.querySelectorAll('[data-surface]')];
@@ -44,6 +60,9 @@ function cleanSurfaceBoxes(){
       const mode=btn.dataset.surface||'';
       btn.classList.toggle('hz-live-hidden',!allows(mode));
     });
+    const trainOn=allows('train')&&!!box.querySelector('[data-surface="train"]');
+    const ferryOn=allows('ferry')&&!!box.querySelector('[data-surface="ferry"]');
+    tuneSurfaceCopy(box,trainOn,ferryOn);
     const visible=buttons.some(btn=>!btn.classList.contains('hz-live-hidden'));
     box.classList.toggle('hz-live-hidden',!visible);
     if(box.dataset.liveMode&&!allows(box.dataset.liveMode)){
