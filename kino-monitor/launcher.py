@@ -7,6 +7,10 @@ from tkinter import ttk, messagebox
 
 import app as core
 
+# The core alerts when streak > ALERT_THRESHOLD.
+# Setting 11 means: no alert for 1..11; first alert exactly on draw 12.
+core.ALERT_THRESHOLD = 11
+
 
 class EnhancedEmailSettingsDialog(core.EmailSettingsDialog):
     """Adds plain-language App Password help to the existing email settings."""
@@ -107,7 +111,7 @@ class LiveResultsWindow(tk.Toplevel):
             )
             nums.columnconfigure(i % 10, weight=1)
 
-        streak = ttk.LabelFrame(outer, text="Τρέχον streak", padding=10)
+        streak = ttk.LabelFrame(outer, text="Τρέχον streak — email από 12 συνεχόμενες", padding=10)
         streak.pack(fill="x", pady=(0, 14))
         ttk.Label(streak, textvariable=self.streak_var, font=("Segoe UI", 15, "bold")).pack()
 
