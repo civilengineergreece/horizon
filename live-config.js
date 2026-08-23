@@ -52,7 +52,7 @@ window.HORIZON_LIVE_CONFIG={
 
   const loadEnhancements=()=>{
     installHotelFetchBridge();
-    loadScript('transport-choice-ui-fix.js?v=20260823-1','data-horizon-transport-choice-fix');
+    loadScript('transport-choice-ui-fix.js?v=20260823-2','data-horizon-transport-choice-fix');
     loadScript('interest-categories.js?v=20260823-1','data-horizon-interest-categories');
     loadScript('flight-times-core.js?v=20260822-2','data-horizon-flight-times-core');
     loadScript('results-truth.js?v=20260822-2','data-horizon-results-truth');
