@@ -1,0 +1,5 @@
+Για να αφαιρέσεις την παλιά έκδοση:
+1. Κλείσε το παλιό KINO Monitor.
+2. Win+R -> shell:startup -> διέγραψε KINO Monitor.lnk αν υπάρχει.
+3. Διέγραψε το παλιό KinoMonitor*.exe από Downloads/τον φάκελο που το είχες αποθηκεύσει.
+4. ΜΗ διαγράψεις %LOCALAPPDATA%\KinoMonitor αν θέλεις να κρατήσεις ιστορικό και email ρυθμίσεις.
