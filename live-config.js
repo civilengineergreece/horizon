@@ -57,6 +57,7 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
     loadScript('hotels-panel.js?v=20260822-7','data-horizon-hotels-panel');
     loadScript('flights-panel.js?v=20260822-2','data-horizon-flights-panel');
+    loadScript('trip-prefill-ui.js?v=20260823-1','data-horizon-trip-prefill');
   };
 
   const load=()=>{
