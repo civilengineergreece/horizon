@@ -25,9 +25,9 @@ jobs:
           node-version: '22'
       - name: Check JavaScript syntax
         run: |
-          node --check destinations-data.js
-          node --check destination-details.js
-          node --check calendar-duration.js
-          node --check live-config.js
-          node --check live-api.js
-          node --check worker/src/index.js
+          set -e
+          for f in *.js worker/src/*.js worker/*.mjs; do
+            [ -f "$f" ] || continue
+            echo "Checking $f"
+            node --check "$f"
+          done
