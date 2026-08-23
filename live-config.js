@@ -52,14 +52,15 @@ window.HORIZON_LIVE_CONFIG={
 
   const loadEnhancements=()=>{
     installHotelFetchBridge();
+    loadScript('transport-choice-ui-fix.js?v=20260823-1','data-horizon-transport-choice-fix');
     loadScript('flight-times-core.js?v=20260822-2','data-horizon-flight-times-core');
     loadScript('results-truth.js?v=20260822-2','data-horizon-results-truth');
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
     loadScript('hotels-panel.js?v=20260822-7','data-horizon-hotels-panel');
     loadScript('flights-panel.js?v=20260822-2','data-horizon-flights-panel');
     loadScript('trip-prefill-ui.js?v=20260823-1','data-horizon-trip-prefill');
-    loadScript('multimodal-transport.js?v=20260823-2','data-horizon-multimodal');
-    loadScript('multimodal-safety.js?v=20260823-1','data-horizon-multimodal-safety');
+    loadScript('multimodal-transport.js?v=20260823-3','data-horizon-multimodal');
+    loadScript('multimodal-safety.js?v=20260823-2','data-horizon-multimodal-safety');
   };
 
   const load=()=>{
