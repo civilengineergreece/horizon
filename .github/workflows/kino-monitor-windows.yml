@@ -6,6 +6,10 @@ on:
     paths:
       - 'kino-monitor/**'
       - '.github/workflows/kino-monitor-windows.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kino-monitor/**'
   workflow_dispatch:
 
 jobs:
