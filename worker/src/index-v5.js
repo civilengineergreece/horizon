@@ -34,27 +34,29 @@ function asArray(v){return Array.isArray(v)?v:[];}
 function number(v){const n=Number(v);return Number.isFinite(n)?n:null;}
 function trainLegs(it){return asArray(it?.legs).filter(l=>['RAIL','HIGHSPEED_RAIL','LONG_DISTANCE','NIGHT_RAIL','REGIONAL_RAIL','REGIONAL_FAST_RAIL','SUBURBAN','SUBWAY'].includes(String(l?.mode||'').toUpperCase()));}
 function firstValue(obj,names){for(const n of names){const v=obj?.[n];if(v!==undefined&&v!==null&&v!=='')return v;}return null;}
+function collectFareProducts(v,out=[]){
+  if(v==null)return out;
+  if(Array.isArray(v)){for(const x of v)collectFareProducts(x,out);return out;}
+  if(typeof v!=='object')return out;
+  const amount=number(v.amount),currency=clean(v.currency||'',8).toUpperCase(),name=clean(v.name||'',120);
+  if(amount!==null&&currency&&name)out.push({amount,currency,name,riderCategory:v.riderCategory||null});
+  for(const [k,x] of Object.entries(v))if(k!=='riderCategory'&&k!=='media')collectFareProducts(x,out);
+  return out;
+}
 function fareFromItinerary(it){
-  const chosen=[],seen=new Set();
-  for(const leg of trainLegs(it)){
-    const candidates=[];
-    for(const fp of asArray(leg?.fareProducts)){
-      const p=fp?.product||fp||{};
-      if(p?.riderCategory)continue;
-      const amount=number(p?.price?.amount??p?.amount);
-      const currency=clean(p?.price?.currency?.code??p?.currency?.code??p?.currency??'',8).toUpperCase();
-      if(amount===null||amount<=0||!currency)continue;
-      candidates.push({amount,currency,key:clean(p?.id||fp?.id||`${currency}:${amount}`,160),name:clean(p?.name||'',120)});
-    }
-    candidates.sort((a,b)=>a.amount-b.amount);
-    const c=candidates[0];
-    if(c&&!seen.has(c.key)){seen.add(c.key);chosen.push(c);}
-  }
-  if(!chosen.length)return null;
-  const currency=chosen[0].currency;
-  if(chosen.some(x=>x.currency!==currency))return null;
-  const amount=chosen.reduce((s,x)=>s+x.amount,0);
-  return {amount:Math.round(amount*100)/100,currency,kind:'feed-fare',products:chosen.map(x=>({id:x.key,name:x.name||null,amount:x.amount,currency:x.currency}))};
+  // MOTIS fare composition can be complex. We only expose a feed fare when the
+  // journey has one rail leg, where choosing the cheapest standard fare product
+  // cannot undercount multiple mandatory train legs. Otherwise Horizon keeps an estimate.
+  if(trainLegs(it).length!==1)return null;
+  const transfers=asArray(it?.fareTransfers);if(!transfers.length)return null;
+  const all=collectFareProducts(transfers,[]).filter(x=>x.amount>0&&!/(week|weekly|month|monthly|annual|season|day pass|24.?hour|7.?day|30.?day)/i.test(x.name));
+  if(!all.length)return null;
+  const defaults=all.filter(x=>x.riderCategory?.isDefaultFareCategory===true);
+  const uncategorized=all.filter(x=>!x.riderCategory);
+  const pool=defaults.length?defaults:uncategorized.length?uncategorized:all;
+  pool.sort((a,b)=>a.amount-b.amount);
+  const p=pool[0];
+  return {amount:Math.round(p.amount*100)/100,currency:p.currency,kind:'feed-fare-direct',name:p.name,riderCategory:p.riderCategory?.riderCategoryName||null};
 }
 function normalizeItinerary(it){
   const legs=trainLegs(it);if(!legs.length)return null;
@@ -138,8 +140,8 @@ async function trains(request,env,url){
     const inboundPromise=returnDate&&returnDate>=date?queryTransitous(to,from,returnDate):Promise.resolve([]);
     const [outbound,inbound]=await Promise.all([outboundPromise,inboundPromise]);
     const outFare=cheapestFare(outbound),inFare=cheapestFare(inbound);
-    const roundTripFare=outFare&&inFare&&outFare.currency===inFare.currency?{amount:Math.round((outFare.amount+inFare.amount)*100)/100,currency:outFare.currency,kind:'feed-fare'}:null;
-    const data={ok:true,provider:'Transitous/MOTIS',source:'Hellenic Train / Greek railway open feeds as aggregated by Transitous',origin:originName,destination:destinationName,originStation:from.name,destinationStation:to.name,date,returnDate:returnDate||null,outbound,inbound,fares:{outbound:outFare,inbound:inFare,roundTrip:roundTripFare},fareNote:roundTripFare?'Το fare προέρχεται από τα fareProducts του Transitous feed. Δεν αποτελεί εγγύηση διαθεσιμότητας ή τελικής τιμής κράτησης.':'Το ελληνικό feed δεν επέστρεψε αξιοποιήσιμο fare για αυτή την αναζήτηση· το Horizon κρατά στενή εκτίμηση τιμής.',realtimeNote:'Το Transitous χρησιμοποιεί realtime ενημερώσεις όταν παρέχονται από την πηγή. Οι προγραμματισμένες ώρες παραμένουν διαθέσιμες όταν δεν υπάρχει realtime σήμα.',attribution:'https://transitous.org/sources/',cache:{enabled:true,ttlSeconds:TRAIN_TTL}};
+    const roundTripFare=outFare&&inFare&&outFare.currency===inFare.currency?{amount:Math.round((outFare.amount+inFare.amount)*100)/100,currency:outFare.currency,kind:'feed-fare-direct'}:null;
+    const data={ok:true,provider:'Transitous/MOTIS',source:'Hellenic Train / Greek railway open feeds as aggregated by Transitous',origin:originName,destination:destinationName,originStation:from.name,destinationStation:to.name,date,returnDate:returnDate||null,outbound,inbound,fares:{outbound:outFare,inbound:inFare,roundTrip:roundTripFare},fareNote:roundTripFare?'Το fare προέρχεται από fare information του Transitous/MOTIS για απλό απευθείας σιδηροδρομικό σκέλος. Δεν αποτελεί εγγύηση διαθεσιμότητας ή τελικής τιμής κράτησης.':'Το ελληνικό feed δεν επέστρεψε αξιοποιήσιμο και μη αμφίσημο fare για αυτή την αναζήτηση· το Horizon κρατά στενή εκτίμηση τιμής.',realtimeNote:'Το Transitous χρησιμοποιεί realtime ενημερώσεις όταν παρέχονται από την πηγή. Οι προγραμματισμένες ώρες παραμένουν διαθέσιμες όταν δεν υπάρχει realtime σήμα.',attribution:'https://transitous.org/sources/',cache:{enabled:true,ttlSeconds:TRAIN_TTL}};
     const response=reply(request,env,data,200,{'cache-control':`public, max-age=0, s-maxage=${TRAIN_TTL}`,'x-horizon-cache':'MISS'});
     try{await caches.default.put(cacheKey,response.clone());}catch{}
     return response;
