@@ -10,7 +10,7 @@ import requests
 GAME_ID = 1100
 TZ = ZoneInfo("Europe/Athens")
 BASE = f"https://api.opap.gr/draws/v3.0/{GAME_ID}/draw-date/{{d}}/{{d}}"
-HEADERS = {"Accept": "application/json", "User-Agent": "KINO-month-export/3.0"}
+HEADERS = {"Accept": "application/json", "User-Agent": "KINO-month-export/3.1"}
 OUT = Path("kino-monitor/daily_parts")
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -32,7 +32,7 @@ def get_json(url, params):
     raise RuntimeError(f"request failed: {url} {params}: {last}")
 
 
-def parse(obj):
+def parse(obj, kino_day):
     draw_id = int(obj["drawId"])
     ms = int(obj["drawTime"])
     dt = datetime.fromtimestamp(ms / 1000, TZ)
@@ -50,7 +50,7 @@ def parse(obj):
     if odd + even != 20:
         raise RuntimeError(f"draw {draw_id}: invalid parity counts {odd}+{even}")
     result = "ΜΟΝΑ" if odd > even else ("ΖΥΓΑ" if even > odd else "ΙΣΟΠΑΛΙΑ")
-    return [draw_id, dt.date().isoformat(), dt.strftime("%H:%M:%S"), odd, even, result, ms]
+    return [kino_day, draw_id, dt.date().isoformat(), dt.strftime("%H:%M:%S"), odd, even, result, ms]
 
 
 def main(day):
@@ -75,19 +75,28 @@ def main(day):
     if len(objs) != 288:
         raise RuntimeError(f"{day}: fetched {len(objs)} unique draws; expected 288")
 
-    rows = [parse(o) for o in objs.values()]
-    rows = [r for r in rows if r[1] == day]
-    rows.sort(key=lambda r: (r[6], r[0]))
+    rows = [parse(o, day) for o in objs.values()]
+    rows.sort(key=lambda r: (r[7], r[1]))
     if len(rows) != 288:
-        raise RuntimeError(f"{day}: Athens-date validation left {len(rows)} rows; expected 288")
+        raise RuntimeError(f"{day}: validation left {len(rows)} rows; expected 288")
+
+    # OPAP KINO 'draw-date' represents one KINO game-day: 03:00 through 02:55 next calendar day.
+    # In Athens time this means 252 rows carry the requested calendar date and 36 rows carry the next date.
+    same_date = sum(r[2] == day for r in rows)
+    if same_date != 252:
+        raise RuntimeError(f"{day}: expected 252 rows on requested calendar date, got {same_date}")
 
     path = OUT / f"{day}.csv"
     with path.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["draw_id", "draw_date", "draw_time", "odd_count", "even_count", "result", "draw_time_ms"])
+        w.writerow(["kino_day", "draw_id", "draw_date", "draw_time", "odd_count", "even_count", "result", "draw_time_ms"])
         w.writerows(rows)
 
-    print(f"OK {day}: 288 draws, {total_pages} API pages, {rows[0][0]}..{rows[-1][0]}", flush=True)
+    print(
+        f"OK KINO day {day}: 288 draws, {total_pages} API pages, "
+        f"{rows[0][2]} {rows[0][3]} -> {rows[-1][2]} {rows[-1][3]}, ids {rows[0][1]}..{rows[-1][1]}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
