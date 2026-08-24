@@ -17,7 +17,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 CSV = OUT / "KINO_MZI_1month_2026-07-24_to_2026-08-23.csv"
 DB = OUT / "KINO_MZI_1month_2026-07-24_to_2026-08-23.sqlite3"
 SUMMARY = OUT / "KINO_MZI_1month_summary.txt"
-HEADERS = {"Accept": "application/json", "User-Agent": "KINO-one-month-export/1.0"}
+HEADERS = {"Accept": "application/json", "User-Agent": "KINO-one-month-export/1.1"}
 
 
 def days():
@@ -43,56 +43,25 @@ def request_json(url, params=None):
     raise RuntimeError(f"request failed {url} {params}: {last}")
 
 
-def probe_paging():
-    url = BASE.format(d=END.isoformat())
-    variants = [
-        ("size", {"page": 0, "size": 300}),
-        ("pageSize", {"page": 0, "pageSize": 300}),
-        ("limit", {"page": 0, "limit": 300}),
-        ("page", {"page": 0}),
-    ]
-    results = []
-    for name, params in variants:
-        data = request_json(url, params)
-        content = data.get("content", []) if isinstance(data, dict) else []
-        results.append((len(content), name, params, data))
-        print("PROBE", name, "content=", len(content), "totalPages=", data.get("totalPages"), "totalElements=", data.get("totalElements"), flush=True)
-    best = max(results, key=lambda x: x[0])
-    _, name, params, _ = best
-    extras = {k: v for k, v in params.items() if k != "page"}
-    print("SELECTED PAGING", name, extras, flush=True)
-    return extras
-
-
-PAGING_EXTRAS = {}
-
-
 def fetch_day(d):
     url = BASE.format(d=d.isoformat())
+    first = request_json(url, {"page": 0})
+    total_pages = int(first.get("totalPages", 1))
+    total_elements = int(first.get("totalElements", len(first.get("content", []))))
     all_objs = {}
-    previous_page_ids = None
-    page = 0
-    while page < 100:
-        data = request_json(url, {"page": page, **PAGING_EXTRAS})
-        content = data.get("content", []) if isinstance(data, dict) else []
-        if not content:
-            break
-        page_ids = tuple(int(o.get("drawId", 0)) for o in content if o.get("drawId") is not None)
-        if page > 0 and page_ids == previous_page_ids:
-            raise RuntimeError(f"{d}: repeated page {page}")
-        previous_page_ids = page_ids
-        before = len(all_objs)
-        for obj in content:
+
+    def add_content(data):
+        for obj in data.get("content", []):
             if obj.get("drawId") is not None:
                 all_objs[int(obj["drawId"])] = obj
-        if len(all_objs) == before and page > 0:
-            break
-        if data.get("last") is True:
-            break
-        total_pages = data.get("totalPages")
-        if isinstance(total_pages, int) and page + 1 >= total_pages:
-            break
-        page += 1
+
+    add_content(first)
+    for page in range(1, total_pages):
+        data = request_json(url, {"page": page})
+        add_content(data)
+
+    if len(all_objs) != total_elements:
+        raise RuntimeError(f"{d}: fetched {len(all_objs)} unique draws but API reports {total_elements}")
 
     rows = []
     for obj in all_objs.values():
@@ -102,25 +71,24 @@ def fetch_day(d):
         even = sidebets.get("evenNumbersCount")
         if odd is None or even is None:
             if len(nums) != 20:
-                continue
+                raise RuntimeError(f"{d}: draw {obj.get('drawId')} has no valid 20-number result")
             odd = sum(n % 2 for n in nums)
             even = 20 - odd
         odd, even = int(odd), int(even)
         if odd + even != 20:
-            raise RuntimeError(f"{d}: invalid counts draw {obj.get('drawId')}")
+            raise RuntimeError(f"{d}: invalid parity counts for draw {obj.get('drawId')}: {odd}+{even}")
         ms = int(obj["drawTime"])
         dt = datetime.fromtimestamp(ms / 1000, TZ)
         result = "ΜΟΝΑ" if odd > even else ("ΖΥΓΑ" if even > odd else "ΙΣΟΠΑΛΙΑ")
         rows.append((int(obj["drawId"]), dt.date().isoformat(), dt.strftime("%H:%M:%S"), odd, even, result, ms))
+
     rows.sort(key=lambda r: (r[6], r[0]))
     if len(rows) < 100:
-        raise RuntimeError(f"{d}: only {len(rows)} draws; incomplete pagination")
-    return d, rows
+        raise RuntimeError(f"{d}: only {len(rows)} draws; incomplete day")
+    return d, rows, total_pages, total_elements
 
 
 def main():
-    global PAGING_EXTRAS
-    PAGING_EXTRAS = probe_paging()
     if DB.exists():
         DB.unlink()
     con = sqlite3.connect(DB)
@@ -136,34 +104,40 @@ def main():
         );
         create index idx_draw_time on draws(draw_time_ms);
     """)
+
     ds = list(days())
-    total = 0
     failures = []
     day_counts = {}
+    total = 0
     with ThreadPoolExecutor(max_workers=8) as ex:
         futures = {ex.submit(fetch_day, d): d for d in ds}
         for future in as_completed(futures):
             d = futures[future]
             try:
-                _, rows = future.result()
+                _, rows, pages, elements = future.result()
             except Exception as exc:
                 failures.append(str(exc))
+                print("FAILED", d, exc, flush=True)
                 continue
             day_counts[d.isoformat()] = len(rows)
             con.executemany("insert or replace into draws values(?,?,?,?,?,?,?)", rows)
             con.commit()
             total += len(rows)
-            print(d, len(rows), "total", total, flush=True)
+            print(d, "pages", pages, "draws", elements, "total", total, flush=True)
+
     if failures:
         raise RuntimeError("API failures: " + repr(failures))
+
     count = con.execute("select count(*) from draws").fetchone()[0]
-    if count < 3000:
-        raise RuntimeError(f"Only {count} draws; month export incomplete")
-    rc = dict(con.execute("select result,count(*) from draws group by result"))
+    if count < 8000:
+        raise RuntimeError(f"Only {count} draws; expected about 8,900 for 31 full KINO days")
+
     with CSV.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["draw_id","draw_date","draw_time","odd_count","even_count","result"])
+        w.writerow(["draw_id", "draw_date", "draw_time", "odd_count", "even_count", "result"])
         w.writerows(con.execute("select draw_id,draw_date,draw_time,odd_count,even_count,result from draws order by draw_time_ms,draw_id"))
+
+    rc = dict(con.execute("select result,count(*) from draws group by result"))
     first = con.execute("select draw_id,draw_date,draw_time from draws order by draw_time_ms limit 1").fetchone()
     last = con.execute("select draw_id,draw_date,draw_time from draws order by draw_time_ms desc limit 1").fetchone()
     summary = {
@@ -177,11 +151,12 @@ def main():
         "MONA": rc.get("ΜΟΝΑ", 0),
         "ZYGA": rc.get("ΖΥΓΑ", 0),
         "ISOPALIA": rc.get("ΙΣΟΠΑΛΙΑ", 0),
-        "source": "Official OPAP API gameId 1100, paginated by day",
+        "source": "Official OPAP API gameId 1100; all pages by day",
     }
-    SUMMARY.write_text("\n".join(f"{k}: {v}" for k,v in summary.items()), encoding="utf-8")
+    SUMMARY.write_text("\n".join(f"{k}: {v}" for k, v in summary.items()), encoding="utf-8")
     con.close()
     print("EXPORT COMPLETE", summary, flush=True)
+
 
 if __name__ == "__main__":
     main()
