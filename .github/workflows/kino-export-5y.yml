@@ -1,0 +1,30 @@
+name: Export KINO 5-year database
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kino-monitor/export_5years.py'
+      - '.github/workflows/kino-export-5y.yml'
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install export dependencies
+        run: python -m pip install --upgrade requests
+      - name: Export five years of KINO draws
+        run: python kino-monitor/export_5years.py
+      - name: Upload database files
+        uses: actions/upload-artifact@v4
+        with:
+          name: KINO-5years-complete-2021-08-24_to_2026-08-24
+          path: kino-monitor/export_5years_output/*
+          retention-days: 30
+          compression-level: 6
