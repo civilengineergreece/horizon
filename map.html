@@ -6,12 +6,12 @@
 <title>Horizon · 3D χάρτης ταξιδιού</title>
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
 <style>
-:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#06131d;color:#eef6fb}*{box-sizing:border-box}body{margin:0;background:#06131d}#map{position:fixed;inset:0}.hz-top{position:fixed;z-index:5;left:14px;right:14px;top:14px;display:flex;gap:10px;align-items:center;pointer-events:none}.hz-card{pointer-events:auto;max-width:min(720px,calc(100vw - 110px));padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:14px;background:rgba(5,20,31,.88);backdrop-filter:blur(12px);box-shadow:0 8px 30px rgba(0,0,0,.25)}.hz-brand{font-weight:950;letter-spacing:.08em;color:#ff7a16}.hz-title{font-weight:850;margin-top:2px}.hz-sub{font-size:.76rem;color:#a9bac6;margin-top:3px}.hz-toggle{pointer-events:auto;margin-left:auto;border:1px solid rgba(255,255,255,.18);background:#0b2536;color:#fff;border-radius:12px;padding:10px 12px;font-weight:850;cursor:pointer}.hz-status{position:fixed;z-index:5;left:14px;bottom:18px;max-width:min(680px,calc(100vw - 28px));padding:9px 12px;border-radius:12px;background:rgba(5,20,31,.86);color:#b7c7d2;font-size:.74rem;border:1px solid rgba(255,255,255,.11)}.hz-marker{position:relative;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#ff7a16;color:#08131b;font-weight:950;border:2px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.35);cursor:pointer}.hz-marker-label{position:absolute;left:35px;top:50%;transform:translateY(-50%);min-width:max-content;max-width:260px;padding:6px 9px;border-radius:9px;background:rgba(5,20,31,.92);border:1px solid rgba(255,255,255,.17);color:#fff;font-size:.72rem;font-weight:850;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}.hz-legend{position:fixed;z-index:5;left:14px;bottom:62px;width:min(360px,calc(100vw - 28px));max-height:34vh;overflow:auto;padding:8px;border-radius:13px;background:rgba(5,20,31,.88);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(10px);display:none}.hz-legend.show{display:block}.hz-legend-title{padding:3px 5px 7px;color:#a9bac6;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.hz-legend-item{display:flex;gap:8px;align-items:center;width:100%;padding:7px;border:0;border-radius:9px;background:transparent;color:#eef6fb;text-align:left;cursor:pointer}.hz-legend-item:hover{background:rgba(255,255,255,.07)}.hz-legend-num{flex:0 0 24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#ff7a16;color:#08131b;font-size:.72rem;font-weight:950}.hz-legend-name{font-size:.72rem;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:600px){.hz-card{max-width:calc(100vw - 92px)}.hz-sub{display:none}.hz-toggle{padding:9px 10px}.hz-marker-label{left:32px;max-width:145px;font-size:.62rem;padding:5px 7px}.hz-legend{width:min(310px,calc(100vw - 28px));max-height:26vh}.hz-status{font-size:.66rem}}
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#06131d;color:#eef6fb}*{box-sizing:border-box}body{margin:0;background:#06131d}#map{position:fixed;inset:0}.hz-top{position:fixed;z-index:5;left:14px;right:14px;top:14px;display:flex;gap:10px;align-items:center;pointer-events:none}.hz-card{pointer-events:auto;max-width:min(760px,calc(100vw - 150px));padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:14px;background:rgba(5,20,31,.90);backdrop-filter:blur(12px);box-shadow:0 8px 30px rgba(0,0,0,.25)}.hz-brand{font-weight:950;letter-spacing:.08em;color:#ff7a16}.hz-title{font-weight:850;margin-top:2px}.hz-sub{font-size:.76rem;color:#a9bac6;margin-top:3px}.hz-toggle{pointer-events:auto;margin-left:auto;border:1px solid rgba(255,255,255,.18);background:#0b2536;color:#fff;border-radius:12px;padding:10px 12px;font-weight:850;cursor:pointer}.hz-status{position:fixed;z-index:5;left:14px;bottom:18px;max-width:min(760px,calc(100vw - 28px));padding:9px 12px;border-radius:12px;background:rgba(5,20,31,.90);color:#d5e3ec;font-size:.74rem;border:1px solid rgba(255,255,255,.11);backdrop-filter:blur(10px)}.hz-stop-marker{display:flex;align-items:center;gap:7px;cursor:pointer;filter:drop-shadow(0 4px 10px rgba(0,0,0,.3))}.hz-stop-num{width:32px;height:32px;flex:0 0 32px;border-radius:50%;display:grid;place-items:center;background:#ff7a16;color:#07131b;font-weight:950;border:2px solid #fff}.hz-stop-name{max-width:270px;padding:6px 9px;border-radius:9px;background:rgba(5,20,31,.94);border:1px solid rgba(255,255,255,.20);color:#fff;font-size:.73rem;font-weight:900;line-height:1.18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hz-legend{position:fixed;z-index:5;left:14px;bottom:62px;width:min(390px,calc(100vw - 28px));max-height:34vh;overflow:auto;padding:8px;border-radius:13px;background:rgba(5,20,31,.91);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(10px);display:none}.hz-legend.show{display:block}.hz-legend-title{padding:3px 5px 7px;color:#a9bac6;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}.hz-legend-item{display:flex;gap:8px;align-items:center;width:100%;padding:7px;border:0;border-radius:9px;background:transparent;color:#eef6fb;text-align:left;cursor:pointer}.hz-legend-item:hover{background:rgba(255,255,255,.07)}.hz-legend-num{flex:0 0 24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#ff7a16;color:#08131b;font-size:.72rem;font-weight:950}.hz-legend-name{font-size:.72rem;font-weight:850;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:650px){.hz-card{max-width:calc(100vw - 100px)}.hz-sub{display:none}.hz-toggle{padding:9px 10px}.hz-stop-name{max-width:150px;font-size:.62rem;padding:5px 7px}.hz-legend{width:min(330px,calc(100vw - 28px));max-height:26vh}.hz-status{font-size:.66rem}}
 </style>
 </head>
 <body>
 <div id="map"></div>
-<div class="hz-top"><div class="hz-card"><div class="hz-brand">HORIZON</div><div class="hz-title" id="title">3D χάρτης ταξιδιού</div><div class="hz-sub">OpenStreetMap / OpenFreeMap · κάθε αριθμός δείχνει τη στάση του προγράμματος</div></div><button class="hz-toggle" id="toggle">2D / 3D</button></div>
+<div class="hz-top"><div class="hz-card"><div class="hz-brand">HORIZON</div><div class="hz-title" id="title">3D χάρτης ταξιδιού</div><div class="hz-sub">Πραγματική οδική διαδρομή · οι αριθμοί αντιστοιχούν στις στάσεις του ημερήσιου πλάνου</div></div><button class="hz-toggle" id="toggle">2D / 3D</button></div>
 <div class="hz-legend" id="legend"><div class="hz-legend-title">Στάσεις διαδρομής</div><div id="legendItems"></div></div>
 <div class="hz-status" id="status">Προετοιμασία χάρτη…</div>
 <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
@@ -25,9 +25,24 @@ const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.o
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
 let is3d=true;
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function esc(v){return String(v||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 async function geocode(query,label){
   const u=new URL('https://nominatim.openstreetmap.org/search');u.searchParams.set('format','jsonv2');u.searchParams.set('limit','1');u.searchParams.set('accept-language','el,en');u.searchParams.set('q',query);
-  const r=await fetch(u.toString(),{headers:{accept:'application/json'}});if(!r.ok)throw new Error(`geocode ${r.status}`);const a=await r.json();if(!a?.[0])return null;return {lng:Number(a[0].lon),lat:Number(a[0].lat),label:label||query};
+  const r=await fetch(u.toString(),{headers:{accept:'application/json'}});if(!r.ok)throw new Error(`geocode ${r.status}`);const a=await r.json();if(!a?.[0])return null;return {lng:Number(a[0].lon),lat:Number(a[0].lat),label:String(label||query).trim()||'Στάση'};
+}
+async function roadRoute(points){
+  if(points.length<2)return {coords:points.map(x=>[x.lng,x.lat]),distance:null,duration:null,routed:false};
+  const coords=points.map(x=>`${x.lng},${x.lat}`).join(';');
+  const endpoints=[
+    `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false&alternatives=false`,
+    `https://routing.openstreetmap.de/routed-car/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false&alternatives=false`
+  ];
+  for(const url of endpoints){
+    try{
+      const r=await fetch(url,{headers:{accept:'application/json'}});if(!r.ok)continue;const j=await r.json();const route=j?.routes?.[0];if(route?.geometry?.coordinates?.length>1)return {coords:route.geometry.coordinates,distance:Number(route.distance)||null,duration:Number(route.duration)||null,routed:true};
+    }catch(e){console.debug('Road router unavailable',e);}
+  }
+  return {coords:points.map(x=>[x.lng,x.lat]),distance:null,duration:null,routed:false};
 }
 function add3dBuildings(){
   if(map.getLayer('hz-3d-buildings'))return;
@@ -37,23 +52,38 @@ function add3dBuildings(){
   }catch(e){console.debug('3D buildings unavailable',e);}
 }
 function buildLegend(points){
-  legendItems.innerHTML='';points.forEach((pt,i)=>{const b=document.createElement('button');b.type='button';b.className='hz-legend-item';b.innerHTML=`<span class="hz-legend-num">${i+1}</span><span class="hz-legend-name"></span>`;b.querySelector('.hz-legend-name').textContent=pt.label;b.title=pt.label;b.addEventListener('click',()=>map.flyTo({center:[pt.lng,pt.lat],zoom:16,pitch:is3d?58:0,bearing:is3d?-10:0,duration:750}));legendItems.appendChild(b);});legend.classList.toggle('show',points.length>0);
+  legendItems.innerHTML='';points.forEach((pt,i)=>{const b=document.createElement('button');b.type='button';b.className='hz-legend-item';b.innerHTML=`<span class="hz-legend-num">${i+1}</span><span class="hz-legend-name"></span>`;b.querySelector('.hz-legend-name').textContent=pt.label||`Στάση ${i+1}`;b.title=pt.label||`Στάση ${i+1}`;b.addEventListener('click',()=>map.flyTo({center:[pt.lng,pt.lat],zoom:16,pitch:is3d?58:0,bearing:is3d?-10:0,duration:750}));legendItems.appendChild(b);});legend.classList.toggle('show',points.length>0);
 }
-function draw(points){
-  points.forEach((pt,i)=>{const el=document.createElement('div');el.className='hz-marker';el.textContent=String(i+1);const label=document.createElement('span');label.className='hz-marker-label';label.textContent=pt.label;el.appendChild(label);new maplibregl.Marker({element:el}).setLngLat([pt.lng,pt.lat]).setPopup(new maplibregl.Popup({offset:22}).setHTML(`<strong>${i+1}. ${pt.label.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}</strong>`)).addTo(map);});
+async function draw(points){
+  points.forEach((pt,i)=>{
+    const el=document.createElement('div');el.className='hz-stop-marker';
+    const num=document.createElement('span');num.className='hz-stop-num';num.textContent=String(i+1);
+    const name=document.createElement('span');name.className='hz-stop-name';name.textContent=pt.label||`Στάση ${i+1}`;
+    el.append(num,name);
+    new maplibregl.Marker({element:el,anchor:'left',offset:[-16,0]}).setLngLat([pt.lng,pt.lat]).setPopup(new maplibregl.Popup({offset:24}).setHTML(`<strong>${i+1}. ${esc(pt.label||`Στάση ${i+1}`)}</strong>`)).addTo(map);
+  });
   buildLegend(points);
-  if(points.length>1){map.addSource('hz-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:points.map(x=>[x.lng,x.lat])}}});map.addLayer({id:'hz-route',type:'line',source:'hz-route',paint:{'line-color':'#ff7a16','line-width':4,'line-opacity':.88}});}
-  if(points.length){const b=new maplibregl.LngLatBounds();points.forEach(x=>b.extend([x.lng,x.lat]));map.fitBounds(b,{padding:{top:100,bottom:120,left:100,right:180},maxZoom:15,duration:900});setTimeout(()=>map.easeTo({pitch:is3d?58:0,bearing:is3d?-10:0,duration:700}),950);}
+  let route={coords:[],routed:false,distance:null,duration:null};
+  if(points.length>1){
+    status.textContent='Υπολογισμός πραγματικής οδικής διαδρομής…';route=await roadRoute(points);
+    map.addSource('hz-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:route.coords}}});
+    map.addLayer({id:'hz-route-outline',type:'line',source:'hz-route',paint:{'line-color':'#ffffff','line-width':7,'line-opacity':.72}});
+    map.addLayer({id:'hz-route',type:'line',source:'hz-route',paint:{'line-color':'#ff7a16','line-width':4,'line-opacity':.96}});
+  }
+  if(points.length){const b=new maplibregl.LngLatBounds();points.forEach(x=>b.extend([x.lng,x.lat]));map.fitBounds(b,{padding:{top:100,bottom:120,left:110,right:250},maxZoom:15,duration:900});setTimeout(()=>map.easeTo({pitch:is3d?58:0,bearing:is3d?-10:0,duration:700}),950);}
+  const km=route.distance?route.distance/1000:null,mins=route.duration?Math.round(route.duration/60):null;
+  if(route.routed)status.textContent=`${points.length} στάσεις · πραγματική οδική διαδρομή${km?` ${km.toFixed(km<10?1:0)} km`:''}${mins?` · περίπου ${mins}′ οδήγηση`:''}. Τα ονόματα φαίνονται δίπλα στους αριθμούς και στη λίστα.`;
+  else status.textContent=points.length>1?`${points.length} στάσεις. Ο δημόσιος router δεν απάντησε, οπότε εμφανίζεται προσωρινά απλή σύνδεση· ξαναφόρτωσε τον χάρτη.`:`${points.length} στάση εντοπίστηκε.`;
 }
 map.on('load',async()=>{
   add3dBuildings();
   const labels=raw.length?raw:[destination].filter(Boolean),queries=raw.length?raw.map(x=>`${x}, ${destination}`):labels;const points=[];
   for(let i=0;i<queries.length;i++){
-    status.textContent=`Εντοπισμός σημείων ${i+1}/${queries.length}…`;
+    status.textContent=`Εντοπισμός στάσεων ${i+1}/${queries.length}…`;
     try{const pt=await geocode(queries[i],labels[i]);if(pt)points.push(pt);}catch(e){console.debug(e);}if(i<queries.length-1)await sleep(1050);
   }
   if(!points.length&&destination){try{const pt=await geocode(destination,destination);if(pt)points.push(pt);}catch(e){}}
-  draw(points);status.textContent=points.length?`Βρέθηκαν ${points.length} στάσεις. Τα ονόματα φαίνονται δίπλα στους αριθμούς και στη λίστα κάτω αριστερά.`:'Δεν εντοπίστηκαν αυτόματα σημεία. Ο χάρτης παραμένει διαθέσιμος για εξερεύνηση.';
+  await draw(points);
 });
 document.getElementById('toggle').addEventListener('click',()=>{is3d=!is3d;map.easeTo({pitch:is3d?58:0,bearing:is3d?-10:0,duration:650});const l=map.getLayer('hz-3d-buildings');if(l)map.setLayoutProperty('hz-3d-buildings','visibility',is3d?'visible':'none');});
 })();
