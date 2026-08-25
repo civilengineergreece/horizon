@@ -50,7 +50,7 @@ async function makePdf(data){
   for(const day of data.days){
     const page=pdf.addPage(A4);addHeader(page,`Ημέρα ${day.day}`,data.name);
     page.drawText('Τίτλος ημέρας',{x:38,y:720,size:8.5,font,color:ink});const title=form.createTextField(`day_${day.day}_title`);title.setText(day.title);title.addToPage(page,fieldOpts({x:38,y:680,width:390,height:30}));finishField(title,font,11);
-    let qr=null;try{qr=await pdf.embedPng(await qrBytes(day.mapUrl));page.drawImage(qr,{x:455,y:648,width:100,height:100});}catch(e){console.debug('Day QR skipped',e);}
+    try{const qr=await pdf.embedPng(await qrBytes(day.mapUrl));page.drawImage(qr,{x:455,y:648,width:100,height:100});}catch(e){console.debug('Day QR skipped',e);}
     page.drawText('Budget ημέρας από (€)',{x:38,y:656,size:7.5,font,color:muted});const blo=form.createTextField(`day_${day.day}_budget_low`);blo.setText(String(day.budget.low));blo.addToPage(page,fieldOpts({x:38,y:620,width:90,height:27}));finishField(blo,font,10);
     page.drawText('έως (€)',{x:150,y:656,size:7.5,font,color:muted});const bhi=form.createTextField(`day_${day.day}_budget_high`);bhi.setText(String(day.budget.high));bhi.addToPage(page,fieldOpts({x:150,y:620,width:90,height:27}));finishField(bhi,font,10);
     page.drawRectangle({x:260,y:620,width:168,height:27,color:rgb(.93,.97,.99),borderColor:rgb(.35,.65,.82),borderWidth:.8});page.drawText('3D χάρτης ημέρας',{x:288,y:630,size:8.5,font,color:rgb(.05,.28,.42)});addUriLink(pdf,page,day.mapUrl,260,620,168,27);
@@ -64,5 +64,6 @@ function download(bytes,name){const blob=new Blob([bytes],{type:'application/pdf
 function patchButtons(){document.querySelectorAll('.hz-itinerary-editor [data-download-pdf],.hz-itinerary-editor [data-download-pdf-fixed]').forEach(btn=>{btn.removeAttribute('data-download-pdf');btn.setAttribute('data-download-pdf-fixed','1');btn.textContent='Κατέβασε Planner v2 PDF';});}
 function burst(){[0,80,220,600,1200].forEach(ms=>setTimeout(patchButtons,ms));}
 function install(){burst();document.addEventListener('click',e=>{const btn=e.target.closest?.('[data-download-pdf-fixed]');if(!btn){burst();return;}e.preventDefault();e.stopImmediatePropagation();const editor=btn.closest('.hz-itinerary-editor');if(!editor)return;(async()=>{try{btn.disabled=true;status(editor,'Δημιουργία Planner v2 PDF με budget & QR…');const data=collect(editor),bytes=await makePdf(data);download(bytes,data.name);status(editor,'Το Planner v2 PDF δημιουργήθηκε: editable budget + QR προς 3D χάρτη.',true);}catch(err){console.error('Horizon PDF v2',err);status(editor,`Η δημιουργία PDF απέτυχε (${err?.message||'άγνωστο σφάλμα'}).`);}finally{btn.disabled=false;}})();},true);}
+window.HORIZON_PLANNER_V2_PDF={collect,makePdf,fileName};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
