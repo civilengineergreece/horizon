@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Horizon · 3D χάρτης ταξιδιού</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#06131d;color:#eef6fb}*{box-sizing:border-box}body{margin:0;background:#06131d}#map{position:fixed;inset:0}.hz-top{position:fixed;z-index:5;left:14px;right:14px;top:14px;display:flex;gap:10px;align-items:center;pointer-events:none}.hz-card{pointer-events:auto;max-width:min(720px,calc(100vw - 110px));padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:14px;background:rgba(5,20,31,.88);backdrop-filter:blur(12px);box-shadow:0 8px 30px rgba(0,0,0,.25)}.hz-brand{font-weight:950;letter-spacing:.08em;color:#ff7a16}.hz-title{font-weight:850;margin-top:2px}.hz-sub{font-size:.76rem;color:#a9bac6;margin-top:3px}.hz-toggle{pointer-events:auto;margin-left:auto;border:1px solid rgba(255,255,255,.18);background:#0b2536;color:#fff;border-radius:12px;padding:10px 12px;font-weight:850;cursor:pointer}.hz-status{position:fixed;z-index:5;left:14px;bottom:36px;max-width:min(680px,calc(100vw - 28px));padding:9px 12px;border-radius:12px;background:rgba(5,20,31,.86);color:#b7c7d2;font-size:.74rem;border:1px solid rgba(255,255,255,.11)}.hz-marker{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#ff7a16;color:#08131b;font-weight:950;border:2px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.35)}@media(max-width:600px){.hz-card{max-width:calc(100vw - 92px)}.hz-sub{display:none}.hz-toggle{padding:9px 10px}.hz-status{bottom:30px}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="hz-top"><div class="hz-card"><div class="hz-brand">HORIZON</div><div class="hz-title" id="title">3D χάρτης ταξιδιού</div><div class="hz-sub">OpenStreetMap / OpenFreeMap · οι γραμμές συνδέουν τα σημεία του ημερήσιου πλάνου</div></div><button class="hz-toggle" id="toggle">2D / 3D</button></div>
+<div class="hz-status" id="status">Προετοιμασία χάρτη…</div>
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script>
+(()=>{
+'use strict';
+const p=new URLSearchParams(location.search),destination=(p.get('d')||'').trim(),raw=(p.get('stops')||'').split('|').map(x=>x.trim()).filter(Boolean).slice(0,10);
+const title=document.getElementById('title'),status=document.getElementById('status');
+title.textContent=destination?`${destination} · 3D χάρτης`:'Horizon · 3D χάρτης';
+const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[23.7275,37.9838],zoom:11,pitch:55,bearing:-12,antialias:true});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
+let is3d=true;
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+async function geocode(text){
+  const u=new URL('https://nominatim.openstreetmap.org/search');u.searchParams.set('format','jsonv2');u.searchParams.set('limit','1');u.searchParams.set('accept-language','el,en');u.searchParams.set('q',text);
+  const r=await fetch(u.toString(),{headers:{accept:'application/json'}});if(!r.ok)throw new Error(`geocode ${r.status}`);const a=await r.json();if(!a?.[0])return null;return {lng:Number(a[0].lon),lat:Number(a[0].lat),label:text};
+}
+function add3dBuildings(){
+  if(map.getLayer('hz-3d-buildings'))return;
+  try{
+    const sources=map.getStyle()?.sources||{};const vectorId=Object.keys(sources).find(k=>sources[k]?.type==='vector');if(!vectorId)return;
+    map.addLayer({id:'hz-3d-buildings',type:'fill-extrusion',source:vectorId,'source-layer':'building',minzoom:14,paint:{'fill-extrusion-color':'#9aaab5','fill-extrusion-height':['to-number',['coalesce',['get','render_height'],['get','height'],6]],'fill-extrusion-base':['to-number',['coalesce',['get','render_min_height'],0]],'fill-extrusion-opacity':.68}});
+  }catch(e){console.debug('3D buildings unavailable',e);}
+}
+function draw(points){
+  points.forEach((pt,i)=>{const el=document.createElement('div');el.className='hz-marker';el.textContent=String(i+1);new maplibregl.Marker({element:el}).setLngLat([pt.lng,pt.lat]).setPopup(new maplibregl.Popup({offset:22}).setText(pt.label)).addTo(map);});
+  if(points.length>1){map.addSource('hz-route',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:points.map(x=>[x.lng,x.lat])}}});map.addLayer({id:'hz-route',type:'line',source:'hz-route',paint:{'line-color':'#ff7a16','line-width':4,'line-opacity':.88}});}
+  if(points.length){const b=new maplibregl.LngLatBounds();points.forEach(x=>b.extend([x.lng,x.lat]));map.fitBounds(b,{padding:70,maxZoom:15,duration:900});setTimeout(()=>map.easeTo({pitch:is3d?58:0,bearing:is3d?-10:0,duration:700}),950);}
+}
+map.on('load',async()=>{
+  add3dBuildings();
+  const queries=raw.length?raw.map(x=>`${x}, ${destination}`):[destination].filter(Boolean);const points=[];
+  for(let i=0;i<queries.length;i++){
+    status.textContent=`Εντοπισμός σημείων ${i+1}/${queries.length}…`;
+    try{const pt=await geocode(queries[i]);if(pt)points.push(pt);}catch(e){console.debug(e);}if(i<queries.length-1)await sleep(1050);
+  }
+  if(!points.length&&destination){try{const pt=await geocode(destination);if(pt)points.push(pt);}catch(e){}}
+  draw(points);status.textContent=points.length?`Βρέθηκαν ${points.length} σημεία. Σύρε, ζούμαρε ή πάτησε 2D / 3D.`:'Δεν εντοπίστηκαν αυτόματα σημεία. Ο χάρτης παραμένει διαθέσιμος για εξερεύνηση.';
+});
+document.getElementById('toggle').addEventListener('click',()=>{is3d=!is3d;map.easeTo({pitch:is3d?58:0,bearing:is3d?-10:0,duration:650});const l=map.getLayer('hz-3d-buildings');if(l)map.setLayoutProperty('hz-3d-buildings','visibility',is3d?'visible':'none');});
+})();
+</script>
+</body>
+</html>
