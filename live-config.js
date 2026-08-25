@@ -1,6 +1,5 @@
 window.HORIZON_LIVE_CONFIG={
   apiBase:'https://horizon-live-api.gnchristou.workers.dev',
-  emailPdfEndpoint:'https://horizon-live-api.gnchristou.workers.dev/email-pdf',
   enabled:true
 };
 (()=>{
