@@ -33,6 +33,7 @@ jobs:
           node --check src/index.js
           node --check src/index-v4.js
           if [ -f src/index-v5.js ]; then node --check src/index-v5.js; fi
+          if [ -f src/index-v6.js ]; then node --check src/index-v6.js; fi
       - name: Deploy Worker
         run: npx wrangler deploy
         env:
