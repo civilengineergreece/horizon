@@ -22,7 +22,9 @@ try{
         offers:[{seller:'Test Hotel Direct',official:true,roomName:'Double Room · Cot on request',
           numGuests:2,capacityStatus:'listed_capacity_sufficient_for_non_infants',total:270,currency:'EUR',
           taxStatus:'provider_reports_after_taxes_fees',bookingUrl:'https://example.com/booking',
-          freeCancellation:true,infantCotStatus:'unverified_contact_property'}]})});
+          freeCancellation:true,freeCancellationUntil:'2026-12-01',freeCancellationUntilTime:'6:00pm',
+          breakfastIncluded:true,beds:[{type:'Queen',count:1}],
+          infantCotStatus:'unverified_contact_property'}]})});
   });
   await page.route(/\/stays(\?|$)/,async route=>{
     const u=new URL(route.request().url());
@@ -99,6 +101,10 @@ try{
   assert.ok(detailsText.includes('Δωρεάν ακύρωση'));
   assert.ok(detailsText.includes('Η κούνια/διαμονή βρέφους δεν έχει επιβεβαιωθεί'));
   assert.ok(detailsText.includes('270,00'));
+  assert.ok(detailsText.includes('Πρωινό: περιλαμβάνεται'));
+  assert.ok(detailsText.includes('6:00pm'));
+  assert.ok(detailsText.includes('Queen'));
+  await page.waitForFunction(()=>!!window.HorizonHotelCheckoutAudit,null,{timeout:12000});
   assert.ok((await room.locator('a').getAttribute('href')).startsWith('https://example.com/booking'));
   await room.locator('[data-hotel-room-index]').click();
   const selectedRoom=await page.evaluate(()=>{
@@ -113,13 +119,51 @@ try{
   assert.equal(selectedRoom.bookingStatus,'quote_only_not_checked_out');
   console.log('Room details: PASS — requested party, price, cancellation, cot disclaimer and safe link');
 
-  const stayBreak=card.locator('.break').filter({hasText:'Επιλεγμένη διαμονή'});
+  await room.locator('[data-checkout-offer-index]').click();
+  const audit=page.locator('.hz-hotel-checkout-audit');
+  await audit.waitFor({timeout:5000});
+  assert.ok((await audit.innerText()).includes('δεν επαληθεύονται αυτόματα'));
+  assert.ok((await audit.locator('.hz-checkout-inquiry').inputValue()).includes('βρεφική κούνια'));
+
+  await audit.locator('[data-hotel-audit-save]').click();
+  assert.ok((await audit.locator('[data-checkout-message]').innerText()).includes('δεν αλλάζει το budget'));
+  let intermediate=await page.evaluate(()=>{
+    const k=Object.keys(localStorage).find(x=>x.startsWith('hz-hotel-selection-v1:'));
+    return k?JSON.parse(localStorage.getItem(k)):null;
+  });
+  assert.equal(intermediate.total,270,'Incomplete review must preserve source room quote');
+
+  await audit.locator('[name=checkoutSource]').selectOption('seller_checkout');
+  await audit.locator('[name=checkoutTotal]').fill('286,25');
+  await audit.locator('[name=totalCoverage]').selectOption('all_in');
+  await audit.locator('[name=cribStatus]').selectOption('paid');
+  await audit.locator('[name=cribFee]').fill('12,50');
+  await audit.locator('[name=climateStatus]').selectOption('included');
+  for(const name of ['datesConfirmed','partyConfirmed','roomConfirmed','infantIncluded','cancellationReviewed'])
+    await audit.locator('[name='+name+']').check();
+  await audit.locator('[data-hotel-audit-save]').click();
+  const final=await page.evaluate(()=>{
+    const k=Object.keys(localStorage).find(x=>x.startsWith('hz-hotel-selection-v1:'));
+    return k?JSON.parse(localStorage.getItem(k)):null;
+  });
+  assert.equal(final.bookingStatus,'checkout_user_reported_not_booked');
+  assert.equal(final.userCheckoutTotal,286.25);
+  assert.equal(final.total,286.25);
+  assert.equal(final.cribFee,12.5);
+  assert.equal(final.climateFeeIncluded,true);
+  assert.equal(final.reviewEvidence,'manual_seller_checkout');
+  assert.equal(final.possibleClimateFeeEUR,6);
+  assert.ok((await audit.locator('[data-checkout-message]').innerText()).includes('ΔΕΝ πραγματοποιήθηκε κράτηση'));
+  console.log('Seller checkout audit: PASS — incomplete rejected, manual all-in accepted, no doubled cot/climate fee, not booked');
+
+
+  const stayBreak=card.locator('.break').filter({hasText:'δηλωμένο checkout'});
   await stayBreak.waitFor({timeout:5000});
-  await page.waitForFunction(()=>[...document.querySelectorAll('.destination .break')].some(el=>el.innerText.includes('Επιλεγμένη διαμονή')&&el.innerText.includes('270')), {timeout:5000});
-  assert.ok((await stayBreak.innerText()).includes('270'),'Selected room quote should replace old property list quote');
+  await page.waitForFunction(()=>[...document.querySelectorAll('.destination .break')].some(el=>el.innerText.includes('δηλωμένο checkout')&&el.innerText.includes('286,25')),null,{timeout:5000});
+  assert.ok((await stayBreak.innerText()).includes('286,25'),'Manually reported all-in total should replace original room quote');
   const expected=await page.evaluate(()=>{
     const r=scored.find(x=>x.name==='Θεσσαλονίκη');
-    return Math.round(r.total-r.transport-r.accommodation+270+305.38+30);
+    return Math.round((r.total-r.transport-r.accommodation+286.25+305.38+30)*100)/100;
   });
   await page.evaluate(()=>{
     const key='hz-flight-selection-v2:hz-flights-v2:'+
@@ -128,9 +172,9 @@ try{
     document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:'Θεσσαλονίκη',selected:true}}));
   });
   await page.waitForTimeout(100);
-  assert.ok((await card.locator('.cost').innerText()).includes(expected.toLocaleString('el-GR')),
+  assert.ok((await card.locator('.cost').innerText()).includes(expected.toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})),
     'Hotel quote plus flight and airport ground fees should replace two estimates without double counting');
-  console.log('Hotel budget: PASS — selected €270 room quote plus €305.38 flight and €30 ground, old hotel/air estimates removed');
+  console.log('Hotel budget: PASS — manual €286.25 checkout plus €305.38 flight and €30 ground, old hotel/air estimates removed');
 
   await page.evaluate(()=>{
     state.dates.from='2026-12-10';
@@ -139,7 +183,7 @@ try{
   });
   await page.waitForTimeout(100);
   const refreshed=page.locator('.destination').filter({hasText:'Θεσσαλονίκη'});
-  assert.equal(await refreshed.locator('.break').filter({hasText:'Επιλεγμένη διαμονή'}).count(),0,
+  assert.equal(await refreshed.locator('.break').filter({hasText:'δηλωμένο checkout'}).count(),0,
     'Hotel quote from old dates must not count after changing trip dates');
   console.log('Hotel quote date safety: PASS');
 
