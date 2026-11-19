@@ -71,7 +71,7 @@ function isPlaneCard(name){
   if(s.transport==='plane'||r?.transportMode==='plane'||r?.transportDetails?.mode==='plane')return true;
   return Array.isArray(d.transport)&&d.transport.length===1&&d.transport[0]==='plane';
 }
-function euro(n){return `€${Math.round(Number(n)||0).toLocaleString('el-GR')}`;}
+function euro(n){return `€${(Number(n)||0).toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})}`;}
 function patchPlaneAmounts(card,name){
   if(!isPlaneCard(name))return false;
   const r=scoredByName(name);if(!r)return true;
@@ -90,7 +90,7 @@ function patchPlaneAmounts(card,name){
     else{if(label)label.textContent='Μεταφορά';if(value){value.textContent='Live τιμή →';value.classList.add('hz-await-live');}}
   }
   if(fare){
-    const liveTotal=Math.round(otherCostsWithStay+(includeTransport?fare+extras:0));
+    const liveTotal=Math.round((otherCostsWithStay+(includeTransport?fare+extras:0))*100)/100;
     if(cost)cost.innerHTML=`~${euro(liveTotal)} <span>${includeTransport?'με επιλεγμένη πτήση + ': 'πτήσεις εκτός budget · '}${stay?'επιλεγμένη διαμονή + ':''}ενδεικτικά λοιπά</span>`;
     if(remaining){const diff=budget-liveTotal;remaining.dataset.truth='1';remaining.textContent=diff>=0?`Με επιλεγμένη πτήση: μένουν ${euro(diff)}`:`Με επιλεγμένη πτήση: +${euro(Math.abs(diff))} πάνω από budget`;}
   }else{
