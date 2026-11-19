@@ -269,3 +269,49 @@ test('provider errors must not echo API keys in public responses',async()=>{
     assert.equal((await res.text()).includes('secret-should-not-leak'),false);
   }finally{globalThis.fetch=original;}
 });
+
+
+test('pinned booking lookup rejects an itinerary that differs from requested airports/date',async()=>{
+  const original=globalThis.fetch;let searches=0;
+  globalThis.fetch=async()=>{searches++;throw Error('should not query provider');};
+  try{
+    const response=await worker.fetch(new Request(base+'/flight-booking-options',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({origin:'Athens',destination:'Thessaloniki',
+        outboundDate:'2026-12-04',returnDate:'2026-12-06',adults:2,infants:1,
+        outboundSegments:[{flightNumber:'GQ380',departure:{airport:'SKG',time:'2026-12-04 07:30'},arrival:{airport:'ATH',time:'2026-12-04 08:25'}}],
+        returnSegments:[{flightNumber:'GQ389',departure:{airport:'SKG',time:'2026-12-06 22:00'},arrival:{airport:'ATH',time:'2026-12-06 23:00'}}]
+      })
+    }),{SERPAPI_API_KEY:'mock-only'},{});
+    assert.equal(response.status,400);
+    assert.equal((await response.json()).code,'PINNED_FLIGHT_MISMATCH');
+    assert.equal(searches,0);
+  }finally{globalThis.fetch=original;}
+});
+
+test('booking options preserve evidence of exact provider-selected flights when exposed',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>Response.json({
+    selected_flights:[
+      {flights:[{airline:'SKY express',flight_number:'GQ380',duration:55,
+        departure_airport:{id:'ATH',time:'2026-12-04 07:30'},arrival_airport:{id:'SKG',time:'2026-12-04 08:25'}}]},
+      {flights:[{airline:'SKY express',flight_number:'GQ389',duration:60,
+        departure_airport:{id:'SKG',time:'2026-12-06 22:00'},arrival_airport:{id:'ATH',time:'2026-12-06 23:00'}}]}
+    ],
+    booking_options:[{together:{book_with:'Official Seller',price:305.38}}]
+  });
+  try{
+    const req=new Request(base+'/flight-booking-options',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',returnDate:'2026-12-06',
+        adults:2,infants:1,bookingToken:'',
+        outboundSegments:[{flightNumber:'GQ380',departure:{airport:'ATH',time:'2026-12-04 07:30'},arrival:{airport:'SKG',time:'2026-12-04 08:25'}}],
+        returnSegments:[{flightNumber:'GQ389',departure:{airport:'SKG',time:'2026-12-06 22:00'},arrival:{airport:'ATH',time:'2026-12-06 23:00'}}]
+      })});
+    const response=await worker.fetch(req,{SERPAPI_API_KEY:'mock-only'},{});
+    assert.equal(response.status,200);
+    const data=await response.json();
+    assert.deepEqual(data.selectedItinerary.flatMap(g=>g.segments.map(s=>s.flightNumber)),['GQ380','GQ389']);
+    assert.equal(data.results[0].price,305.38);
+    assert.equal(data.infantBreakdownConfirmed,false);
+  }finally{globalThis.fetch=original;}
+});
