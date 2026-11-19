@@ -80,7 +80,7 @@ try{
   await page.evaluate(()=>{
     const key='hz-flight-selection-v2:hz-flights-v2:'+
       ['Αθήνα','Θεσσαλονίκη','2026-12-04','2026-12-06',2,0,1].join('|');
-    localStorage.setItem(key,JSON.stringify({at:Date.now(),fare:305.38,extras:30,scope:'roundtrip'}));
+    localStorage.setItem(key,JSON.stringify({at:Date.now(),editedAt:Date.now(),fare:305.38,extras:30,scope:'roundtrip'}));
     document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:'Θεσσαλονίκη',selected:true}}));
   });
   await page.waitForTimeout(100);
