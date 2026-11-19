@@ -18,6 +18,15 @@ try{
   const health=await fetch(root+'/health',{signal:AbortSignal.timeout(15000)});
   assert.equal(health.status,200);
   say('Worker','HTTP 200');
+  let schema=null;
+  for(let n=0;n<16;n++){
+    const r=await fetch(root+'/flight-capabilities',{signal:AbortSignal.timeout(12000)});
+    schema=r.ok?await r.json().catch(()=>null):null;
+    if(schema?.schemaVersion===3)break;
+    if(n<15)await new Promise(resolve=>setTimeout(resolve,10000));
+  }
+  say('Published strict flight schema',String(schema?.schemaVersion||'NOT READY'));
+  assert.equal(schema?.schemaVersion,3,'Worker deployment missing flight-price audit guards');
   const res=await fetch(root+'/flight-booking-options',{
     method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify(requested),signal:AbortSignal.timeout(30000)
