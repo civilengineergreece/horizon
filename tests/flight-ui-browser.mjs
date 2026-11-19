@@ -8,7 +8,7 @@ import {mkdirSync} from 'node:fs';
 import {chromium} from 'playwright';
 
 const site=process.env.HORIZON_TEST_URL||'http://127.0.0.1:8765/';
-const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1280,height:960}});
 const reports=[];
 function log(step,msg){reports.push(step+': '+msg);console.log(step+': '+msg);}
