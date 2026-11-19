@@ -47,7 +47,7 @@ function isoLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 function addDaysISO(iso,n){const d=parseISO(iso);if(!d)return '';d.setDate(d.getDate()+n);return isoLocal(d);}
 function pretty(iso){const d=parseISO(iso);return d?d.toLocaleDateString('el-GR',{day:'numeric',month:'short',year:'numeric'}):'—';}
 function money(v,c='EUR'){return new Intl.NumberFormat('el-GR',{style:'currency',currency:c||'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);}
-function safeUrl(v){try{const u=new URL(String(v||''));return u.protocol==='https:'?u.toString():'';}catch{return '';}}
+function safeUrl(v){try{const u=new URL(String(v||''));return u.protocol==='https:'&&!u.username&&!u.password?u.toString():'';}catch{return '';}}
 function hotelInfo(name){
   const s=travelState();
   const days=Math.max(1,Math.floor(Number(s.duration)||1));
@@ -58,6 +58,21 @@ function hotelInfo(name){
   const children=Math.max(0,Math.floor(Number(s.travelers?.children)||0));
   const infants=Math.max(0,Math.floor(Number(s.travelers?.infants)||0));
   return {name,days,nights,checkIn,checkOut,adults,children,infants,childrenAges:[]};
+}
+function bookingSearchUrl(info){
+  const u=new URL('https://www.booking.com/searchresults.html');
+  const dest=(window.HORIZON_DESTINATIONS||[]).find(d=>d.name===info.name)||{};
+  u.searchParams.set('ss',[info.name,dest.country].filter(Boolean).join(', '));
+  u.searchParams.set('checkin',info.checkIn);
+  u.searchParams.set('checkout',info.checkOut);
+  u.searchParams.set('group_adults',String(info.adults));
+  const ages=[...(info.childrenAges||[]),...Array(info.infants).fill(0)];
+  u.searchParams.set('group_children',String(ages.length));
+  ages.forEach(age=>u.searchParams.append('age',String(age)));
+  u.searchParams.set('no_rooms',String(Math.max(1,Math.ceil(info.adults/2))));
+  u.searchParams.set('selected_currency','EUR');
+  u.searchParams.set('lang','el');
+  return u.toString();
 }
 function removeLegacyStayLinks(pane){
   pane.querySelectorAll('.hd-cta-row a').forEach(a=>{
@@ -212,7 +227,8 @@ function roomOfferHTML(offer,index){
     'Μη επιβεβαιωμένη χωρητικότητα';
   const breakfast=offer.breakfastIncluded===true?'Πρωινό: περιλαμβάνεται':offer.breakfastIncluded===false?'Πρωινό: δεν περιλαμβάνεται':'Πρωινό: άγνωστο';
   const beds=Array.isArray(offer.beds)&&offer.beds.length?' · Κρεβάτια: '+offer.beds.map(b=>(b.count?b.count+'× ':'')+b.type).join(', '):' · Κρεβάτια: άγνωστα';
-  const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&Number(offer.total)>0&&!!offer.bookingUrl;
+  const safeBooking=safeUrl(offer.bookingUrl);
+  const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&Number(offer.total)>0&&!!safeBooking;
   return '<div class="hz-hotel-offer"><b>'+esc(offer.seller)+(offer.official?' · επίσημη σελίδα':'')+'</b>'+
     '<div>'+esc(offer.roomName||'Τύπος δωματίου μη διαθέσιμος')+'</div>'+
     '<div class="hz-hotel-room-price">'+money(offer.total,offer.currency)+'</div>'+
@@ -220,7 +236,7 @@ function roomOfferHTML(offer,index){
     '<p>'+esc(breakfast+beds)+'</p>'+
     '<p>'+(offer.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή αναφέρει φόρους και τέλη.':'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται.')+
     ' Η κούνια/διαμονή βρέφους δεν έχει επιβεβαιωθεί.</p>'+
-    (offer.bookingUrl?'<a href="'+esc(offer.bookingUrl)+'" target="_blank" rel="noopener noreferrer">Έλεγχος στην ιστοσελίδα πωλητή</a>':'<p>Δεν δόθηκε ασφαλής σύνδεσμος κράτησης.</p>')+
+    (safeBooking?'<a href="'+esc(safeBooking)+'" target="_blank" rel="noopener noreferrer">Έλεγχος στην ιστοσελίδα πωλητή</a>':'<p>Δεν δόθηκε ασφαλής σύνδεσμος κράτησης.</p>')+
     (valid?'<div><button type="button" class="hz-hotel-select" data-hotel-room-index="'+index+'">Προσθήκη συγκεκριμένης προσφοράς στο budget</button></div>':
       '<p>Δεν επιτρέπεται επιλογή χωρίς επιβεβαιωμένη χωρητικότητα για ενήλικες και παιδιά.</p>')+
     '</div>';
@@ -263,7 +279,7 @@ async function showRoomDetails(panel,index){
 function selectRoom(panel,index){
   const info=panel._hotelInfo,detail=panel._hotelDetails;
   const offer=detail?.data?.offers?.[index],hotel=detail?.hotel;
-  if(!info||!offer||!hotel||!offer.bookingUrl||offer.capacityStatus!=='listed_capacity_sufficient_for_non_infants'||
+  if(!info||!offer||!hotel||!safeUrl(offer.bookingUrl)||offer.capacityStatus!=='listed_capacity_sufficient_for_non_infants'||
      !hotelFresh(detail.data.retrievedAt)||!(Number(offer.total)>0)){
     panel.querySelector('.hz-hotel-selected').textContent='Η προσφορά δεν μπορεί να προστεθεί: χωρητικότητα, τιμή ή χρόνος ελέγχου δεν έχουν επιβεβαιωθεί.';return;
   }
@@ -283,7 +299,7 @@ function saveStaySelection(panel,info,hotel,option,retrievedAt){
     taxStatus:option.taxStatus||'taxes_and_fees_unknown',
     priceSource:option.priceSource||'Google Hotels',source:'Google Hotels via SerpApi',
     retrievedAt,roomName:option.roomName||null,seller:option.seller||null,
-    freeCancellation:option.freeCancellation??null,bookingUrl:option.bookingUrl||null,
+    freeCancellation:option.freeCancellation??null,bookingUrl:safeUrl(option.bookingUrl)||null,
     bookingKind:option.bookingKind||'property_list_quote',
     possibleClimateFeeEUR:fee?.amountEUR??null,climateFeeIncluded:null,
     bookingStatus:'quote_only_not_checked_out'};
@@ -447,6 +463,8 @@ function renderPanel(pane,name){
     ${info.children?`<div class="hz-hotel-ages"><label>Ηλικίες ${info.children} παιδιών (π.χ. 5,8 — χωρίς βρέφη)</label><input data-hotel-child-ages placeholder="Ηλικίες χωρισμένες με κόμμα" aria-label="Ηλικίες παιδιών"></div>`:''}
     <div class="hz-hotel-price-warning">Τα ${info.infants} βρέφη δηλώνονται στην Google Hotels με ηλικία 1, όπως απαιτεί το API. Η δωρεάν κούνια και τυχόν τέλη διαμονής δεν τεκμαίρονται. Το τελικό ποσό πληρωμής χρειάζεται επιβεβαίωση στο κατάλυμα.</div>
     <button type="button" class="hz-stay-load">Αναζήτηση live τιμών μέσα στο Horizon</button>
+    <button type="button" class="hz-hotel-detail-btn" data-booking-search>Σύγκριση και κράτηση στο Booking.com ↗</button>
+    <div class="hz-hotel-price-warning">Η εξωτερική αναζήτηση προ-συμπληρώνει ημερομηνίες, επισκέπτες και γνωστές ηλικίες. Έλεγξε αριθμό δωματίων, διαθεσιμότητα, τελικό checkout και όρους στον πάροχο. Το Horizon δεν πραγματοποιεί πληρωμή ή κράτηση.</div>
     <div class="hz-stay-status">Horizon browser cache 30′ + Cloudflare edge cache 6 ώρες για ίδια στοιχεία αναζήτησης.</div>
     <div class="hz-cache-badge"></div><div class="hz-hotel-selected" aria-live="polite">Δεν έχει επιλεγεί κατάλυμα για τον προϋπολογισμό.</div>
     <div class="hz-filters">
@@ -461,6 +479,21 @@ function renderPanel(pane,name){
     </div>
     <div class="hz-stay-results"></div><div class="hz-stay-summary"></div><button type="button" class="hz-hotel-next-page" hidden>Φόρτωση επόμενης σελίδας καταλυμάτων</button><div class="hz-hotel-detail" aria-live="polite">Επίλεξε «Δωμάτια · πωλητές · ακύρωση» για έλεγχο συγκεκριμένης προσφοράς.</div>`;
   panel.querySelector('.hz-stay-load').addEventListener('click',()=>searchStays(panel,info));
+  panel.querySelector('[data-booking-search]').addEventListener('click',()=>{
+    const status=panel.querySelector('.hz-stay-status');
+    let chosen=info;
+    if(info.children){
+      const raw=String(panel.querySelector('[data-hotel-child-ages]')?.value||'').split(',').map(s=>s.trim());
+      const ages=raw.map(Number);
+      if(raw.length!==info.children||raw.some(s=>!(/^[0-9]+$/.test(s)))||ages.some(a=>a<1||a>17)){
+        status.classList.add('error');
+        status.textContent='Για την εξωτερική αναζήτηση καταχώρισε πρώτα όλες τις ηλικίες παιδιών (1–17).';
+        return;
+      }
+      chosen={...info,childrenAges:ages};
+    }
+    window.open(bookingSearchUrl(chosen),'_blank','noopener,noreferrer');
+  });
   panel.querySelector('.hz-hotel-next-page').addEventListener('click',()=>loadNextPage(panel));
   panel.querySelector('.hz-stay-results').addEventListener('click',e=>{const btn=e.target.closest?.('[data-hotel-index]');if(btn)selectStay(panel,Number(btn.dataset.hotelIndex));const detail=e.target.closest?.('[data-hotel-details-index]');if(detail)showRoomDetails(panel,Number(detail.dataset.hotelDetailsIndex));});
   panel.querySelector('.hz-hotel-detail').addEventListener('click',e=>{const room=e.target.closest?.('[data-hotel-room-index]');if(room)selectRoom(panel,Number(room.dataset.hotelRoomIndex));});
