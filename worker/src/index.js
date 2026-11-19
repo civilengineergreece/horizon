@@ -306,6 +306,19 @@ function publicSelectedItinerary(data){
     segments:g.segments.map(s=>({flightNumber:s.flightNumber,departure:s.departure,arrival:s.arrival}))
   }));
 }
+function selectedPinComparison(itinerary,outboundPins,returnPins){
+  const expected=[...(outboundPins||[]),...(returnPins||[])];
+  if(!expected.length||!itinerary?.length)return 'not_provided';
+  const actual=itinerary.flatMap(g=>g.segments||[]);
+  if(actual.length!==expected.length)return 'mismatch';
+  const equal=actual.every((item,i)=>{
+    const pin=expected[i];
+    return String(item.flightNumber||'').replace(/\s+/g,'').toUpperCase()===pin.flight_number&&
+      item.departure?.airport===pin.departure_id&&item.arrival?.airport===pin.arrival_id&&
+      String(item.departure?.time||'').slice(0,10)===pin.date;
+  });
+  return equal?'confirmed':'mismatch';
+}
 async function flightBookingOptions(request,env,input){
   if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Χρειάζεται SerpApi key για live πτήσεις.',null,{code:'SERPAPI_KEY_REQUIRED'});
   const token=String(input?.bookingToken||'');
@@ -335,11 +348,14 @@ async function flightBookingOptions(request,env,input){
   for(const [k,v] of Object.entries(q))u.searchParams.set(k,v);
   const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
   const normalized=normalizeBookingOptions(data);
+  const selectedItinerary=publicSelectedItinerary(data);
+  const itineraryMatch=selectedPinComparison(selectedItinerary,outboundSegments,returnSegments);
+  if(itineraryMatch==='mismatch')return fail(request,env,502,'Ο πάροχος επέστρεψε διαφορετικές πτήσεις από την επιλογή σου.',null,{code:'ITINERARY_MISMATCH'});
   return reply(request,env,{ok:true,provider:'Google Flights Booking Options via SerpApi',
     fareScope:ret?'roundtrip_seller_options':'oneway_seller_options',
     currency:'EUR',origin,destination,outboundDate:outbound,returnDate:ret||null,
     adults,children,infants,results:normalized.results,baggage:normalized.baggage,
-    selectedItinerary:publicSelectedItinerary(data),
+    selectedItinerary,itineraryMatch,
     retrievedAt:new Date().toISOString(),
     lookupMethod:token?'booking_token':'selected_flights_json',infantBreakdownConfirmed:false,
     notice:'Οι προσφορές πωλητών, οι πολιτικές αποσκευών και οι χρεώσεις βρεφών υπόκεινται σε έλεγχο πριν την πληρωμή. Καμία τιμή δεν είναι εγγυημένη τιμή checkout.'},
