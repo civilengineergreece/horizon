@@ -91,6 +91,51 @@ try{
     record('Baggage policies','Available for '+details.data.results.filter(x=>
       (x.baggage?.together?.length||0)+(x.baggage?.departing?.length||0)+(x.baggage?.returning?.length||0)>0).length+' options');
     record('Infant fare breakdown','Not asserted, because live test has zero infants; revalidate infant charges separately');
+    // Independent family request: verify the actual provider receives two adults
+    // and an infant-on-lap (NOT a guarantee that checkout itemizes infant fees).
+    const familyFields=new URLSearchParams({
+      origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
+      returnDate:'2026-12-06',adults:'2',children:'0',infants:'1'
+    });
+    const familyOutbound=await request('/flights?'+familyFields);
+    record('Family outbound search (2 adults + 1 infant)','HTTP '+familyOutbound.status+'; '+(familyOutbound.data?.results?.length||0)+' options');
+    assert.equal(familyOutbound.status,200,'Provider failed on the actual family composition');
+    assert.equal(familyOutbound.data.adults,2);
+    assert.equal(familyOutbound.data.infants,1);
+    const familyChoice=familyOutbound.data.results?.find(x=>x.departureToken&&Number(x.price)>0);
+    assert.ok(familyChoice,'No live family outbound with departure_token');
+
+    const familyReturn=await request('/flight-returns',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({
+        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
+        returnDate:'2026-12-06',adults:2,children:0,infants:1,
+        departureToken:familyChoice.departureToken
+      })
+    });
+    record('Family return search (2 adults + 1 infant)','HTTP '+familyReturn.status+'; '+(familyReturn.data?.results?.length||0)+' options');
+    assert.equal(familyReturn.status,200);
+    assert.equal(familyReturn.data.infants,1);
+    const familyInbound=familyReturn.data.results?.find(x=>Number(x.price)>0 && x.departure?.airport==='SKG'&&x.arrival?.airport==='ATH');
+    assert.ok(familyInbound,'No matching family return fare');
+
+    const familySellers=await request('/flight-booking-options',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({
+        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
+        returnDate:'2026-12-06',adults:2,children:0,infants:1,
+        bookingToken:familyInbound.bookingToken||'',
+        outboundSegments:familyChoice.segments||[],returnSegments:familyInbound.segments||[]
+      })
+    });
+    record('Family seller offers (2 adults + 1 infant)','HTTP '+familySellers.status+'; '+(familySellers.data?.results?.length||0)+' seller quotes');
+    assert.equal(familySellers.status,200);
+    assert.equal(familySellers.data.adults,2);
+    assert.equal(familySellers.data.infants,1);
+    assert.ok(familySellers.data.results?.some(x=>Number(x.price)>0),'Seller returned no family price');
+    assert.equal(familySellers.data.infantBreakdownConfirmed,false,'No infant breakdown should be invented');
+    record('Family infant charge status','Family quote obtainable; infant-only fee and final checkout remain unverified');
+
   }
 
   record('Limitations','Offer != guaranteed checkout fare; baggage/infant charges and airport transfers remain unverified');
