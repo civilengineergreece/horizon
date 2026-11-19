@@ -31,7 +31,7 @@ function assess(a){
   if(!['included','excluded','not_applicable'].includes(a.climateStatus))
     problems.push('Η αντιμετώπιση του τέλους διαμονής/ανθεκτικότητας δεν έχει επιβεβαιωθεί.');
   if(a.climateApplicable&&a.climateStatus==='not_applicable')
-    problems.push('Για αυτό το ελληνικό ξενοδοχείο προβλέπεται τέλος ανθεκτικότητας: δεν μπορεί να δηλωθεί ως μη εφαρμοστέο.');
+    problems.push('Για το ελληνικό κατάλυμα το τέλος ανθεκτικότητας θεωρείται εφαρμοστέο, εκτός αν υπάρχει τεκμηριωμένη νόμιμη εξαίρεση. Μην επιλέγεις «δεν εφαρμόζεται» χωρίς επιβεβαίωση.');
   if(!a.cancellationReviewed)problems.push('Δεν έχουν ελεγχθεί οι όροι ακύρωσης.');
   if(a.capacityStatus==='insufficient')problems.push('Η πηγή δηλώνει ανεπαρκή χωρητικότητα για αυτό το δωμάτιο.');
   try{const u=new URL(a.bookingUrl);if(u.protocol!=='https:'||u.username||u.password)throw Error();}catch{problems.push('Δεν υπάρχει ασφαλής σύνδεσμος για τον συγκεκριμένο πωλητή.');}
@@ -169,11 +169,11 @@ function save(panel,root){
   const offer=details?.data?.offers?.[i],hotel=details?.hotel,info=panel._hotelInfo;
   if(!offer||!info||!hotel)return;
   const a=capture(root,offer,info);
-  a.climateApplicable=!!window.HORIZON_HOTEL_CLIMATE_FEE?.estimate?.({
-    checkInDate:info.checkIn,checkOutDate:info.checkOut,hotelClass:hotel.hotelClass,
-    type:hotel.type||'hotel',
-    countryCode:(window.HORIZON_DESTINATIONS||[]).some(d=>d.name===info.name&&d.region==='Ελλάδα')?'GR':null
-  });
+  // Paid stays at Greek hotels, rooms and vacation rentals normally carry the statutory fee.
+  // Even if the exact rate is unknown, "not applicable" must not silently pass the audit.
+  a.climateApplicable=(window.HORIZON_DESTINATIONS||[]).some(
+    d=>d.name===info.name&&d.region==='Ελλάδα'
+  );
   const out=assess(a);
   if(!out.complete){
     status(root,'Ανεπαρκής επαλήθευση · δεν αλλάζει το budget: '+out.problems.join(' '));return;
