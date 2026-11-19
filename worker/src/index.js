@@ -188,7 +188,7 @@ function normalizeGoogleHotel(item,currency,nights){
     amenities,priceSource:cleanText(item?.price_source||'Google Hotels',100),source:'Google Hotels'
   };
 }
-function inputFromUrl(url){return {destination:url.searchParams.get('destination'),checkInDate:url.searchParams.get('checkInDate'),checkOutDate:url.searchParams.get('checkOutDate'),adults:url.searchParams.get('adults'),children:url.searchParams.get('children'),infants:url.searchParams.get('infants'),childrenAges:url.searchParams.get('childrenAges')};}
+function inputFromUrl(url){return {destination:url.searchParams.get('destination'),checkInDate:url.searchParams.get('checkInDate'),checkOutDate:url.searchParams.get('checkOutDate'),adults:url.searchParams.get('adults'),children:url.searchParams.get('children'),infants:url.searchParams.get('infants'),childrenAges:url.searchParams.get('childrenAges'),nextPageToken:url.searchParams.get('nextPageToken')};}
 function parseChildAges(v){
   if(Array.isArray(v))return v.map(x=>Number(x));
   if(v==null||v==='')return [];
@@ -210,6 +210,9 @@ async function stays(request,env,input){
   const providerAges=[...childAges,...Array(infants).fill(1)];
   const providerChildren=providerAges.length;
   if(providerChildren>10)return fail(request,env,422,'Η Google Hotels δέχεται έως 10 παιδιά συνολικά.',null,{code:'TOO_MANY_CHILDREN'});
+  const nextPageToken=String(input.nextPageToken||'').trim();
+  if(nextPageToken&&!/^[A-Za-z0-9_+\/=\-]{1,2048}$/.test(nextPageToken))
+    return fail(request,env,400,'Μη έγκυρος κωδικός επόμενης σελίδας.',null,{code:'INVALID_NEXT_PAGE_TOKEN'});
   if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Χρειάζεται SerpApi key για live τιμές.',null,{code:'SERPAPI_KEY_REQUIRED'});
   const currency='EUR',providerUrl=new URL('https://serpapi.com/search.json');
   providerUrl.searchParams.set('engine','google_hotels');providerUrl.searchParams.set('q',destination);
@@ -218,12 +221,17 @@ async function stays(request,env,input){
   if(providerChildren)providerUrl.searchParams.set('children_ages',providerAges.join(','));
   providerUrl.searchParams.set('currency',currency);providerUrl.searchParams.set('gl','gr');providerUrl.searchParams.set('hl','el');
   providerUrl.searchParams.set('sort_by','3');providerUrl.searchParams.set('api_key',env.SERPAPI_API_KEY);
+  if(nextPageToken)providerUrl.searchParams.set('next_page_token',nextPageToken);
   const data=await fetchJson(providerUrl.toString(),{headers:{accept:'application/json'}});
   const properties=Array.isArray(data?.properties)?data.properties:[];
-  const results=properties.slice(0,20).map(x=>normalizeGoogleHotel(x,currency,nights)).filter(x=>x.name);
+  const retrievedAt=new Date().toISOString();
+  const results=properties.slice(0,20).map(x=>({...normalizeGoogleHotel(x,currency,nights),retrievedAt})).filter(x=>x.name);
+  const page=data?.serpapi_pagination||{};
+  const following=typeof page.next_page_token==='string'&&/^[A-Za-z0-9_+\/=\-]{1,2048}$/.test(page.next_page_token)?page.next_page_token:null;
   results.sort((a,b)=>(a.total??a.totalEstimate??1e15)-(b.total??b.totalEstimate??1e15));
   return reply(request,env,{ok:true,provider:'Google Hotels via SerpApi',destination,checkInDate:checkIn,checkOutDate:checkOut,nights,adults,children,infants,
-    childrenAges:childAges,providerChildren,providerAges,currency,results,retrievedAt:new Date().toISOString(),
+    childrenAges:childAges,providerChildren,providerAges,currency,results,retrievedAt,
+    pagination:{hasMore:!!following,nextPageToken:following,currentFrom:number(page.current_from,0)||null,currentTo:number(page.current_to,0)||null},
     disclaimer:'Τιμές Google Hotels για επιλεγμένες ημερομηνίες και ηλικίες. Έξοδα διαμονής, κλιματικής ανθεκτικότητας, τοπικοί φόροι και πολιτικές βρεφικής κούνιας χρειάζονται έλεγχο στο κατάλυμα πριν την κράτηση.',
     meta:{total:number(data?.search_information?.total_results,results.length),returned:results.length},
     cache:{enabled:true,layer:'cloudflare-workers-cache',ttlSeconds:WORKER_CACHE_TTL}},200,cacheHeaders());
