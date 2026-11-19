@@ -15,7 +15,7 @@ function flightCacheKey(name){const s=stateNow(),t=travelers(),d=flightDates(),o
 function cachedLiveFare(name){
   try{
     const key='hz-flight-selection-v2:'+flightCacheKey(name),v=JSON.parse(localStorage.getItem(key)||'null');
-    if(!v||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL)return null;
+    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL)return null;
     const expectedReturn=flightDates().to;
     if((expectedReturn&&v.scope!=='roundtrip')||(!expectedReturn&&v.scope!=='oneway'))return null;
     return Number(v.fare)>0?{fare:Number(v.fare),extras:Math.max(0,Number(v.extras)||0),scope:v.scope}:null;
