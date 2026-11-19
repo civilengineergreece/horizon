@@ -24,7 +24,7 @@ jobs:
       - name: Install browser test tools
         run: |
           npm install --no-save playwright
-          npx playwright install --with-deps chromium
+          google-chrome --version
       - name: Serve the exact PR branch for browser testing
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/horizon-ui-server.log 2>&1 &
