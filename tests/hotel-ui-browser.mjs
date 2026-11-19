@@ -18,6 +18,7 @@ try{
       headers:{'access-control-allow-origin':'*'},
       body:JSON.stringify({ok:true,provider:'Google Hotels Property Details via SerpApi',
         name:'Test Hotel Taxes Included',hotelClass:4,cribAdvertised:true,cribConfirmedForParty:false,
+        propertyUrl:'https://example.com/hotel',propertyPhone:'+30 2310 123456',
         retrievedAt:new Date().toISOString(),
         offers:[{seller:'Test Hotel Direct',official:true,roomName:'Double Room · Cot on request',
           numGuests:2,capacityStatus:'listed_capacity_sufficient_for_non_infants',total:270,currency:'EUR',
@@ -97,6 +98,11 @@ try{
   const room=page.locator('.hz-hotel-offer').filter({hasText:'Test Hotel Direct'});
   await room.waitFor({timeout:15000});
   assert.equal(detailSearches,1,'Property detail API should be requested on demand');
+  const hotelContact=page.locator('.hz-hotel-detail');
+  assert.equal(await hotelContact.locator('.hz-hotel-property-link').getAttribute('href'),'https://example.com/hotel');
+  assert.equal(await hotelContact.locator('.hz-hotel-property-phone').getAttribute('href'),'tel:+302310123456');
+  assert.ok((await hotelContact.innerText()).includes('δεν εγγυώνται δωμάτιο ή κούνια'));
+  console.log('Hotel direct contact: PASS — source website and sanitized click-to-call phone');
   const detailsText=await room.innerText();
   assert.ok(detailsText.includes('Δωρεάν ακύρωση'));
   assert.ok(detailsText.includes('Η κούνια/διαμονή βρέφους δεν έχει επιβεβαιωθεί'));

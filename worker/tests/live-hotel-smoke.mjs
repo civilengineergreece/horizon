@@ -43,6 +43,7 @@ try{
   assert.ok(live.body.pagination&&typeof live.body.pagination.hasMore==='boolean',
     'Production hotel API must expose trustworthy pagination metadata');
   mark('Google Hotels more pages',String(live.body.pagination.hasMore));
+  let secondPageItems=[];
   if(live.body.pagination.hasMore){
     const token=live.body.pagination.nextPageToken;
     assert.ok(typeof token==='string'&&token.length>0,'No valid nextPageToken');
@@ -55,6 +56,7 @@ try{
     assert.equal(next.body.infants,1);
     assert.equal(next.body.nights,2);
     assert.ok(next.body.results?.length>0,'Google Hotels page token returned no listings');
+    secondPageItems=next.body.results;
     const firstIds=new Set(live.body.results.map(x=>String(x.propertyToken||x.id||x.name)));
     const fresh=next.body.results.filter(x=>!firstIds.has(String(x.propertyToken||x.id||x.name)));
     mark('Unique second-page properties',String(fresh.length));
@@ -63,6 +65,27 @@ try{
       Number.isFinite(h.latitude)&&Number.isFinite(h.longitude));
     mark('Second-page geolocated properties',String(located2.length));
     assert.ok(located2.length>0,'No second-page hotels can be plotted on the map');
+  }
+
+  // Safe public properties only: no opaque property tokens, booking URLs, private identifiers or API secrets.
+  // These are shortlisting leads, NOT a claim of merchant checkout availability.
+  const seenHotels=new Set();
+  const allHotels=[...live.body.results,...secondPageItems].filter(h=>{
+    const id=String(h.propertyToken||h.id||h.name);
+    if(seenHotels.has(id))return false;seenHotels.add(id);return true;
+  });
+  const qualified=allHotels.filter(h=>Number(h.total)>0&&Number(h.rating)>=4.3&&
+    Number(h.reviews)>=20&&Number(h.hotelClass)>=3&&Number(h.hotelClass)<=5);
+  const choices=(qualified.length>=3?qualified:allHotels.filter(h=>Number(h.total)>0&&
+    Number(h.rating)>=4.0)).sort((a,b)=>Number(a.total)-Number(b.total)).slice(0,10);
+  mark('Shortlist candidate count',String(choices.length)+' (2 adults + infant, same two nights)');
+  for(const [i,h] of choices.entries()){
+    mark('Candidate '+(i+1),
+      String(h.name||'Unknown').replace(/[\r\n]/g,' ').slice(0,100)+
+      ' | 2-night Google Hotels total €'+Number(h.total).toFixed(2)+
+      ' | '+(Number(h.hotelClass)||'?')+' stars'+
+      ' | '+(Number(h.rating)||'?')+'/5 from '+(Number(h.reviews)||0)+' reviews'+
+      ' | taxes '+String(h.taxStatus)+' | MERCHANT CHECKOUT + COT UNKNOWN');
   }
 
   assert.ok(live.body.results.every(x=>Number.isFinite(Date.parse(x.retrievedAt))),
@@ -88,6 +111,8 @@ try{
   assert.equal(details.nights,2);
   assert.equal(details.cribConfirmedForParty,false,'Crib availability must never be invented');
   assert.ok(Array.isArray(details.offers),'Missing normalized property room list');
+  mark('Source property website',details.propertyUrl?'HTTPS link provided':'not provided');
+  mark('Source property phone',details.propertyPhone?'public phone provided':'not provided');
   mark('Named room offers',details.offers.filter(x=>x.roomName).length+' / '+details.offers.length);
   mark('Breakfast term coverage',details.offers.filter(x=>x.breakfastIncluded!==null).length+' / '+details.offers.length);
   mark('Bed term coverage',details.offers.filter(x=>x.beds?.length>0).length+' / '+details.offers.length);
