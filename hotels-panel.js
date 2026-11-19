@@ -57,7 +57,9 @@ function hotelInfo(name){
   const adults=Math.max(1,Math.floor(Number(s.travelers?.adults)||1));
   const children=Math.max(0,Math.floor(Number(s.travelers?.children)||0));
   const infants=Math.max(0,Math.floor(Number(s.travelers?.infants)||0));
-  return {name,days,nights,checkIn,checkOut,adults,children,infants,childrenAges:[]};
+  const ages=Array.isArray(s.travelers?.childrenAges)?s.travelers.childrenAges.map(Number):[];
+  const childrenAges=ages.length===children&&ages.every(a=>Number.isInteger(a)&&a>=2&&a<=11)?ages:[];
+  return {name,days,nights,checkIn,checkOut,adults,children,infants,childrenAges};
 }
 function removeLegacyStayLinks(pane){
   pane.querySelectorAll('.hd-cta-row a').forEach(a=>{
@@ -65,7 +67,7 @@ function removeLegacyStayLinks(pane){
     if(t.includes('booking')||t.includes('google hotels'))a.remove();
   });
 }
-function selectionKey(info){return `hz-hotel-selection-v1:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants].join('|')}`;}
+function selectionKey(info){return `hz-hotel-selection-v1:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...(info.children?(info.childrenAges||[]):[])].join('|')}`;}
 function clearSelected(info){try{localStorage.removeItem(selectionKey(info));}catch{}document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{detail:{destination:info.name,selected:false}}));}
 function localKey(info){
   return `hz-hotel-cache-v3:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...(info.childrenAges||[])].join('|')}`;
@@ -377,14 +379,21 @@ async function searchStays(panel,info){
   const status=panel.querySelector('.hz-stay-status');
   const agesInput=panel.querySelector('[data-hotel-child-ages]');
   if(info.children>0){
-    const ages=String(agesInput?.value||'').split(',').map(x=>Number(x.trim()));
-    if(ages.length!==info.children||ages.some(a=>!Number.isInteger(a)||a<1||a>17)){
-      status.classList.add('error');status.textContent=`Συμπλήρωσε ${info.children} ηλικίες παιδιών (1–17), χωρισμένες με κόμμα. Η ηλικία βρέφους περνά αυτόματα ως 1.`;return;
+    const raw=String(agesInput?.value||'').split(',').map(x=>x.trim());
+    const ages=raw.map(Number);
+    if(raw.length!==info.children||raw.some(v=>!/^[0-9]+$/.test(v))||
+       ages.some(a=>!Number.isInteger(a)||a<2||a>11)){
+      status.classList.add('error');status.textContent=`Συμπλήρωσε ${info.children} ηλικίες παιδιών (2–11), χωρισμένες με κόμμα. Τα βρέφη κάτω των 2 δηλώνονται ξεχωριστά και περνούν ως ηλικία 1 στο API.`;return;
     }
     info={...info,childrenAges:ages};
   }
   const prior=panel._hotelInfo;
-  if(prior&&JSON.stringify(prior.childrenAges)!==JSON.stringify(info.childrenAges))clearSelected(info);
+  if(prior&&JSON.stringify(prior.childrenAges)!==JSON.stringify(info.childrenAges))clearSelected(prior);
+  const s=travelState();
+  if(s.travelers&&JSON.stringify(s.travelers.childrenAges||[])!==JSON.stringify(info.childrenAges)){
+    s.travelers.childrenAges=[...info.childrenAges];
+    try{if(typeof save==='function')save();}catch{}
+  }
   panel._hotelInfo=info;
   const local=localRead(info);
   if(local){
@@ -431,7 +440,7 @@ function renderPanel(pane,name){
   const people=info.adults+info.children+info.infants;
   if(!panel){panel=document.createElement('section');panel.className='hz-hotels-panel';pane.appendChild(panel);}
   if(info.nights===0){panel.innerHTML='<h4>Ξενοδοχεία & καταλύματα</h4><div class="hz-hotels-copy">Έχεις επιλέξει μονοήμερη εκδρομή, οπότε δεν απαιτείται διανυκτέρευση.</div>';return;}
-  const signature=[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants].join('|');
+  const signature=[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...info.childrenAges].join('|');
   if(panel.dataset.signature===signature)return;
   panel.dataset.signature=signature;
   panel.innerHTML=`
@@ -445,8 +454,8 @@ function renderPanel(pane,name){
       <div class="hz-hotel-chip"><small>Ταξιδιώτες</small><b>${people} συνολικά</b></div>
       <div class="hz-hotel-chip"><small>Αποτελέσματα</small><b>έως 20 ανά live αναζήτηση</b></div>
     </div>
-    ${info.children?`<div class="hz-hotel-ages"><label>Ηλικίες ${info.children} παιδιών (π.χ. 5,8 — χωρίς βρέφη)</label><input data-hotel-child-ages placeholder="Ηλικίες χωρισμένες με κόμμα" aria-label="Ηλικίες παιδιών"></div>`:''}
-    <div class="hz-hotel-price-warning">Τα ${info.infants} βρέφη δηλώνονται στην Google Hotels με ηλικία 1, όπως απαιτεί το API. Η δωρεάν κούνια και τυχόν τέλη διαμονής δεν τεκμαίρονται. Το τελικό ποσό πληρωμής χρειάζεται επιβεβαίωση στο κατάλυμα.</div>
+    ${info.children?`<div class="hz-hotel-ages"><label>Ηλικίες ${info.children} παιδιών, 2–11 ετών (π.χ. 5,8 — χωρίς βρέφη)</label><input data-hotel-child-ages value="${esc(info.childrenAges.join(','))}" placeholder="Ηλικίες χωρισμένες με κόμμα" aria-label="Ηλικίες παιδιών"></div>`:''}
+    <div class="hz-hotel-price-warning">${info.infants?`Τα ${info.infants} βρέφη (κάτω των 2 ετών) δηλώνονται στη Google Hotels/SerpApi με ηλικία 1. Η κούνια, η αποδοχή βρέφους και η τυχόν χρέωση απαιτούν επιβεβαίωση από τον πωλητή. `:''}Η τιμή πηγής δεν αποδεικνύει ότι περιλαμβάνει όλα τα τέλη. Το τέλος ανθεκτικότητας αφορά δωμάτια και διανυκτερεύσεις, όχι αριθμό επισκεπτών. Για περισσότερα από ένα δωμάτια το ποσό δεν τεκμαίρεται από την εκτίμηση ενός δωματίου.</div>
     <button type="button" class="hz-stay-load">Αναζήτηση live τιμών μέσα στο Horizon</button>
     <div class="hz-stay-status">Horizon browser cache 30′ + Cloudflare edge cache 6 ώρες για ίδια στοιχεία αναζήτησης.</div>
     <div class="hz-cache-badge"></div><div class="hz-hotel-selected" aria-live="polite">Δεν έχει επιλεγεί κατάλυμα για τον προϋπολογισμό.</div>
