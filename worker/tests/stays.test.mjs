@@ -79,9 +79,11 @@ test('health-style hotel capabilities endpoint is free of provider calls',async(
     const res=await worker.fetch(new Request(base+'/hotel-capabilities'),{},{});
     assert.equal(res.status,200);
     const data=await res.json();
-    assert.equal(data.schemaVersion,3);
+    assert.equal(data.schemaVersion,4);
     assert.equal(data.nightlyEstimateNeverReportedAsActualTotal,true);
     assert.equal(data.hotelRoomOffers,true);
+    assert.equal(data.hotelPagination,true);
+    assert.equal(data.hotelMapCoordinates,true);
   }finally{globalThis.fetch=original;}
 });
 
