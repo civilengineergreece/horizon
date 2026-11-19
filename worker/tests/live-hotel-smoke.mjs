@@ -17,12 +17,12 @@ try{
   let capabilities;
   for(let attempt=0;attempt<16;attempt++){
     capabilities=await get('/hotel-capabilities');
-    if(capabilities.status===200&&capabilities.body.schemaVersion===2)break;
+    if(capabilities.status===200&&capabilities.body.schemaVersion===3)break;
     if(attempt<15)await new Promise(resolve=>setTimeout(resolve,10000));
   }
   mark('Hotel API production version','HTTP '+capabilities.status+'; schema '+String(capabilities.body.schemaVersion||'not published'));
   assert.equal(capabilities.status,200,'New hotel Worker not deployed');
-  assert.equal(capabilities.body.schemaVersion,2,'New hotel pricing schema not deployed');
+  assert.equal(capabilities.body.schemaVersion,3,'New hotel pricing schema not deployed');
   const params=new URLSearchParams({
     destination:'Thessaloniki',checkInDate:'2026-12-04',
     checkOutDate:'2026-12-06',adults:'2',children:'0',infants:'1'
@@ -41,6 +41,27 @@ try{
     else if(Number(h.totalEstimate)>0)assert.equal(h.taxStatus,'total_not_provided');
   }
   mark('Infant occupancy','PASS: 2 adults + infant age 1 represented accurately');
+
+  // Independent property-details API call; never log property token, provider key,
+  // booking links, or any personally identifying guest data.
+  const hotel=live.body.results.find(x=>/^[A-Za-z0-9_-]{10,220}$/.test(String(x.propertyToken||'')));
+  assert.ok(hotel,'No Google Hotels listing exposed a usable property token');
+  const detailResponse=await fetch(base+'/hotel-details',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({propertyToken:hotel.propertyToken,checkInDate:'2026-12-04',checkOutDate:'2026-12-06',
+      adults:2,children:0,infants:1}),signal:AbortSignal.timeout(26000)});
+  const details=await detailResponse.json().catch(()=>({}));
+  mark('Real family property details','HTTP '+detailResponse.status+'; '+(details.offers?.length||0)+' seller/room offers');
+  assert.equal(detailResponse.status,200,'Hotel details search failed: '+String(details.code||details.error||''));
+  assert.equal(details.adults,2);
+  assert.equal(details.infants,1);
+  assert.equal(details.nights,2);
+  assert.equal(details.cribConfirmedForParty,false,'Crib availability must never be invented');
+  assert.ok(Array.isArray(details.offers),'Missing normalized property room list');
+  mark('Named room offers',details.offers.filter(x=>x.roomName).length+' / '+details.offers.length);
+  mark('Safe seller links',details.offers.filter(x=>x.bookingUrl?.startsWith('https://')).length+' / '+details.offers.length);
+  mark('Cancellation terms',details.offers.filter(x=>x.freeCancellation!==null).length+' / '+details.offers.length);
+  mark('Named room checkout','NOT guaranteed; only a merchant link and a quoted amount are available');
+
   mark('Pricing integrity','PASS: provider totals and estimated totals are identified separately');
   mark('Taxes / checkout','Amounts may omit local climate resilience and other checkout charges; not guaranteed');
   mark('RESULT','PASS');
