@@ -79,7 +79,29 @@ function hotelGuestCount(v){
   const n=match?Number(match[1]):null;
   return Number.isInteger(n)&&n>=1&&n<=30?n:null;
 }
-function hotelOffer(item,seller,official,roomName,guestCount,fallbackLink){
+function hotelBeds(raw){
+  return (Array.isArray(raw)?raw:[]).slice(0,8).map(b=>({
+    type:cleanText(b?.type||'',45),
+    count:Number.isInteger(Number(b?.count))&&Number(b.count)>0&&Number(b.count)<=8?Number(b.count):null
+  })).filter(x=>x.type);
+}
+function hotelCribAmenity(details){
+  const candidates=[
+    ...(Array.isArray(details?.amenities)?details.amenities.map(x=>({title:x,available:true})):[]),
+    ...(Array.isArray(details?.amenities_detailed?.popular)?details.amenities_detailed.popular:[]),
+    ...(Array.isArray(details?.amenities_detailed?.groups)?details.amenities_detailed.groups.flatMap(
+      group=>Array.isArray(group?.list)?group.list:[]):[])
+  ];
+  const match=candidates.find(x=>/\bcrib\b|\bbaby cot\b|\binfant bed\b|βρεφικ|κούνια|κρεβατάκι/i.test(String(x?.title||''))&&x?.available!==false);
+  if(!match)return {advertised:false,feeHint:'unknown',source:'none'};
+  const label=String(match.label||'').toLowerCase();
+  return {
+    advertised:true,feeHint:/\bfree\b|δωρεάν/i.test(label)?'property_lists_free':
+      /extra\s+charge|additional\s+fee|χρέωσ/i.test(label)?'property_lists_extra_charge':'unknown',
+    source:'property_amenity_not_room_confirmation'
+  };
+}
+function hotelOffer(item,seller,official,roomName,guestCount,fallbackLink,roomBeds){
   const quote=hotelPriceTotal(item?.total_rate||{});
   const link=safeUrl(item?.link)||safeUrl(fallbackLink);
   return {
@@ -93,6 +115,9 @@ function hotelOffer(item,seller,official,roomName,guestCount,fallbackLink){
     bookingUrl:link,
     freeCancellation:item?.free_cancellation===true?true:item?.free_cancellation===false?false:null,
     freeCancellationUntil:cleanText(item?.free_cancellation_until_date||'',80)||null,
+    freeCancellationUntilTime:cleanText(item?.free_cancellation_until_time||'',40)||null,
+    breakfastIncluded:item?.breakfast_included===true?true:item?.breakfast_included===false?false:null,
+    beds:hotelBeds(item?.beds||roomBeds),
     bookingStatus:'linked_offer_not_checked_out'
   };
 }
@@ -114,16 +139,19 @@ function normalizeHotelDetails(data,adults,children){
       for(const room of rooms.slice(0,12)){
         const rates=Array.isArray(room.rates)&&room.rates.length?room.rates:[room];
         for(const rate of rates.slice(0,8))add(hotelOffer(rate,seller.source,seller.official,room.name,
-          rate.num_guests??room.num_guests??seller.num_guests,rate.link||room.link||seller.link));
+          rate.num_guests??room.num_guests??seller.num_guests,rate.link||room.link||seller.link,room.beds));
       }
     }else add(hotelOffer(seller,seller.source,seller.official,null,seller.num_guests,seller.link));
   }
-  const amenities=Array.isArray(details.amenities)?details.amenities:[];
+  const crib=hotelCribAmenity(details);
   return {
     name:cleanText(details.name||'Κατάλυμα',180),address:cleanText(details.address||'',250)||null,
     hotelClass:hotelStars(details.hotel_class),
     propertyUrl:safeUrl(details.link),
-    cribAdvertised:amenities.some(x=>/\bcrib\b|\bcot\b|βρεφικ|κούνια/i.test(String(x))),
+    propertyPhone:cleanText(details.phone||'',60)||null,
+    cribAdvertised:crib.advertised,
+    cribFeeHint:crib.feeHint,
+    cribEvidenceScope:crib.source,
     cribConfirmedForParty:false,
     offers:out.sort((a,b)=>a.total-b.total).slice(0,35)
   };
@@ -488,7 +516,7 @@ export default {
       }
       if(url.pathname==='/hotel-capabilities'){
         return reply(request,env,{ok:true,service:'Horizon Hotel Pricing',
-          schemaVersion:4,hotelRoomOffers:true,hotelPagination:true,hotelMapCoordinates:true,infantAgeRule:'infant_is_age_1_for_google_hotels',
+          schemaVersion:5,hotelRoomOffers:true,hotelPagination:true,hotelMapCoordinates:true,hotelRoomTerms:true,infantAgeRule:'infant_is_age_1_for_google_hotels',
           requiresAgesForOtherChildren:true,taxBasisLabels:true,
           nightlyEstimateNeverReportedAsActualTotal:true
         },200,{'cache-control':'no-store'});
