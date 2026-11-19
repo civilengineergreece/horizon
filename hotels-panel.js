@@ -64,7 +64,7 @@ function hotelInfo(name){
 function removeLegacyStayLinks(pane){
   pane.querySelectorAll('.hd-cta-row a').forEach(a=>{
     const t=a.textContent.toLowerCase();
-    if(t.includes('booking')||t.includes('google hotels'))a.remove();
+    if(t.includes('booking'))a.remove(); // Keep Google Hotels as the agreed external comparison link.
   });
 }
 function selectionKey(info){return `hz-hotel-selection-v1:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...(info.children?(info.childrenAges||[]):[])].join('|')}`;}
