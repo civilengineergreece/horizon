@@ -1,0 +1,26 @@
+name: Horizon SKY express exact-flight independent audit
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'worker/src/index.js'
+      - 'worker/tests/live-sky-pinned-audit.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-flight-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check worker/tests/live-sky-pinned-audit.mjs
+      - name: Audit user-confirmed SKY express itinerary against production SerpApi
+        run: node worker/tests/live-sky-pinned-audit.mjs
