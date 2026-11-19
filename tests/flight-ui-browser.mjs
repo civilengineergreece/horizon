@@ -135,6 +135,24 @@ try{
   assert.equal(stale.length,0);
   log('Reset','Changing outbound clears prior selected fare');
 
+  // Choose a fresh complete itinerary, then change the flight dates.
+  // The Planner duration, total budget inputs and old selection must follow.
+  await page.locator('[data-flight-step="outbound"]').click();
+  await page.locator('[data-flight-step="return"]').waitFor({timeout:15000});
+  await page.locator('[data-flight-step="return"]').click();
+  const beforeDateChange=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('hz-flight-selection-v2:')));
+  assert.equal(beforeDateChange.length,1);
+  await page.locator('.hz-auto-trip-edit').first().click();
+  await page.locator('.hz-flight-from').fill('2026-12-10');
+  await page.locator('.hz-flight-to').fill('2026-12-15');
+  const dateState=await page.evaluate(()=>({from:state.dates.from,duration:state.duration}));
+  assert.equal(dateState.from,'2026-12-10');
+  assert.equal(dateState.duration,6);
+  assert.equal(await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('hz-flight-selection-v2:')).length),0);
+  assert.ok((await page.locator('#resultsCard').innerText()).includes('6 ημέρες'),'New duration should appear in rendered results');
+  log('Date/budget sync','Flight dates 10–15 Dec synchronized to six-day Planner duration; old fare invalidated');
+
+
   console.log('RESULT: PASS — browser interactions against served PR branch with mocked provider responses');
 }catch(e){
   console.error('RESULT: FAIL',e?.stack||String(e));
