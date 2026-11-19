@@ -142,7 +142,7 @@ try{
   await page.locator('[data-flight-step="return"]').click();
   const beforeDateChange=await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('hz-flight-selection-v2:')));
   assert.equal(beforeDateChange.length,1);
-  await page.locator('.hz-auto-trip-edit').first().click();
+  await page.locator('.hz-flights-panel .hz-auto-trip-edit').click();
   await page.locator('.hz-flight-from').fill('2026-12-10');
   await page.locator('.hz-flight-to').fill('2026-12-15');
   const dateState=await page.evaluate(()=>({from:state.dates.from,duration:state.duration}));
