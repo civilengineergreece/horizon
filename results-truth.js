@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const STYLE_ID='horizon-estimate-truth-style',FLIGHT_CACHE_PREFIX='hz-flights-v1:',FLIGHT_CACHE_TTL=30*60*1000;
+const STYLE_ID='horizon-estimate-truth-style',FLIGHT_CACHE_PREFIX='hz-flights-v2:',FLIGHT_CACHE_TTL=30*60*1000;
 function installStyles(){
   if(document.getElementById(STYLE_ID))return;
   const s=document.createElement('style');s.id=STYLE_ID;s.textContent=`
@@ -14,10 +14,11 @@ function flightDates(){const s=stateNow(),from=s.dates?.from||'',days=Math.max(1
 function flightCacheKey(name){const s=stateNow(),t=travelers(),d=flightDates(),origin=s.origin||'Αθήνα';return `${FLIGHT_CACHE_PREFIX}${[origin,name,d.from,d.to,t.adults,t.children,t.infants].join('|')}`;}
 function cachedLiveFare(name){
   try{
-    const v=JSON.parse(localStorage.getItem(flightCacheKey(name))||'null');
+    const key='hz-flight-selection-v2:'+flightCacheKey(name),v=JSON.parse(localStorage.getItem(key)||'null');
     if(!v||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL)return null;
-    const prices=(Array.isArray(v.data?.results)?v.data.results:[]).map(x=>Number(x?.price)).filter(x=>Number.isFinite(x)&&x>0);
-    return prices.length?Math.min(...prices):null;
+    const expectedReturn=flightDates().to;
+    if((expectedReturn&&v.scope!=='roundtrip')||(!expectedReturn&&v.scope!=='oneway'))return null;
+    return Number(v.fare)>0?{fare:Number(v.fare),extras:Math.max(0,Number(v.extras)||0),scope:v.scope}:null;
   }catch{return null;}
 }
 function scoredByName(name){return (typeof scored!=='undefined'&&Array.isArray(scored)?scored:[]).find(x=>x.name===name)||null;}
@@ -32,17 +33,17 @@ function patchPlaneAmounts(card,name){
   if(!isPlaneCard(name))return false;
   const r=scoredByName(name);if(!r)return true;
   const breaks=[...card.querySelectorAll('.break')],transportBox=breaks.find(x=>/μεταφορ/i.test(x.querySelector('span')?.textContent||''));
-  const fare=cachedLiveFare(name),cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
+  const selection=cachedLiveFare(name),fare=selection?.fare||null,extras=selection?.extras||0,cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
   const estimatedTransport=Number(r.transport)||0,baseWithoutTransport=Math.max(0,(Number(r.total)||0)-estimatedTransport),budget=Number(stateNow().budget?.amount)||0;
   if(transportBox){
     const label=transportBox.querySelector('span'),value=transportBox.querySelector('b');
-    if(fare){if(label)label.textContent='Live μεταφορά';if(value){value.textContent=euro(fare);value.classList.add('hz-live-value');}}
+    if(fare){if(label)label.textContent='Επιλεγμένη αεροπορική μεταφορά';if(value){value.textContent=euro(fare+extras);value.classList.add('hz-live-value');}}
     else{if(label)label.textContent='Μεταφορά';if(value){value.textContent='Live τιμή →';value.classList.add('hz-await-live');}}
   }
   if(fare){
-    const liveTotal=Math.round(baseWithoutTransport+fare);
-    if(cost)cost.innerHTML=`~${euro(liveTotal)} <span>με live μεταφορά + ενδεικτικά λοιπά</span>`;
-    if(remaining){const diff=budget-liveTotal;remaining.dataset.truth='1';remaining.textContent=diff>=0?`Με live μεταφορά: μένουν ${euro(diff)}`:`Με live μεταφορά: +${euro(Math.abs(diff))} πάνω από budget`;}
+    const liveTotal=Math.round(baseWithoutTransport+fare+extras);
+    if(cost)cost.innerHTML=`~${euro(liveTotal)} <span>με επιλεγμένη πτήση + χειροκίνητα πρόσθετα + ενδεικτικά λοιπά</span>`;
+    if(remaining){const diff=budget-liveTotal;remaining.dataset.truth='1';remaining.textContent=diff>=0?`Με επιλεγμένη πτήση: μένουν ${euro(diff)}`:`Με επιλεγμένη πτήση: +${euro(Math.abs(diff))} πάνω από budget`;}
   }else{
     if(cost)cost.innerHTML=`~${euro(baseWithoutTransport)} <span>εκτίμηση λοιπών · + live μεταφορά</span>`;
     if(remaining){remaining.dataset.truth='1';remaining.textContent='Το συνολικό κόστος ενημερώνεται με τη live πτήση';}
@@ -53,7 +54,7 @@ function patch(){
   const root=document.getElementById('resultsCard');if(!root||root.classList.contains('hidden'))return;
   const intro=[...root.querySelectorAll('p.muted')][0];
   if(intro&&!root.querySelector('.hz-estimate-warning')){
-    const w=document.createElement('div');w.className='hz-estimate-warning';w.innerHTML='<b>Σημαντικό:</b> για αεροπορικούς προορισμούς δεν εμφανίζουμε πλέον ψεύτικη εκτίμηση εισιτηρίου. Η κάρτα δείχνει το ενδεικτικό κόστος των λοιπών εξόδων και ενημερώνεται με την <b>πραγματική live τιμή πτήσης</b> μόλις πατήσεις Live μεταφορά. Οι τιμές διαμονής γίνονται live από το αντίστοιχο κουμπί.';intro.after(w);
+    const w=document.createElement('div');w.className='hz-estimate-warning';w.innerHTML='<b>Σημαντικό:</b> για αεροπορικούς προορισμούς δεν εμφανίζουμε πλέον ψεύτικη εκτίμηση εισιτηρίου. Η κάρτα δείχνει το ενδεικτικό κόστος των λοιπών εξόδων. Το αεροπορικό ποσό ενημερώνεται μόνο όταν επιλέξεις πλήρη συνδυασμό αναχώρησης και επιστροφής (ή απλή μετάβαση). Ενδέχεται να υπάρχουν πρόσθετες επιβαρύνσεις. Οι τιμές διαμονής γίνονται live από το αντίστοιχο κουμπί.';intro.after(w);
   }
   const sort=document.getElementById('sortResults');if(sort){const o=[...sort.options].find(x=>x.value==='cheap');if(o)o.textContent='Χαμηλότερη εκτίμηση';}
   root.querySelectorAll('.destination').forEach(card=>{

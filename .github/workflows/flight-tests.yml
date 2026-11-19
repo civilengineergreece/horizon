@@ -1,0 +1,34 @@
+name: Flight regression tests
+
+on:
+  pull_request:
+    paths:
+      - 'flights-panel.js'
+      - 'results-truth.js'
+      - 'transport-results-compare.js'
+      - 'worker/src/**'
+      - 'worker/tests/**'
+      - '.github/workflows/flight-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flight-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check flights-panel.js
+          node --check results-truth.js
+          node --check transport-results-compare.js
+          node --check worker/src/index.js
+          node --check worker/src/index-v6.js
+          node --check worker/tests/flights.test.mjs
+      - name: Test round-trip flight API with mock provider
+        run: node --test worker/tests/flights.test.mjs

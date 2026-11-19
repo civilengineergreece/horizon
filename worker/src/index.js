@@ -123,7 +123,7 @@ function normalizeFlightOption(item,currency){
   const first=legs[0],last=legs[legs.length-1];
   const segments=legs.map(x=>({airline:cleanText(x?.airline,80),flightNumber:cleanText(x?.flight_number,30),durationMinutes:number(x?.duration,0)||null,departure:{airport:cleanText(x?.departure_airport?.id,8),name:cleanText(x?.departure_airport?.name,120),time:cleanText(x?.departure_airport?.time,40)},arrival:{airport:cleanText(x?.arrival_airport?.id,8),name:cleanText(x?.arrival_airport?.name,120),time:cleanText(x?.arrival_airport?.time,40)}}));
   const airlines=[...new Set(segments.map(x=>x.airline).filter(Boolean))];
-  return {price:number(item?.price,0)||null,currency,durationMinutes:number(item?.total_duration,0)||segments.reduce((s,x)=>s+(x.durationMinutes||0),0)||null,stops:Math.max(0,segments.length-1),airlines,departure:segments[0].departure,arrival:segments[segments.length-1].arrival,segments,type:cleanText(item?.type,80),source:'Google Flights'};
+  return {price:number(item?.price,0)||null,currency,durationMinutes:number(item?.total_duration,0)||segments.reduce((s,x)=>s+(x.durationMinutes||0),0)||null,stops:Math.max(0,segments.length-1),airlines,departure:segments[0].departure,arrival:segments[segments.length-1].arrival,segments,type:cleanText(item?.type,80),source:'Google Flights',departureToken:cleanText(item?.departure_token,5000),fareDetails:{baggage:'unknown',infantBreakdown:'unknown',airportTransfers:'not_included'}};
 }
 function flightInputFromUrl(url){return {origin:url.searchParams.get('origin'),destination:url.searchParams.get('destination'),outboundDate:url.searchParams.get('outboundDate'),returnDate:url.searchParams.get('returnDate'),adults:url.searchParams.get('adults'),children:url.searchParams.get('children'),infants:url.searchParams.get('infants')};}
 async function flights(request,env,input){
@@ -136,13 +136,58 @@ async function flights(request,env,input){
   const [from,to]=await Promise.all([resolveFlightId(origin,env),resolveFlightId(destination,env)]);
   const currency='EUR',u=new URL('https://serpapi.com/search.json');
   u.searchParams.set('engine','google_flights');u.searchParams.set('departure_id',from.id);u.searchParams.set('arrival_id',to.id);
-  u.searchParams.set('outbound_date',outbound);u.searchParams.set('type',ret&&ret>outbound?'1':'2');if(ret&&ret>outbound)u.searchParams.set('return_date',ret);
+  u.searchParams.set('outbound_date',outbound);u.searchParams.set('type',ret?'1':'2');if(ret)u.searchParams.set('return_date',ret);
   u.searchParams.set('adults',String(adults));u.searchParams.set('children',String(children));if(infants)u.searchParams.set('infants_on_lap',String(infants));
   u.searchParams.set('currency',currency);u.searchParams.set('gl','gr');u.searchParams.set('hl','el');u.searchParams.set('travel_class','1');u.searchParams.set('sort_by','2');u.searchParams.set('api_key',env.SERPAPI_API_KEY);
   const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
   const raw=[...(Array.isArray(data?.best_flights)?data.best_flights:[]),...(Array.isArray(data?.other_flights)?data.other_flights:[])];
   const results=raw.map(x=>normalizeFlightOption(x,currency)).filter(Boolean).sort((a,b)=>(a.price??1e15)-(b.price??1e15)).slice(0,15);
-  return reply(request,env,{ok:true,provider:'Google Flights via SerpApi',origin,destination,resolved:{origin:from,destination:to},outboundDate:outbound,returnDate:ret||null,adults,children,infants,currency,results,priceInsights:data?.price_insights||null,meta:{returned:results.length},cache:{enabled:true,layer:'cloudflare-workers-cache',ttlSeconds:WORKER_CACHE_TTL}},200,cacheHeaders());
+  return reply(request,env,{ok:true,provider:'Google Flights via SerpApi',origin,destination,resolved:{origin:from,destination:to},outboundDate:outbound,returnDate:ret||null,adults,children,infants,currency,results,priceInsights:data?.price_insights||null,fareScope:ret?'roundtrip_outbound_only':'one_way',retrievedAt:new Date().toISOString(),meta:{returned:results.length},cache:{enabled:true,layer:'cloudflare-workers-cache',ttlSeconds:WORKER_CACHE_TTL}},200,cacheHeaders());
+}
+
+
+/**
+ * A round-trip Google Flights response initially contains only outbound legs.
+ * The selected outbound departure_token is REQUIRED to retrieve return choices.
+ * Return result prices are quotes for the selected outbound+return combination.
+ * No booking, baggage inclusion or ticket availability is guaranteed here.
+ */
+async function flightReturns(request,env,input){
+  if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Χρειάζεται SerpApi key για live πτήσεις.',null,{code:'SERPAPI_KEY_REQUIRED'});
+  const origin=cleanText(input.origin,100),destination=cleanText(input.destination,100);
+  const outbound=isoDate(input.outboundDate),ret=isoDate(input.returnDate);
+  const departureToken=String(input.departureToken||'');
+  if(origin.length<2||destination.length<2||!outbound||!ret||ret<outbound)return fail(request,env,400,'Χρειάζονται έγκυρα στοιχεία πτήσης μετ’ επιστροφής.');
+  if(!departureToken||departureToken.length>5000)return fail(request,env,400,'Χρειάζεται έγκυρη επιλογή πτήσης αναχώρησης.');
+  const adults=Math.min(9,Math.max(1,Math.floor(number(input.adults,1))));
+  const children=Math.min(8,Math.max(0,Math.floor(number(input.children,0))));
+  const infants=Math.min(8,Math.max(0,Math.floor(number(input.infants,0))));
+  const [from,to]=await Promise.all([resolveFlightId(origin,env),resolveFlightId(destination,env)]);
+  const u=new URL('https://serpapi.com/search.json');
+  u.searchParams.set('engine','google_flights');
+  u.searchParams.set('departure_id',from.id);
+  u.searchParams.set('arrival_id',to.id);
+  u.searchParams.set('outbound_date',outbound);
+  u.searchParams.set('return_date',ret);
+  u.searchParams.set('type','1');
+  u.searchParams.set('departure_token',departureToken);
+  u.searchParams.set('adults',String(adults));
+  u.searchParams.set('children',String(children));
+  if(infants)u.searchParams.set('infants_on_lap',String(infants));
+  u.searchParams.set('currency','EUR');
+  u.searchParams.set('gl','gr');
+  u.searchParams.set('hl','el');
+  u.searchParams.set('travel_class','1');
+  u.searchParams.set('sort_by','2');
+  u.searchParams.set('api_key',env.SERPAPI_API_KEY);
+  const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
+  const raw=[...(Array.isArray(data?.best_flights)?data.best_flights:[]),...(Array.isArray(data?.other_flights)?data.other_flights:[])];
+  const results=raw.map(x=>normalizeFlightOption(x,'EUR')).filter(Boolean).sort((a,b)=>(a.price??1e15)-(b.price??1e15)).slice(0,15);
+  return reply(request,env,{ok:true,provider:'Google Flights via SerpApi',fareScope:'roundtrip_return_options',
+    origin,destination,outboundDate:outbound,returnDate:ret,adults,children,infants,
+    currency:'EUR',results,retrievedAt:new Date().toISOString(),
+    fareNote:'Η τιμή αφορά τον επιλεγμένο συνδυασμό αναχώρησης και επιστροφής κατά την αναζήτηση. Αποσκευές, τυχόν βρεφικές επιβαρύνσεις και τελική διαθεσιμότητα απαιτούν έλεγχο πριν την κράτηση.'
+  },200,{'cache-control':'no-store'});
 }
 
 export default {
@@ -155,6 +200,10 @@ export default {
         if(request.method==='GET')return await stays(request,env,inputFromUrl(url));
         if(request.method==='POST')return await stays(request,env,await body(request));
         return fail(request,env,405,'Χρησιμοποίησε GET ή POST.');
+      }
+      if(url.pathname==='/flight-returns'){
+        if(request.method!=='POST')return fail(request,env,405,'Χρησιμοποίησε POST.');
+        return await flightReturns(request,env,await body(request));
       }
       if(url.pathname==='/flights'){
         if(request.method==='GET')return await flights(request,env,flightInputFromUrl(url));
