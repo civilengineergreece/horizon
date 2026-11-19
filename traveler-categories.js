@@ -50,11 +50,12 @@ function installPlannerPatch(){
     const s=(typeof steps!=='undefined'&&typeof current!=='undefined')?steps[current]:null;
     if(s?.type!=='travelers')return originalCapture();
     const a=document.getElementById('adults'),c=document.getElementById('children'),i=document.getElementById('infants');
-    state[s.key]={
-      adults:Math.max(1,n(a?.value,1)),
-      children:Math.max(0,n(c?.value,0)),
-      infants:Math.max(0,n(i?.value,0))
-    };
+    const adults=Math.max(1,n(a?.value,1)),children=Math.max(0,n(c?.value,0)),infants=Math.max(0,n(i?.value,0));
+    const previous=state[s.key]||{};
+    const validAges=Array.isArray(previous.childrenAges)&&previous.childrenAges.length===children&&
+      previous.childrenAges.every(age=>Number.isInteger(age)&&age>=2&&age<=11);
+    state[s.key]={adults,children,infants,childrenAges:
+      Number(previous.children)===children&&validAges?[...previous.childrenAges]:[]};
     if(typeof save==='function')save();
   };
 
