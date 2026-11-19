@@ -199,7 +199,7 @@ function roomOfferHTML(offer,index){
     'Δηλωμένη χωρητικότητα '+offer.numGuests+' ατόμων χωρίς επιβεβαίωση κούνιας':
     offer.capacityStatus==='insufficient'?'Χωρητικότητα μικρότερη από ενήλικες + παιδιά':
     'Μη επιβεβαιωμένη χωρητικότητα';
-  const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&Number(offer.total)>0;
+  const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&Number(offer.total)>0&&!!offer.bookingUrl;
   return '<div class="hz-hotel-offer"><b>'+esc(offer.seller)+(offer.official?' · επίσημη σελίδα':'')+'</b>'+
     '<div>'+esc(offer.roomName||'Τύπος δωματίου μη διαθέσιμος')+'</div>'+
     '<div class="hz-hotel-room-price">'+money(offer.total,offer.currency)+'</div>'+
@@ -239,7 +239,7 @@ async function showRoomDetails(panel,index){
 function selectRoom(panel,index){
   const info=panel._hotelInfo,detail=panel._hotelDetails;
   const offer=detail?.data?.offers?.[index],hotel=detail?.hotel;
-  if(!info||!offer||!hotel||offer.capacityStatus!=='listed_capacity_sufficient_for_non_infants'||
+  if(!info||!offer||!hotel||!offer.bookingUrl||offer.capacityStatus!=='listed_capacity_sufficient_for_non_infants'||
      !hotelFresh(detail.data.retrievedAt)||!(Number(offer.total)>0)){
     panel.querySelector('.hz-hotel-selected').textContent='Η προσφορά δεν μπορεί να προστεθεί: χωρητικότητα, τιμή ή χρόνος ελέγχου δεν έχουν επιβεβαιωθεί.';return;
   }
