@@ -8,7 +8,7 @@ function installStyles(){if(document.getElementById(STYLE_ID))return;const s=doc
 .hz-flight-form{display:grid;grid-template-columns:1fr 1fr;gap:9px}.hz-flight-field label{display:block;color:#8fa3b2;font-size:.7rem;margin-bottom:5px}.hz-flight-field input{width:100%;border:1px solid rgba(255,255,255,.12);background:#0b1d2b;color:#fff;border-radius:9px;padding:9px}
 .hz-flight-summary{grid-column:1/-1;color:#b8c6cf;font-size:.76rem}.hz-flight-search{grid-column:1/-1;border:0;border-radius:10px;padding:11px 13px;background:linear-gradient(180deg,#ff8b29,#df5e08);color:#fff;font-weight:900;cursor:pointer}.hz-flight-search:disabled{opacity:.6;cursor:wait}
 .hz-flight-status{margin:10px 0 0;color:#aab8c2;font-size:.78rem}.hz-flight-results{display:grid;gap:9px;margin-top:12px}.hz-flight-card{border:1px solid rgba(255,255,255,.09);background:#102638;border-radius:13px;padding:12px}.hz-flight-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.hz-flight-airline{font-weight:900}.hz-flight-price{font-size:1.05rem;font-weight:950;color:#fff;white-space:nowrap}.hz-flight-route{margin-top:7px;font-size:.83rem}.hz-flight-meta{margin-top:5px;color:#9fb0bd;font-size:.74rem}.hz-flight-source{margin-top:10px;color:#76d8a6;font-size:.7rem}
- .hz-flight-option{margin-top:11px;border:1px solid rgba(255,122,22,.6);background:#19364a;border-radius:9px;padding:10px;color:#fff;font-weight:800;cursor:pointer}.hz-flight-cost{margin:15px 0;padding:12px;border:1px solid rgba(101,211,154,.4);border-radius:10px}.hz-flight-note{margin-top:9px;color:#ffdfac;font-size:.74rem;line-height:1.5}.hz-flight-extras{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+ .hz-flight-option{margin-top:11px;border:1px solid rgba(255,122,22,.6);background:#19364a;border-radius:9px;padding:10px;color:#fff;font-weight:800;cursor:pointer}.hz-flight-cost{margin:15px 0;padding:12px;border:1px solid rgba(101,211,154,.4);border-radius:10px}.hz-flight-note{margin-top:9px;color:#ffdfac;font-size:.74rem;line-height:1.5}.hz-flight-selected-leg{margin-top:9px;padding:10px 12px;border:1px solid rgba(150,205,255,.18);border-radius:9px;background:#0e2537}.hz-flight-selected-leg b{display:block;margin-bottom:5px;color:#fff}.hz-flight-change{margin:10px 0;border:1px solid rgba(255,255,255,.28);border-radius:9px;background:#183045;color:#fff;padding:9px 13px;cursor:pointer;font-weight:800}.hz-flight-extras{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
 @media(max-width:620px){.hz-flight-form,.hz-flight-extras{grid-template-columns:1fr}.hz-flight-summary,.hz-flight-search{grid-column:1}}
 `;document.head.appendChild(s);}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
@@ -34,15 +34,36 @@ function choiceCard(item,index,step,isRoundTrip){
   const airline=(item.airlines||[]).join(' + ')||'Αεροπορική',stops=Math.max(0,Number(item.stops)||0);
   const legs=Array.isArray(item.segments)?item.segments:[];
   const segments=legs.length>1?'<div class="hz-flight-meta">Σκέλη: '+legs.map(route).join(' · ')+'</div>':'';
-  const label=step==='return'?'Συνδυασμός μετ’ επιστροφής':isRoundTrip?'Αρχική αναχώρηση — όχι πλήρες ταξίδι':'Απλή μετάβαση';
+  const label=step==='return'?'Προσφορά επιλεγμένου συνδυασμού μετ’ επιστροφής':isRoundTrip?'Προσωρινή ένδειξη αναχώρησης — δεν έχει επιλεγεί επιστροφή':'Προσφορά απλής μετάβασης';
   const buttonLabel=step==='return'?'Επιλογή επιστροφής':isRoundTrip?'Επιλογή αναχώρησης και έλεγχος επιστροφών':'Επιλογή πτήσης';
   const allowed=valid&&(!isRoundTrip||step!=='outbound'||!!item.departureToken);
   return '<article class="hz-flight-card"><div class="hz-flight-card-top"><div><div class="hz-flight-airline">'+esc(airline)+'</div><div class="hz-flight-route">'+route(item)+'</div></div><div class="hz-flight-price">'+(valid?euro(price):'Χωρίς τιμή')+'</div></div><div class="hz-flight-meta">'+esc(fmtDuration(item.durationMinutes))+' · '+(stops?stops+' ανταποκρίσεις':'Απευθείας')+'</div>'+segments+'<div class="hz-flight-source">'+label+'</div>'+(allowed?'<button class="hz-flight-option" type="button" data-flight-step="'+step+'" data-flight-index="'+index+'">'+buttonLabel+'</button>':'<div class="hz-flight-note">Μη διαθέσιμη επιβεβαίωση τιμής/επιστροφής.</div>')+'</article>';
 }
+function selectedLegHTML(label,item){
+  if(!item)return '';
+  const airlines=esc((item.airlines||[]).join(' + ')||'Αεροπορική');
+  const legs=Array.isArray(item.segments)?item.segments:[];
+  const stops=Math.max(0,Number(item.stops)||0);
+  const segments=legs.length>1?'<div class="hz-flight-meta">Αναλυτικά: '+legs.map(route).join(' · ')+'</div>':'';
+  return '<div class="hz-flight-selected-leg"><b>'+esc(label)+'</b><div>'+airlines+' · '+route(item)+'</div><div class="hz-flight-meta">'+
+    esc(fmtDuration(item.durationMinutes))+' · '+(stops===0?'Απευθείας':stops+' ανταποκρίσεις')+'</div>'+segments+'</div>';
+}
+function selectedTimeHTML(selected,minutesEachWay){
+  const flightOut=Number(selected.outbound?.durationMinutes)||0;
+  const flightReturn=selected.scope==='roundtrip'?(Number(selected.returnFlight?.durationMinutes)||0):0;
+  const flightSum=flightOut+flightReturn;
+  const groundSum=Math.max(0,minutesEachWay)*(selected.scope==='roundtrip'?2:1);
+  return '<div class="hz-flight-meta">Χρόνος πτήσεων'+(selected.scope==='roundtrip'?' (αναχώρηση + επιστροφή)':'')+': '+
+    esc(fmtDuration(flightSum))+
+    (groundSum?'; χειροκίνητα δηλωμένη επίγεια μετακίνηση: '+esc(fmtDuration(groundSum)):'')+
+    '. Δεν περιλαμβάνονται ο έλεγχος ασφαλείας, το check-in ή ενδεχόμενοι πρόσθετοι χρόνοι αναμονής.</div>';
+}
 function renderResults(panel,data,step='outbound',cached=false){
   const items=Array.isArray(data?.results)?data.results:[];
   panel.querySelector('.hz-flight-results').innerHTML=items.map((x,i)=>choiceCard(x,i,step,!!panel.querySelector('.hz-flight-to')?.value)).join('');
-  panel.querySelector('.hz-flight-status').textContent=items.length?items.length+' επιλογές'+(cached?' · προσωρινά αποθηκευμένες':'')+'. '+(step==='return'?'Επίλεξε πτήση επιστροφής.':'Επίλεξε πρώτα πτήση αναχώρησης.'):'Δεν βρέθηκαν πτήσεις για αυτά τα στοιχεία.';
+  const stamp=data?.retrievedAt?new Date(data.retrievedAt).toLocaleString('el-GR'):'μη διαθέσιμη';
+  const status=panel.querySelector('.hz-flight-status');status.textContent=items.length?items.length+' επιλογές'+(cached?' · προσωρινά αποθηκευμένες':'')+'. '+(step==='return'?'Επίλεξε πτήση επιστροφής.':'Επίλεξε πρώτα πτήση αναχώρησης.')+' Πηγή: Google Flights μέσω SerpApi · Αναζήτηση: '+stamp:'Δεν βρέθηκαν πτήσεις για αυτά τα στοιχεία.';
+  const back=panel.querySelector('.hz-flight-change');if(back)back.hidden=step!=='return';
 }
 function publish(panel,selected){
   const sess=sessions.get(panel);if(!sess||!selected)return;
@@ -52,7 +73,11 @@ function publish(panel,selected){
   const mins=amount(panel.querySelector('[data-flight-ground-mins]'));
   const record={at:Date.now(),fare,extras:baggage+ground,estimatedTotal:fare+baggage+ground,scope:selected.scope,origin:sess.origin,destination:sess.name,from:sess.from,to:sess.to,travelers:sess.travelers,baggage,ground,groundMinutesEachWay:mins,source:'Google Flights via SerpApi',outbound:selected.outbound,returnFlight:selected.returnFlight||null};
   try{localStorage.setItem(selectionKey(sess.key),JSON.stringify(record));}catch{}
-  panel.querySelector('.hz-flight-cost').innerHTML='<b>Επιλεγμένο εισιτήριο '+(selected.scope==='roundtrip'?'μετ’ επιστροφής':'απλής μετάβασης')+': '+euro(fare)+'</b><div class="hz-flight-meta">Χειροκίνητες πρόσθετες δαπάνες: '+euro(baggage+ground)+' · Σύνολο με δηλωμένες δαπάνες: '+euro(fare+baggage+ground)+'</div><div class="hz-flight-note">Δεν έχει επιβεβαιωθεί η χρέωση αποσκευών, βρέφους ή η τελική διαθεσιμότητα κράτησης. Ο χρόνος μετακίνησης αεροδρομίου καταχωρίζεται χειροκίνητα και δεν περιλαμβάνεται στη διάρκεια πτήσης.</div>';
+  panel.querySelector('.hz-flight-cost').innerHTML='<b>Επιλεγμένη τιμή '+(selected.scope==='roundtrip'?'μετ’ επιστροφής':'απλής μετάβασης')+': '+euro(fare)+'</b>'+
+    selectedLegHTML('Αναχώρηση',selected.outbound)+selectedLegHTML('Επιστροφή',selected.returnFlight)+
+    selectedTimeHTML(selected,mins)+
+    '<div class="hz-flight-meta">Πρόσθετες χρεώσεις που δήλωσες: '+euro(baggage+ground)+' · Συνολικό ποσό πτήσης + χειροκίνητων εξόδων: '+euro(fare+baggage+ground)+'</div>'+
+    '<div class="hz-flight-note">Η εμφανιζόμενη προσφορά προέρχεται από Google Flights μέσω SerpApi, δεν εγγυάται δυνατότητα κράτησης ή τελική τιμή. Ορισμένες χρεώσεις αποσκευών ή βρέφους ενδέχεται να μην περιλαμβάνονται. Έλεγξέ τες πριν την πληρωμή.</div>';
   document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:sess.name,price:fare,extras:baggage+ground,scope:selected.scope,currency:'EUR',selected:true}}));
 }
 async function getData(url,options={}){
@@ -86,7 +111,7 @@ async function selectFlight(panel,step,index){
   const status=panel.querySelector('.hz-flight-status'),button=panel.querySelector('[data-flight-step="'+step+'"][data-flight-index="'+index+'"]');
   if(step==='outbound'){
     const item=sess.outboundData?.results?.[index];if(!item||!(Number(item.price)>0))return;
-    sess.outbound=item;
+    sess.outbound=item;sess.returnData=null;
     sess.selected=null;clearSelection(sess.key);panel.querySelector('.hz-flight-cost').textContent='';
     document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:sess.name,price:0,selected:false}}));
     if(!sess.to){sess.selected={fare:item.price,scope:'oneway',outbound:item};publish(panel,sess.selected);status.textContent='Επιλέχθηκε πτήση απλής μετάβασης.';return;}
@@ -110,8 +135,9 @@ async function selectFlight(panel,step,index){
 function enhanceOverlay(overlay){
   if(!overlay||overlay.querySelector('.hz-flights-panel'))return;const name=overlay.querySelector('.hd-head h3')?.textContent?.trim();if(!name||!supportsPlane(name))return;const pane=overlay.querySelector('[data-pane="transport"]');if(!pane)return;
   const dates=defaultDates(),t=travelers(),box=document.createElement('section');box.className='hz-flights-panel';
-  box.innerHTML=`<div class="hz-flights-title">Live πτήσεις μέσα στο Horizon</div><div class="hz-flights-copy">Οι τιμές αρχικής αναζήτησης αφορούν την αναχώρηση. Για συνολική τιμή μετ’ επιστροφής επιλέγεις πρώτα αναχώρηση, μετά επιστροφή. Οι επιβαρύνσεις αποσκευών και η τελική διαθεσιμότητα ελέγχονται πριν την κράτηση.</div><div class="hz-flight-form"><div class="hz-flight-field"><label>Αναχώρηση</label><input class="hz-flight-from" type="date" value="${esc(dates.from)}"></div><div class="hz-flight-field"><label>Επιστροφή</label><input class="hz-flight-to" type="date" value="${esc(dates.to)}"></div><div class="hz-flight-summary">${esc(stateNow().origin||'Αθήνα')} → ${esc(name)} · ${t.adults} ενήλικες${t.children?` · ${t.children} παιδιά`:''}${t.infants?` · ${t.infants} βρέφη`:''}</div><button type="button" class="hz-flight-search">Αναζήτηση live πτήσεων</button></div><div class="hz-flight-status" role="status" aria-live="polite"></div><div class="hz-flight-results"></div><div class="hz-flight-extras"><div class="hz-flight-field"><label>Αποσκευές / λοιπές χρεώσεις (€)<input type="number" min="0" step="1" value="0" data-flight-baggage></label></div><div class="hz-flight-field"><label>Μετακινήσεις αεροδρομίων (€)<input type="number" min="0" step="1" value="0" data-flight-ground></label></div><div class="hz-flight-field"><label>Χρόνος επίγειων μεταφορών ανά σκέλος (λεπτά)<input type="number" min="0" step="5" value="0" data-flight-ground-mins></label></div></div><div class="hz-flight-cost" aria-live="polite"></div>`;
-  pane.appendChild(box);box.querySelector('.hz-flight-search').addEventListener('click',()=>search(box,name));box.querySelector('.hz-flight-results').addEventListener('click',e=>{const b=e.target.closest?.('[data-flight-step]');if(b)selectFlight(box,b.dataset.flightStep,Number(b.dataset.flightIndex));});box.querySelector('.hz-flight-extras').addEventListener('input',()=>{const x=sessions.get(box);if(x?.selected)publish(box,x.selected);});
+  box.innerHTML=`<div class="hz-flights-title">Live πτήσεις μέσα στο Horizon</div><div class="hz-flights-copy">Οι τιμές αρχικής αναζήτησης αφορούν την αναχώρηση. Για συνολική τιμή μετ’ επιστροφής επιλέγεις πρώτα αναχώρηση, μετά επιστροφή. Οι επιβαρύνσεις αποσκευών και η τελική διαθεσιμότητα ελέγχονται πριν την κράτηση.</div><div class="hz-flight-form"><div class="hz-flight-field"><label>Αναχώρηση</label><input class="hz-flight-from" type="date" value="${esc(dates.from)}"></div><div class="hz-flight-field"><label>Επιστροφή</label><input class="hz-flight-to" type="date" value="${esc(dates.to)}"></div><div class="hz-flight-summary">${esc(stateNow().origin||'Αθήνα')} → ${esc(name)} · ${t.adults} ενήλικες${t.children?` · ${t.children} παιδιά`:''}${t.infants?` · ${t.infants} βρέφη`:''}</div><button type="button" class="hz-flight-search">Αναζήτηση live πτήσεων</button></div><div class="hz-flight-status" role="status" aria-live="polite"></div><div class="hz-flight-results"></div><button type="button" class="hz-flight-change" hidden>Αλλαγή αναχώρησης</button><div class="hz-flight-extras"><div class="hz-flight-field"><label>Αποσκευές / λοιπές χρεώσεις (€)<input type="number" min="0" step="1" value="0" data-flight-baggage></label></div><div class="hz-flight-field"><label>Μετακινήσεις αεροδρομίων (€)<input type="number" min="0" step="1" value="0" data-flight-ground></label></div><div class="hz-flight-field"><label>Χρόνος επίγειων μεταφορών ανά σκέλος (λεπτά)<input type="number" min="0" step="5" value="0" data-flight-ground-mins></label></div></div><div class="hz-flight-cost" aria-live="polite"></div>`;
+  pane.appendChild(box);box.querySelector('.hz-flight-search').addEventListener('click',()=>search(box,name));box.querySelector('.hz-flight-results').addEventListener('click',e=>{const b=e.target.closest?.('[data-flight-step]');if(b)selectFlight(box,b.dataset.flightStep,Number(b.dataset.flightIndex));});box.querySelector('.hz-flight-extras').addEventListener('input',()=>{const x=sessions.get(box);if(x?.selected)publish(box,x.selected);});box.querySelector('.hz-flight-change').addEventListener('click',()=>{const x=sessions.get(box);if(!x?.outboundData)return;x.selected=null;x.outbound=null;x.returnData=null;clearSelection(x.key);box.querySelector('.hz-flight-cost').textContent='';renderResults(box,x.outboundData,'outbound',true);document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:x.name,price:0,selected:false}}));});
+  box.querySelector('.hz-flight-form').addEventListener('change',e=>{if(!e.target.matches?.('.hz-flight-from,.hz-flight-to'))return;const x=sessions.get(box);if(x){clearSelection(x.key);document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:x.name,price:0,selected:false}}));}sessions.delete(box);box.querySelector('.hz-flight-results').textContent='';box.querySelector('.hz-flight-cost').textContent='';box.querySelector('.hz-flight-change').hidden=true;box.querySelector('.hz-flight-status').textContent='Άλλαξες ημερομηνία. Πάτησε ξανά «Αναζήτηση live πτήσεων» για ενημερωμένες επιλογές.';});
 }
 function enhanceAll(){document.querySelectorAll('.horizon-detail-overlay').forEach(enhanceOverlay);}
 function scheduleEnhance(){setTimeout(enhanceAll,0);setTimeout(enhanceAll,80);}
