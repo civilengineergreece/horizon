@@ -32,7 +32,7 @@ function installStyles(){
     .hz-stay-meta{color:#94a8b7;font-size:.76rem;margin-top:6px;line-height:1.45}.hz-stay-pricebox{text-align:right;min-width:92px}.hz-total-label{color:#8fa3b2;font-size:.64rem}
     .hz-stay-price{font-weight:900;font-size:1.02rem;white-space:nowrap}.hz-stay-night{color:#b9c6ce;font-size:.72rem;margin-top:1px}.hz-stay-amenities{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
     .hz-stay-amenities span{border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:3px 6px;color:#b6c4cd;font-size:.66rem}.hz-stay-source{display:inline-flex;margin-top:8px;padding:5px 8px;border-radius:999px;background:rgba(255,122,22,.09);border:1px solid rgba(255,122,22,.22);color:#ffb273;font-size:.68rem;font-weight:800}
-    .hz-hotel-ages{margin:10px 0;color:#c8d1d9;font-size:.78rem}.hz-hotel-ages label{display:block;margin-bottom:5px}.hz-hotel-ages input{max-width:270px;padding:9px;background:#102638;color:white;border:1px solid #456;border-radius:8px}.hz-hotel-price-warning{font-size:.73rem;line-height:1.45;color:#ffd9a7;margin-top:6px}.hz-stay-empty{padding:16px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;color:#9fb0bd;text-align:center}.hz-stay-summary{margin-top:10px;color:#9fb0bd;font-size:.76rem;line-height:1.45}
+    .hz-hotel-ages{margin:10px 0;color:#c8d1d9;font-size:.78rem}.hz-hotel-ages label{display:block;margin-bottom:5px}.hz-hotel-ages input{max-width:270px;padding:9px;background:#102638;color:white;border:1px solid #456;border-radius:8px}.hz-hotel-price-warning{font-size:.73rem;line-height:1.45;color:#ffd9a7;margin-top:6px}.hz-hotel-select{margin-top:8px;padding:8px 12px;background:#193d36;border:1px solid #6abf98;color:white;border-radius:9px;font-weight:800;cursor:pointer}.hz-hotel-select:disabled{opacity:.5;cursor:default}.hz-hotel-selected{padding:12px;border:1px solid #65bf92;border-radius:10px;color:#c8f1dd;margin:9px 0;font-size:.79rem}.hz-stay-empty{padding:16px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;color:#9fb0bd;text-align:center}.hz-stay-summary{margin-top:10px;color:#9fb0bd;font-size:.76rem;line-height:1.45}
     .hz-more-wrap{display:flex;justify-content:center;margin-top:12px}.hz-more{border:1px solid rgba(255,122,22,.35);background:rgba(255,122,22,.08);color:#fff;border-radius:10px;padding:9px 12px;font-weight:800;font-size:.76rem;cursor:pointer}
     @media(max-width:620px){.hz-hotels-grid,.hz-filter-grid{grid-template-columns:1fr}.hz-stay-load{width:100%}.hz-stay-card{grid-template-columns:88px 1fr}.hz-stay-img{width:88px;height:100px}.hz-stay-head{display:block}.hz-stay-pricebox{text-align:left;margin-top:6px}.hz-stay-price{display:inline;margin-right:6px}.hz-total-label{display:inline;margin-right:4px}}
   `;
@@ -63,6 +63,8 @@ function removeLegacyStayLinks(pane){
     if(t.includes('booking')||t.includes('google hotels'))a.remove();
   });
 }
+function selectionKey(info){return `hz-hotel-selection-v1:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants].join('|')}`;}
+function clearSelected(info){try{localStorage.removeItem(selectionKey(info));}catch{}document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{detail:{destination:info.name,selected:false}}));}
 function localKey(info){
   return `hz-hotel-cache-v3:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...(info.childrenAges||[])].join('|')}`;
 }
@@ -78,7 +80,7 @@ function localRead(info){
 function localWrite(info,data){
   try{localStorage.setItem(localKey(info),JSON.stringify({savedAt:Date.now(),data}));}catch{}
 }
-function resultCard(item,nights){
+function resultCard(item,nights,index){
   const image=safeUrl(item.image);
   const rating=item.rating?`★ ${Number(item.rating).toFixed(1)}${item.reviews?` (${Number(item.reviews).toLocaleString('el-GR')})`:''}`:'Χωρίς βαθμολογία';
   const stars=item.hotelClass?`${item.hotelClass}★ ξενοδοχείο`:'Ξενοδοχείο';
@@ -100,6 +102,7 @@ function resultCard(item,nights){
       <div class="hz-stay-meta">${esc(rating)}${item.priceSource?` · ${esc(item.priceSource)}`:''}</div>
       ${amenities.length?`<div class="hz-stay-amenities">${amenities.map(a=>`<span>${esc(a)}</span>`).join('')}</div>`:''}
       <span class="hz-stay-source">${total?'Τιμή από Google Hotels':'Εκτίμηση από τιμή ανά βράδυ'}</span>
+      ${total?`<button type="button" class="hz-hotel-select" data-hotel-index="${index}">Επιλογή διαμονής στον προϋπολογισμό</button>`:'<div class="hz-hotel-price-warning">Δεν μπορεί να προστεθεί στο budget χωρίς τιμή συνολικής διαμονής από την πηγή.</div>'}
     </div>
   </article>`;
 }
@@ -167,7 +170,7 @@ function applyFilters(panel){
   const resultsEl=panel.querySelector('.hz-stay-results');
   const summary=panel.querySelector('.hz-stay-summary');
   const limit=Math.min(panel._hotelLimit||INITIAL_VISIBLE,out.length);
-  resultsEl.innerHTML=out.length?out.slice(0,limit).map(x=>resultCard(x,data.nights)).join(''):'<div class="hz-stay-empty">Δεν βρέθηκαν επιλογές με αυτά τα φίλτρα.</div>';
+  resultsEl.innerHTML=out.length?out.slice(0,limit).map(x=>resultCard(x,data.nights,all.indexOf(x))).join(''):'<div class="hz-stay-empty">Δεν βρέθηκαν επιλογές με αυτά τα φίλτρα.</div>';
   let more=panel.querySelector('.hz-more-wrap');
   if(!more){more=document.createElement('div');more.className='hz-more-wrap';summary.before(more);}
   if(out.length>limit){
@@ -183,6 +186,18 @@ function renderResults(panel,data,cacheLabel=''){
   badge.classList.add('active');
   badge.textContent=cacheLabel||(data?.cache?.hit?'Horizon cache: επαναχρησιμοποιήθηκαν αποθηκευμένες live τιμές — χωρίς νέα αναζήτηση SerpApi.':'Νέα live αναζήτηση: αποθηκεύτηκε στην Horizon cache για επαναλαμβανόμενα ίδια αιτήματα.');
 }
+function selectStay(panel,index){
+  const info=panel._hotelInfo,data=panel._hotelData,option=data?.results?.[index];
+  if(!info||!option||!(Number(option.total)>0))return;
+  const record={at:Date.now(),destination:info.name,checkInDate:info.checkIn,checkOutDate:info.checkOut,
+    nights:info.nights,adults:info.adults,children:info.children,infants:info.infants,childrenAges:info.childrenAges||[],
+    name:option.name,id:option.id,total:Number(option.total),currency:option.currency||'EUR',
+    taxStatus:option.taxStatus||'taxes_and_fees_unknown',priceSource:option.priceSource||'Google Hotels',source:'Google Hotels via SerpApi',retrievedAt:data.retrievedAt||null,
+    bookingStatus:'quote_only_not_checked_out'};
+  try{localStorage.setItem(selectionKey(info),JSON.stringify(record));}catch{}
+  panel.querySelector('.hz-hotel-selected').textContent=`Επιλέχθηκε ${option.name}: ${money(option.total,option.currency)} για ${info.nights} διανυκτερεύσεις. ${option.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή δηλώνει φόρους/τέλη.':'Δεν έχει επιβεβαιωθεί ότι περιλαμβάνονται φόροι/τέλη.'} Τοπικές χρεώσεις ή παροχή βρεφικής κούνιας μπορεί να διαφέρουν κατά την κράτηση.`;
+  document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{detail:{destination:info.name,selected:true,total:record.total,currency:record.currency}}));
+}
 async function searchStays(panel,info){
   const btn=panel.querySelector('.hz-stay-load');
   const status=panel.querySelector('.hz-stay-status');
@@ -194,6 +209,9 @@ async function searchStays(panel,info){
     }
     info={...info,childrenAges:ages};
   }
+  const prior=panel._hotelInfo;
+  if(prior&&JSON.stringify(prior.childrenAges)!==JSON.stringify(info.childrenAges))clearSelected(info);
+  panel._hotelInfo=info;
   const local=localRead(info);
   if(local){
     renderResults(panel,local,'Browser cache: άμεση επαναχρησιμοποίηση των ίδιων αποτελεσμάτων — χωρίς κλήση στον Worker.');
@@ -257,7 +275,7 @@ function renderPanel(pane,name){
     <div class="hz-hotel-price-warning">Τα ${info.infants} βρέφη δηλώνονται στην Google Hotels με ηλικία 1, όπως απαιτεί το API. Η δωρεάν κούνια και τυχόν τέλη διαμονής δεν τεκμαίρονται. Το τελικό ποσό πληρωμής χρειάζεται επιβεβαίωση στο κατάλυμα.</div>
     <button type="button" class="hz-stay-load">Αναζήτηση live τιμών μέσα στο Horizon</button>
     <div class="hz-stay-status">Horizon browser cache 30′ + Cloudflare edge cache 6 ώρες για ίδια στοιχεία αναζήτησης.</div>
-    <div class="hz-cache-badge"></div>
+    <div class="hz-cache-badge"></div><div class="hz-hotel-selected" aria-live="polite">Δεν έχει επιλεγεί κατάλυμα για τον προϋπολογισμό.</div>
     <div class="hz-filters">
       <div class="hz-filter-grid">
         <div class="hz-filter-field"><label>Ταξινόμηση</label><select class="hz-sort"><option value="priceAsc">Χαμηλότερη τιμή</option><option value="priceDesc">Υψηλότερη τιμή</option><option value="rating">Καλύτερη βαθμολογία</option><option value="stars">Περισσότερα αστέρια</option><option value="reviews">Περισσότερες κριτικές</option></select></div>
@@ -270,6 +288,7 @@ function renderPanel(pane,name){
     </div>
     <div class="hz-stay-results"></div><div class="hz-stay-summary"></div>`;
   panel.querySelector('.hz-stay-load').addEventListener('click',()=>searchStays(panel,info));
+  panel.querySelector('.hz-stay-results').addEventListener('click',e=>{const btn=e.target.closest?.('[data-hotel-index]');if(btn)selectStay(panel,Number(btn.dataset.hotelIndex));});
 }
 function addPanel(overlay){
   const name=overlay.querySelector('.hd-head h3')?.textContent?.trim();if(!name)return;
