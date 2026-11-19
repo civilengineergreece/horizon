@@ -59,21 +59,6 @@ function hotelInfo(name){
   const infants=Math.max(0,Math.floor(Number(s.travelers?.infants)||0));
   return {name,days,nights,checkIn,checkOut,adults,children,infants,childrenAges:[]};
 }
-function bookingSearchUrl(info){
-  const u=new URL('https://www.booking.com/searchresults.html');
-  const dest=(window.HORIZON_DESTINATIONS||[]).find(d=>d.name===info.name)||{};
-  u.searchParams.set('ss',[info.name,dest.country].filter(Boolean).join(', '));
-  u.searchParams.set('checkin',info.checkIn);
-  u.searchParams.set('checkout',info.checkOut);
-  u.searchParams.set('group_adults',String(info.adults));
-  const ages=[...(info.childrenAges||[]),...Array(info.infants).fill(0)];
-  u.searchParams.set('group_children',String(ages.length));
-  ages.forEach(age=>u.searchParams.append('age',String(age)));
-  u.searchParams.set('no_rooms',String(Math.max(1,Math.ceil(info.adults/2))));
-  u.searchParams.set('selected_currency','EUR');
-  u.searchParams.set('lang','el');
-  return u.toString();
-}
 function removeLegacyStayLinks(pane){
   pane.querySelectorAll('.hd-cta-row a').forEach(a=>{
     const t=a.textContent.toLowerCase();
@@ -463,8 +448,6 @@ function renderPanel(pane,name){
     ${info.children?`<div class="hz-hotel-ages"><label>Ηλικίες ${info.children} παιδιών (π.χ. 5,8 — χωρίς βρέφη)</label><input data-hotel-child-ages placeholder="Ηλικίες χωρισμένες με κόμμα" aria-label="Ηλικίες παιδιών"></div>`:''}
     <div class="hz-hotel-price-warning">Τα ${info.infants} βρέφη δηλώνονται στην Google Hotels με ηλικία 1, όπως απαιτεί το API. Η δωρεάν κούνια και τυχόν τέλη διαμονής δεν τεκμαίρονται. Το τελικό ποσό πληρωμής χρειάζεται επιβεβαίωση στο κατάλυμα.</div>
     <button type="button" class="hz-stay-load">Αναζήτηση live τιμών μέσα στο Horizon</button>
-    <button type="button" class="hz-hotel-detail-btn" data-booking-search>Σύγκριση και κράτηση στο Booking.com ↗</button>
-    <div class="hz-hotel-price-warning">Η εξωτερική αναζήτηση προ-συμπληρώνει ημερομηνίες, επισκέπτες και γνωστές ηλικίες. Έλεγξε αριθμό δωματίων, διαθεσιμότητα, τελικό checkout και όρους στον πάροχο. Το Horizon δεν πραγματοποιεί πληρωμή ή κράτηση.</div>
     <div class="hz-stay-status">Horizon browser cache 30′ + Cloudflare edge cache 6 ώρες για ίδια στοιχεία αναζήτησης.</div>
     <div class="hz-cache-badge"></div><div class="hz-hotel-selected" aria-live="polite">Δεν έχει επιλεγεί κατάλυμα για τον προϋπολογισμό.</div>
     <div class="hz-filters">
@@ -479,21 +462,6 @@ function renderPanel(pane,name){
     </div>
     <div class="hz-stay-results"></div><div class="hz-stay-summary"></div><button type="button" class="hz-hotel-next-page" hidden>Φόρτωση επόμενης σελίδας καταλυμάτων</button><div class="hz-hotel-detail" aria-live="polite">Επίλεξε «Δωμάτια · πωλητές · ακύρωση» για έλεγχο συγκεκριμένης προσφοράς.</div>`;
   panel.querySelector('.hz-stay-load').addEventListener('click',()=>searchStays(panel,info));
-  panel.querySelector('[data-booking-search]').addEventListener('click',()=>{
-    const status=panel.querySelector('.hz-stay-status');
-    let chosen=info;
-    if(info.children){
-      const raw=String(panel.querySelector('[data-hotel-child-ages]')?.value||'').split(',').map(s=>s.trim());
-      const ages=raw.map(Number);
-      if(raw.length!==info.children||raw.some(s=>!(/^[0-9]+$/.test(s)))||ages.some(a=>a<1||a>17)){
-        status.classList.add('error');
-        status.textContent='Για την εξωτερική αναζήτηση καταχώρισε πρώτα όλες τις ηλικίες παιδιών (1–17).';
-        return;
-      }
-      chosen={...info,childrenAges:ages};
-    }
-    window.open(bookingSearchUrl(chosen),'_blank','noopener,noreferrer');
-  });
   panel.querySelector('.hz-hotel-next-page').addEventListener('click',()=>loadNextPage(panel));
   panel.querySelector('.hz-stay-results').addEventListener('click',e=>{const btn=e.target.closest?.('[data-hotel-index]');if(btn)selectStay(panel,Number(btn.dataset.hotelIndex));const detail=e.target.closest?.('[data-hotel-details-index]');if(detail)showRoomDetails(panel,Number(detail.dataset.hotelDetailsIndex));});
   panel.querySelector('.hz-hotel-detail').addEventListener('click',e=>{const room=e.target.closest?.('[data-hotel-room-index]');if(room)selectRoom(panel,Number(room.dataset.hotelRoomIndex));});
