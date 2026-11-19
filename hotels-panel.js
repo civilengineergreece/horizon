@@ -240,10 +240,19 @@ async function showRoomDetails(panel,index){
     if(panel._hotelInfo!==info)return;
     panel._hotelDetails={data,hotel};
     const offers=Array.isArray(data.offers)?data.offers:[];
+    const propertyLink=safeUrl(data.propertyUrl);
+    const phone=String(data.propertyPhone||'').trim();
+    const cleanedPhone=phone.replace(/[^+0-9]/g,'');
+    const safePhone=/^\+?[0-9]{7,15}$/.test(cleanedPhone)?cleanedPhone:null;
+    const contact='<div class="hz-hotel-price-warning">Επικοινωνία καταλύματος: '+
+      (propertyLink?'<a class="hz-hotel-property-link" href="'+esc(propertyLink)+'" target="_blank" rel="noopener noreferrer">Ιστότοπος από Google Hotels</a>':'Δεν δόθηκε ιστότοπος από την πηγή')+
+      ' · '+(safePhone?'<a class="hz-hotel-property-phone" href="tel:'+esc(safePhone)+'">'+esc(phone)+'</a>':'Τηλέφωνο μη διαθέσιμο')+
+      '. Οι γενικές πολιτικές δεν εγγυώνται δωμάτιο ή κούνια για τις συγκεκριμένες ημερομηνίες.</div>';
     target.innerHTML='<h5>'+esc(data.name)+' · προσφορές συγκεκριμένων δωματίων</h5>'+
       '<div class="hz-hotel-price-warning">Ανεξάρτητη αναζήτηση δωματίων: '+esc(data.retrievedAt||'ώρα άγνωστη')+
       '. Η δηλωμένη χωρητικότητα δεν αποδεικνύει ότι επιτρέπεται βρέφος ή παρέχεται δωρεάν κούνια. Ελέγξτε την τελική τιμή, το τέλος ανθεκτικότητας και τις προϋποθέσεις ακύρωσης στον πωλητή.</div>'+
       (data.cribAdvertised?'<div class="hz-hotel-price-warning">Το ξενοδοχείο αναφέρει βρεφική κούνια στις παροχές, αλλά η διαθεσιμότητα και τυχόν χρέωση είναι άγνωστες.</div>':'')+
+      contact+
       (offers.length?offers.map(roomOfferHTML).join(''):'<div class="hz-stay-empty">Ο πάροχος δεν επέστρεψε αναλυτικές τιμές δωματίων για τις ημερομηνίες.</div>');
     document.dispatchEvent(new CustomEvent('horizon:hotel-room-offers',{detail:{panel}}));
     target.scrollIntoView({block:'nearest',behavior:'smooth'});
