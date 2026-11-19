@@ -181,3 +181,91 @@ test('invalid pin segments without booking_token cannot trigger provider searche
     })}),{SERPAPI_API_KEY:'mock-only'},{});
   assert.equal(response.status,400);
 });
+
+
+test('official SKY express screenshot fixture is arithmetically consistent without double-counting taxes',()=>{
+  // Official selection summary supplied by a user, 4–6 Dec 2026,
+  // ATH–SKG GQ380 / SKG–ATH GQ389; not a live booking quote or dynamic API value.
+  const outAdultBase=82,outInfant=7.16,outTaxes=61.24;
+  const inAdultBase=98,inInfant=7.38,bothLegTaxes=110.84;
+  assert.equal(outAdultBase+outInfant+outTaxes,150.40);
+  assert.equal(inAdultBase+inInfant+(bothLegTaxes-outTaxes),154.98);
+  assert.equal(Math.round(((outAdultBase+inAdultBase)+(outInfant+inInfant)+bothLegTaxes)*100)/100,305.38);
+  assert.equal(Math.round((2*(71.62+73.80)+(outInfant+inInfant))*100)/100,305.38);
+});
+
+test('do not silently clamp passenger counts or allow more lap infants than adults',async()=>{
+  const env={SERPAPI_API_KEY:'mock-only'};
+  const invalidGroups=[
+    {adults:1,children:0,infants:2},
+    {adults:10,children:0,infants:0},
+    {adults:2,children:9,infants:0},
+    {adults:1.5,children:0,infants:0},
+    {adults:2,children:0,infants:-1},
+    {adults:2,children:0,infants:8}
+  ];
+  for(const group of invalidGroups){
+    const fields=new URLSearchParams({...group,origin:'Athens',destination:'Thessaloniki',
+      outboundDate:'2026-12-04',returnDate:'2026-12-06'});
+    const res=await worker.fetch(new Request(base+'/flights?'+fields.toString()),env,{});
+    assert.equal(res.status,422,JSON.stringify(group));
+    assert.equal((await res.json()).code,'INVALID_PASSENGERS');
+  }
+});
+
+test('invalid calendar dates are rejected rather than passed to provider',async()=>{
+  const env={SERPAPI_API_KEY:'mock-only'};
+  for(const date of ['2026-02-30','2026-13-01','2026-11-31']){
+    const fields=new URLSearchParams({origin:'Athens',destination:'Thessaloniki',outboundDate:date,returnDate:'2026-12-06'});
+    const res=await worker.fetch(new Request(base+'/flights?'+fields),env,{});
+    assert.equal(res.status,400,date);
+  }
+});
+
+test('invalid airport/date itineraries are filtered and fare searches cannot be cached for six hours',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>Response.json({best_flights:[
+    {...outbound,price:50,flights:[{...outbound.flights[0],departure_airport:{id:'SKG',time:'2026-11-27 07:30'}}]},
+    {...outbound,price:60,flights:[{...outbound.flights[0],departure_airport:{id:'ATH',time:'2026-11-28 07:30'}}]},
+    outbound
+  ]});
+  try{
+    const res=await worker.fetch(new Request(base+'/flights?'+query),{SERPAPI_API_KEY:'mock-only'},{});
+    assert.equal(res.status,200);
+    assert.equal(res.headers.get('cache-control'),'no-store');
+    const data=await res.json();
+    assert.equal(data.cache.ttlSeconds,0);
+    assert.equal(data.results.length,1);
+    assert.equal(data.results[0].price,281);
+  }finally{globalThis.fetch=original;}
+});
+
+test('return results from the wrong airport or day are rejected',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>Response.json({best_flights:[
+    {...inbound,price:15,flights:[{...inbound.flights[0],departure_airport:{id:'ATH',time:'2026-11-29 20:00'}}]},
+    {...inbound,price:20,flights:[{...inbound.flights[0],departure_airport:{id:'SKG',time:'2026-11-30 20:00'}}]},
+    inbound
+  ]});
+  try{
+    const res=await worker.fetch(new Request(base+'/flight-returns',{method:'POST',
+      headers:{'content-type':'application/json'},body:JSON.stringify({
+        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-11-27',
+        returnDate:'2026-11-29',adults:2,infants:1,departureToken:'mock-return-selection'
+      })}),{SERPAPI_API_KEY:'mock-only'},{});
+    assert.equal(res.status,200);
+    const data=await res.json();
+    assert.equal(data.results.length,1);
+    assert.equal(data.results[0].price,337);
+  }finally{globalThis.fetch=original;}
+});
+
+test('provider errors must not echo API keys in public responses',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>Response.json({error:'Provider query failed',api_key:'secret-should-not-leak'}, {status:502});
+  try{
+    const res=await worker.fetch(new Request(base+'/flights?'+query),{SERPAPI_API_KEY:'secret-should-not-leak'},{});
+    assert.ok(res.status>=400);
+    assert.equal((await res.text()).includes('secret-should-not-leak'),false);
+  }finally{globalThis.fetch=original;}
+});
