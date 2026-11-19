@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'flights-panel.js'
+      - 'flight-ground-cost.js'
+      - 'tests/flight-ground-cost.test.mjs'
       - 'results-truth.js'
       - 'transport-results-compare.js'
       - 'worker/src/**'
@@ -25,10 +27,13 @@ jobs:
       - name: Syntax check
         run: |
           node --check flights-panel.js
+          node --check flight-ground-cost.js
           node --check results-truth.js
           node --check transport-results-compare.js
           node --check worker/src/index.js
           node --check worker/src/index-v6.js
           node --check worker/tests/flights.test.mjs
       - name: Test round-trip flight API with mock provider
-        run: node --test worker/tests/flights.test.mjs
+        run: |
+          node --test worker/tests/flights.test.mjs
+          node --test tests/flight-ground-cost.test.mjs
