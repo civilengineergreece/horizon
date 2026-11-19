@@ -5,6 +5,8 @@ on:
     paths:
       - 'flights-panel.js'
       - 'flight-ground-cost.js'
+      - 'flight-infant-fare-rules.js'
+      - 'tests/flight-infant-fare-rules.test.mjs'
       - 'tests/flight-ground-cost.test.mjs'
       - 'results-truth.js'
       - 'transport-results-compare.js'
@@ -28,6 +30,7 @@ jobs:
         run: |
           node --check flights-panel.js
           node --check flight-ground-cost.js
+          node --check flight-infant-fare-rules.js
           node --check results-truth.js
           node --check transport-results-compare.js
           node --check worker/src/index.js
@@ -37,3 +40,4 @@ jobs:
         run: |
           node --test worker/tests/flights.test.mjs
           node --test tests/flight-ground-cost.test.mjs
+          node --test tests/flight-infant-fare-rules.test.mjs
