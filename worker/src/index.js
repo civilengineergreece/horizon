@@ -57,6 +57,109 @@ function firstSerpImage(item){
   }
   return safeUrl(item?.thumbnail);
 }
+
+function hotelStars(v){
+  const raw=String(v??'');
+  const m=raw.match(/(?:^|[^\d])([1-5])(?:[^\d]|$)/);
+  return m?Number(m[1]):null;
+}
+function hotelPriceTotal(rate){
+  const afterTaxes=positivePrice(rate?.extracted_after_taxes_fees);
+  const total=afterTaxes??positivePrice(rate?.extracted_lowest)??positivePrice(rate?.extracted_display_price);
+  return {
+    total:total??null,
+    totalBeforeTaxesFees:positivePrice(rate?.extracted_before_taxes_fees),
+    totalAfterTaxesFees:afterTaxes,
+    taxStatus:afterTaxes!==null?'provider_reports_after_taxes_fees':total!==null?'taxes_and_fees_unknown':'total_not_provided'
+  };
+}
+function hotelGuestCount(v){
+  if(v===null||v===undefined||v==='')return null;
+  const match=String(v).match(/^\s*(\d{1,2})(?:\s|$)/);
+  const n=match?Number(match[1]):null;
+  return Number.isInteger(n)&&n>=1&&n<=30?n:null;
+}
+function hotelOffer(item,seller,official,roomName,guestCount,fallbackLink){
+  const quote=hotelPriceTotal(item?.total_rate||{});
+  const link=safeUrl(item?.link)||safeUrl(fallbackLink);
+  return {
+    seller:cleanText(seller||'Μη κατονομασμένος πωλητής',120),
+    official:official===true,
+    roomName:cleanText(roomName||'',160)||null,
+    numGuests:hotelGuestCount(item?.num_guests??guestCount),
+    total:quote.total,currency:'EUR',
+    totalBeforeTaxesFees:quote.totalBeforeTaxesFees,
+    totalAfterTaxesFees:quote.totalAfterTaxesFees,taxStatus:quote.taxStatus,
+    bookingUrl:link,
+    freeCancellation:item?.free_cancellation===true?true:item?.free_cancellation===false?false:null,
+    freeCancellationUntil:cleanText(item?.free_cancellation_until_date||'',80)||null,
+    bookingStatus:'linked_offer_not_checked_out'
+  };
+}
+function normalizeHotelDetails(data,adults,children){
+  const details=data?.property||data||{},out=[],seen=new Set();
+  function add(offer){
+    if(!(Number(offer.total)>0))return;
+    const signature=[offer.seller,offer.roomName,offer.total,offer.bookingUrl].join('|');
+    if(seen.has(signature))return;seen.add(signature);
+    out.push({...offer,minimumSleepingGuestCount:adults+children,
+      capacityStatus:offer.numGuests===null?'unknown':offer.numGuests>=adults+children?'listed_capacity_sufficient_for_non_infants':'insufficient',
+      infantCotStatus:'unverified_contact_property',
+      quoteSource:'Google Hotels Property Details via SerpApi'});
+  }
+  for(const seller of [...(Array.isArray(details.prices)?details.prices:[]),
+                       ...(Array.isArray(details.featured_prices)?details.featured_prices:[])]){
+    const rooms=Array.isArray(seller.rooms)?seller.rooms:[];
+    if(rooms.length){
+      for(const room of rooms.slice(0,12)){
+        const rates=Array.isArray(room.rates)&&room.rates.length?room.rates:[room];
+        for(const rate of rates.slice(0,8))add(hotelOffer(rate,seller.source,seller.official,room.name,
+          rate.num_guests??room.num_guests??seller.num_guests,rate.link||room.link||seller.link));
+      }
+    }else add(hotelOffer(seller,seller.source,seller.official,null,seller.num_guests,seller.link));
+  }
+  const amenities=Array.isArray(details.amenities)?details.amenities:[];
+  return {
+    name:cleanText(details.name||'Κατάλυμα',180),address:cleanText(details.address||'',250)||null,
+    hotelClass:hotelStars(details.hotel_class),
+    propertyUrl:safeUrl(details.link),
+    cribAdvertised:amenities.some(x=>/\bcrib\b|\bcot\b|βρεφικ|κούνια/i.test(String(x))),
+    cribConfirmedForParty:false,
+    offers:out.sort((a,b)=>a.total-b.total).slice(0,35)
+  };
+}
+async function hotelDetails(request,env,input){
+  const propertyToken=String(input.propertyToken||'').trim();
+  if(!/^[A-Za-z0-9_-]{10,220}$/.test(propertyToken)){
+    return fail(request,env,400,'Χρειάζεται έγκυρος κωδικός καταλύματος.',null,{code:'INVALID_PROPERTY_TOKEN'});
+  }
+  const checkIn=isoDate(input.checkInDate),checkOut=isoDate(input.checkOutDate);
+  if(!checkIn||!checkOut)return fail(request,env,400,'Χρειάζονται έγκυρες ημερομηνίες.',null,{code:'INVALID_DATES'});
+  const nights=Math.round((Date.parse(checkOut)-Date.parse(checkIn))/86400000);
+  if(nights<1||nights>90)return fail(request,env,400,'Η διαμονή πρέπει να είναι 1–90 βράδια.',null,{code:'INVALID_NIGHTS'});
+  const adults=Number(input.adults),children=Number(input.children??0),infants=Number(input.infants??0);
+  if(![adults,children,infants].every(Number.isInteger)||adults<1||adults>10||
+     children<0||infants<0||children+infants>10){
+    return fail(request,env,422,'Μη έγκυρος αριθμός ταξιδιωτών.',null,{code:'INVALID_OCCUPANCY'});
+  }
+  const ages=parseChildAges(input.childrenAges);
+  if(ages.length!==children||ages.some(x=>!Number.isInteger(x)||x<1||x>17)){
+    return fail(request,env,422,'Χρειάζονται οι πραγματικές ηλικίες των παιδιών.',null,{code:'CHILD_AGES_REQUIRED'});
+  }
+  if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Δεν έχει ρυθμιστεί η υπηρεσία Google Hotels.',null,{code:'SERPAPI_KEY_REQUIRED'});
+  const u=new URL('https://serpapi.com/search.json');
+  for(const [key,value] of Object.entries({engine:'google_hotels',property_token:propertyToken,
+    check_in_date:checkIn,check_out_date:checkOut,adults:String(adults),
+    children:String(children+infants),currency:'EUR',gl:'gr',hl:'el',api_key:env.SERPAPI_API_KEY}))u.searchParams.set(key,value);
+  if(children+infants)u.searchParams.set('children_ages',[...ages,...Array(infants).fill(1)].join(','));
+  const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
+  const result=normalizeHotelDetails(data,adults,children);
+  return reply(request,env,{ok:true,provider:'Google Hotels Property Details via SerpApi',
+    propertyToken,checkInDate:checkIn,checkOutDate:checkOut,nights,adults,children,infants,
+    retrievedAt:new Date().toISOString(),currency:'EUR',...result,
+    disclaimer:'Προσφορές συγκεκριμένων δωματίων/πωλητών. Η επάρκεια κρεβατιών δεν αποδεικνύει ότι περιλαμβάνεται το βρέφος ή βρεφική κούνια. Η διαθεσιμότητα, η ακύρωση, το τέλος ανθεκτικότητας και η τελική τιμή επαληθεύονται πριν από πληρωμή.'},200,{'cache-control':'no-store'});
+}
+
 function positivePrice(v){
   if(v===null||v===undefined||v==='')return null;
   const n=Number(v);return Number.isFinite(n)&&n>0?Math.round(n*100)/100:null;
@@ -76,8 +179,8 @@ function normalizeGoogleHotel(item,currency,nights){
   const gps=item?.gps_coordinates||{};
   const amenities=(Array.isArray(item?.amenities)?item.amenities:[]).slice(0,12).map(x=>cleanText(x,70)).filter(Boolean);
   return {
-    id:cleanText(item?.property_token||item?.name||'',220),name:cleanText(item?.name||'Κατάλυμα',180),
-    type:cleanText(item?.type||'hotel',80),hotelClass:number(item?.hotel_class,0)||null,
+    id:cleanText(item?.property_token||item?.name||'',220),propertyToken:cleanText(item?.property_token||'',220)||null,name:cleanText(item?.name||'Κατάλυμα',180),
+    type:cleanText(item?.type||'hotel',80),hotelClass:hotelStars(item?.hotel_class),
     rating:number(item?.overall_rating,0)||null,reviews:number(item?.reviews,0)||null,
     nightly,total,totalEstimate,totalPriceBasis:total!==null?'provider_reported':'estimated_nightly_times_nights',
     totalBeforeTaxesFees:beforeTaxes,totalAfterTaxesFees:afterTaxes,taxStatus,
@@ -377,10 +480,14 @@ export default {
       }
       if(url.pathname==='/hotel-capabilities'){
         return reply(request,env,{ok:true,service:'Horizon Hotel Pricing',
-          schemaVersion:2,infantAgeRule:'infant_is_age_1_for_google_hotels',
+          schemaVersion:3,hotelRoomOffers:true,infantAgeRule:'infant_is_age_1_for_google_hotels',
           requiresAgesForOtherChildren:true,taxBasisLabels:true,
           nightlyEstimateNeverReportedAsActualTotal:true
         },200,{'cache-control':'no-store'});
+      }
+      if(url.pathname==='/hotel-details'){
+        if(request.method!=='POST')return fail(request,env,405,'Χρησιμοποίησε POST.');
+        return await hotelDetails(request,env,await body(request));
       }
       if(url.pathname==='/stays'){
         if(request.method==='GET')return await stays(request,env,inputFromUrl(url));
