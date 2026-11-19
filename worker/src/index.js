@@ -123,7 +123,7 @@ function normalizeFlightOption(item,currency){
   const first=legs[0],last=legs[legs.length-1];
   const segments=legs.map(x=>({airline:cleanText(x?.airline,80),flightNumber:cleanText(x?.flight_number,30),durationMinutes:number(x?.duration,0)||null,departure:{airport:cleanText(x?.departure_airport?.id,8),name:cleanText(x?.departure_airport?.name,120),time:cleanText(x?.departure_airport?.time,40)},arrival:{airport:cleanText(x?.arrival_airport?.id,8),name:cleanText(x?.arrival_airport?.name,120),time:cleanText(x?.arrival_airport?.time,40)}}));
   const airlines=[...new Set(segments.map(x=>x.airline).filter(Boolean))];
-  return {price:number(item?.price,0)||null,currency,durationMinutes:number(item?.total_duration,0)||segments.reduce((s,x)=>s+(x.durationMinutes||0),0)||null,stops:Math.max(0,segments.length-1),airlines,departure:segments[0].departure,arrival:segments[segments.length-1].arrival,segments,type:cleanText(item?.type,80),source:'Google Flights',departureToken:cleanText(item?.departure_token,5000),fareDetails:{baggage:'unknown',infantBreakdown:'unknown',airportTransfers:'not_included'}};
+  return {price:number(item?.price,0)||null,currency,durationMinutes:number(item?.total_duration,0)||segments.reduce((s,x)=>s+(x.durationMinutes||0),0)||null,stops:Math.max(0,segments.length-1),airlines,departure:segments[0].departure,arrival:segments[segments.length-1].arrival,segments,type:cleanText(item?.type,80),source:'Google Flights',departureToken:cleanText(item?.departure_token,5000),bookingToken:cleanText(item?.booking_token,5000),fareDetails:{baggage:'unknown',infantBreakdown:'unknown',airportTransfers:'not_included'}};
 }
 function flightInputFromUrl(url){return {origin:url.searchParams.get('origin'),destination:url.searchParams.get('destination'),outboundDate:url.searchParams.get('outboundDate'),returnDate:url.searchParams.get('returnDate'),adults:url.searchParams.get('adults'),children:url.searchParams.get('children'),infants:url.searchParams.get('infants')};}
 async function flights(request,env,input){
@@ -190,6 +190,68 @@ async function flightReturns(request,env,input){
   },200,{'cache-control':'no-store'});
 }
 
+
+/**
+ * Seller quotes for a selected itinerary. Google Flights can return booking
+ * options and baggage policies for a booking_token. Quotes are NOT checkout
+ * guarantees; we never follow booking_request POST URLs server-side.
+ */
+function normalizeBookingOptions(data){
+  const textList=v=>Array.isArray(v)?v.filter(x=>typeof x==='string').map(x=>cleanText(x,240)).slice(0,12):[];
+  const money=v=>{const n=Number(v);return Number.isFinite(n)&&n>0?Math.round(n*100)/100:null;};
+  const baggage=Object.fromEntries(['together','departing','returning'].map(k=>[k,textList(data?.baggage_prices?.[k])]));
+  const results=(Array.isArray(data?.booking_options)?data.booking_options:[]).slice(0,40).map((option,index)=>{
+    const together=option?.together||null,departing=option?.departing||null,returning=option?.returning||null;
+    const total=money(together?.price) ?? (departing&&returning&&money(departing?.price)!==null&&money(returning?.price)!==null?
+      Math.round((money(departing.price)+money(returning.price))*100)/100:null);
+    const source=together||departing||{};
+    return {id:index,seller:cleanText(source.book_with||'Μη κατονομασμένος πωλητής',140),
+      separateTickets:option?.separate_tickets===true,
+      departingSeller:cleanText(departing?.book_with||'',140)||null,returningSeller:cleanText(returning?.book_with||'',140)||null,
+      price:total,currency:'EUR',priceScope:total!==null?'combined_quote':'not_available',
+      baggage:{together:textList(together?.baggage_prices).length?textList(together.baggage_prices):baggage.together,
+        departing:textList(departing?.baggage_prices).length?textList(departing.baggage_prices):baggage.departing,
+        returning:textList(returning?.baggage_prices).length?textList(returning.baggage_prices):baggage.returning},
+      bookingMethod:source.booking_request?.post_data?'provider_post_required':
+        safeUrl(source.booking_request?.url)?'provider_direct_link':'not_supplied',
+      bookingUrl:source.booking_request?.post_data?null:safeUrl(source.booking_request?.url),
+      infantFareBreakdown:null,
+      note:'Τιμή πωλητή κατά την αναζήτηση, όχι εγγυημένη τελική χρέωση.'
+    };
+  }).filter(x=>x.price!==null).sort((a,b)=>a.price-b.price);
+  return {results,baggage};
+}
+async function flightBookingOptions(request,env,input){
+  if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Χρειάζεται SerpApi key για live πτήσεις.',null,{code:'SERPAPI_KEY_REQUIRED'});
+  const token=String(input?.bookingToken||'');
+  const outbound=isoDate(input?.outboundDate),ret=isoDate(input?.returnDate);
+  const origin=cleanText(input?.origin,100),destination=cleanText(input?.destination,100);
+  if(!token||token.length>5000||!outbound||origin.length<2||destination.length<2||ret&&ret<outbound){
+    return fail(request,env,400,'Χρειάζεται έγκυρος κωδικός και στοιχεία επιλεγμένης πτήσης.');
+  }
+  const adults=Math.min(9,Math.max(1,Math.floor(number(input.adults,1))));
+  const children=Math.min(8,Math.max(0,Math.floor(number(input.children,0))));
+  const infants=Math.min(8,Math.max(0,Math.floor(number(input.infants,0))));
+  const [from,to]=await Promise.all([resolveFlightId(origin,env),resolveFlightId(destination,env)]);
+  const u=new URL('https://serpapi.com/search.json');
+  const q={engine:'google_flights',departure_id:from.id,arrival_id:to.id,outbound_date:outbound,
+    type:ret?'1':'2',adults:String(adults),children:String(children),currency:'EUR',
+    gl:'gr',hl:'el',travel_class:'1',booking_token:token,api_key:env.SERPAPI_API_KEY};
+  if(ret)q.return_date=ret;
+  if(infants)q.infants_on_lap=String(infants);
+  for(const [k,v] of Object.entries(q))u.searchParams.set(k,v);
+  const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
+  const normalized=normalizeBookingOptions(data);
+  return reply(request,env,{ok:true,provider:'Google Flights Booking Options via SerpApi',
+    fareScope:ret?'roundtrip_seller_options':'oneway_seller_options',
+    currency:'EUR',origin,destination,outboundDate:outbound,returnDate:ret||null,
+    adults,children,infants,results:normalized.results,baggage:normalized.baggage,
+    retrievedAt:new Date().toISOString(),
+    infantBreakdownConfirmed:false,
+    notice:'Οι προσφορές πωλητών, οι πολιτικές αποσκευών και οι χρεώσεις βρεφών υπόκεινται σε έλεγχο πριν την πληρωμή. Καμία τιμή δεν είναι εγγυημένη τιμή checkout.'},
+    200,{'cache-control':'no-store'});
+}
+
 export default {
   async fetch(request,env){
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request,env)});
@@ -200,6 +262,10 @@ export default {
         if(request.method==='GET')return await stays(request,env,inputFromUrl(url));
         if(request.method==='POST')return await stays(request,env,await body(request));
         return fail(request,env,405,'Χρησιμοποίησε GET ή POST.');
+      }
+      if(url.pathname==='/flight-booking-options'){
+        if(request.method!=='POST')return fail(request,env,405,'Χρησιμοποίησε POST.');
+        return await flightBookingOptions(request,env,await body(request));
       }
       if(url.pathname==='/flight-returns'){
         if(request.method!=='POST')return fail(request,env,405,'Χρησιμοποίησε POST.');
