@@ -38,6 +38,10 @@ function assess(a){
   if(!a.roomConfirmed)problems.push('Δεν επιβεβαιώθηκε ο συγκεκριμένος τύπος δωματίου.');
   if(a.infants>0&&!a.infantIncluded)problems.push('Δεν επιβεβαιώθηκε ότι το βρέφος περιλαμβάνεται στην τιμή.');
   if(a.infants>0&&!a.infantAccepted)problems.push('Δεν επιβεβαιώθηκε ότι το δωμάτιο δέχεται το βρέφος.');
+  if(a.infants>0&&!['free','paid','not_needed'].includes(a.cribStatus))
+    problems.push('Η διαθεσιμότητα/χρέωση της κούνιας δεν έχει επιβεβαιωθεί ή δεν δηλώθηκε ότι δεν απαιτείται.');
+  if(a.infants>0&&a.cribStatus==='paid'&&!validAmount(a.cribFee))
+    problems.push('Η χρεώσιμη κούνια απαιτεί ακριβές θετικό ποσό σε ευρώ.');
   const climateSeparate=a.climateStatus==='excluded';
   const cribSeparate=a.infants>0&&a.cribStatus==='paid'&&a.cribChargeLocation==='excluded';
   const coverageExpected=climateSeparate&&cribSeparate?'all_except_climate_and_crib':
