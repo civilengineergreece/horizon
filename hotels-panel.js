@@ -32,7 +32,7 @@ function installStyles(){
     .hz-stay-meta{color:#94a8b7;font-size:.76rem;margin-top:6px;line-height:1.45}.hz-stay-pricebox{text-align:right;min-width:92px}.hz-total-label{color:#8fa3b2;font-size:.64rem}
     .hz-stay-price{font-weight:900;font-size:1.02rem;white-space:nowrap}.hz-stay-night{color:#b9c6ce;font-size:.72rem;margin-top:1px}.hz-stay-amenities{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
     .hz-stay-amenities span{border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:3px 6px;color:#b6c4cd;font-size:.66rem}.hz-stay-source{display:inline-flex;margin-top:8px;padding:5px 8px;border-radius:999px;background:rgba(255,122,22,.09);border:1px solid rgba(255,122,22,.22);color:#ffb273;font-size:.68rem;font-weight:800}
-    .hz-hotel-ages{margin:10px 0;color:#c8d1d9;font-size:.78rem}.hz-hotel-ages label{display:block;margin-bottom:5px}.hz-hotel-ages input{max-width:270px;padding:9px;background:#102638;color:white;border:1px solid #456;border-radius:8px}.hz-hotel-price-warning{font-size:.73rem;line-height:1.45;color:#ffd9a7;margin-top:6px}.hz-hotel-select{margin-top:8px;padding:8px 12px;background:#193d36;border:1px solid #6abf98;color:white;border-radius:9px;font-weight:800;cursor:pointer}.hz-hotel-select:disabled{opacity:.5;cursor:default}.hz-hotel-selected{padding:12px;border:1px solid #65bf92;border-radius:10px;color:#c8f1dd;margin:9px 0;font-size:.79rem}.hz-stay-empty{padding:16px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;color:#9fb0bd;text-align:center}.hz-stay-summary{margin-top:10px;color:#9fb0bd;font-size:.76rem;line-height:1.45}
+    .hz-hotel-ages{margin:10px 0;color:#c8d1d9;font-size:.78rem}.hz-hotel-ages label{display:block;margin-bottom:5px}.hz-hotel-ages input{max-width:270px;padding:9px;background:#102638;color:white;border:1px solid #456;border-radius:8px}.hz-hotel-price-warning{font-size:.73rem;line-height:1.45;color:#ffd9a7;margin-top:6px}.hz-hotel-select{margin-top:8px;padding:8px 12px;background:#193d36;border:1px solid #6abf98;color:white;border-radius:9px;font-weight:800;cursor:pointer}.hz-hotel-select:disabled{opacity:.5;cursor:default}.hz-hotel-selected{padding:12px;border:1px solid #65bf92;border-radius:10px;color:#c8f1dd;margin:9px 0;font-size:.79rem}.hz-hotel-detail{margin:14px 0;padding:12px;border:1px solid #436678;background:#102535;border-radius:12px}.hz-hotel-detail h5{font-size:.9rem;margin:0 0 10px}.hz-hotel-offer{padding:12px;margin:8px 0;border:1px solid #415466;border-radius:11px}.hz-hotel-offer b{color:#fff}.hz-hotel-offer p{font-size:.75rem;color:#c8d5de;margin:4px 0}.hz-hotel-detail-btn{margin:8px 6px 0 0;padding:8px 10px;border:1px solid #6e93a9;color:white;border-radius:8px;background:#18344b;cursor:pointer}.hz-hotel-detail-btn:disabled{opacity:.5}.hz-hotel-room-price{font-size:1rem;font-weight:900}.hz-stay-empty{padding:16px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;color:#9fb0bd;text-align:center}.hz-stay-summary{margin-top:10px;color:#9fb0bd;font-size:.76rem;line-height:1.45}
     .hz-more-wrap{display:flex;justify-content:center;margin-top:12px}.hz-more{border:1px solid rgba(255,122,22,.35);background:rgba(255,122,22,.08);color:#fff;border-radius:10px;padding:9px 12px;font-weight:800;font-size:.76rem;cursor:pointer}
     @media(max-width:620px){.hz-hotels-grid,.hz-filter-grid{grid-template-columns:1fr}.hz-stay-load{width:100%}.hz-stay-card{grid-template-columns:88px 1fr}.hz-stay-img{width:88px;height:100px}.hz-stay-head{display:block}.hz-stay-pricebox{text-align:left;margin-top:6px}.hz-stay-price{display:inline;margin-right:6px}.hz-total-label{display:inline;margin-right:4px}}
   `;
@@ -80,13 +80,16 @@ function localRead(info){
 function localWrite(info,data){
   try{localStorage.setItem(localKey(info),JSON.stringify({savedAt:Date.now(),data}));}catch{}
 }
-function resultCard(item,nights,index){
+function climateFee(info,item){return window.HORIZON_HOTEL_CLIMATE_FEE?.estimate?.({checkInDate:info?.checkIn,checkOutDate:info?.checkOut,hotelClass:item?.hotelClass,type:item?.type||'hotel'})||null;}
+function hotelFresh(retrievedAt){const ms=Date.parse(retrievedAt||'');return Number.isFinite(ms)&&ms<=Date.now()+30000&&Date.now()-ms<LOCAL_CACHE_TTL;}
+function resultCard(item,nights,index,info,retrievedAt){
   const image=safeUrl(item.image);
   const rating=item.rating?`★ ${Number(item.rating).toFixed(1)}${item.reviews?` (${Number(item.reviews).toLocaleString('el-GR')})`:''}`:'Χωρίς βαθμολογία';
   const stars=item.hotelClass?`${item.hotelClass}★ ξενοδοχείο`:'Ξενοδοχείο';
   const amenities=Array.isArray(item.amenities)?item.amenities.slice(0,5):[];
   const total=Number(item.total)>0?Number(item.total):null;
   const estimate=!total&&Number(item.totalEstimate)>0?Number(item.totalEstimate):null;
+  const fee=climateFee(info,item);
   const taxes=total&&item.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή περιλαμβάνει φόρους/τέλη':
     total?'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται':'Ενδεικτικό σύνολο — φόροι/τέλη άγνωστοι';
   return `<article class="hz-stay-card">
@@ -101,8 +104,10 @@ function resultCard(item,nights,index){
       </div>
       <div class="hz-stay-meta">${esc(rating)}${item.priceSource?` · ${esc(item.priceSource)}`:''}</div>
       ${amenities.length?`<div class="hz-stay-amenities">${amenities.map(a=>`<span>${esc(a)}</span>`).join('')}</div>`:''}
-      <span class="hz-stay-source">${total?'Τιμή από Google Hotels':'Εκτίμηση από τιμή ανά βράδυ'}</span>
-      ${total?`<button type="button" class="hz-hotel-select" data-hotel-index="${index}">Επιλογή διαμονής στον προϋπολογισμό</button>`:'<div class="hz-hotel-price-warning">Δεν μπορεί να προστεθεί στο budget χωρίς τιμή συνολικής διαμονής από την πηγή.</div>'}
+      <span class="hz-stay-source">${total?'Συνολική τιμή καταλόγου Google Hotels':'Εκτίμηση από τιμή ανά βράδυ'}</span>
+      ${fee?`<div class="hz-hotel-price-warning">Πιθανό τέλος ανθεκτικότητας: ${money(fee.amountEUR)} για 1 δωμάτιο / ${fee.nights} βράδια. Άγνωστο αν περιλαμβάνεται ήδη · δεν προστέθηκε στο budget. <a href="${esc(fee.sourceUrl)}" target="_blank" rel="noopener">Άρθρο 44</a></div>`:'<div class="hz-hotel-price-warning">Τέλος ανθεκτικότητας: δεν μπορεί να υπολογιστεί ασφαλώς με τα διαθέσιμα στοιχεία κατηγορίας.</div>'}
+      ${total?`<button type="button" class="hz-hotel-select" data-hotel-index="${index}" ${hotelFresh(retrievedAt)?'':'disabled title="Χρειάζεται νέα τιμή για επιλογή στο budget"'}>Προσωρινή τιμή καταλόγου στο budget</button>`:'<div class="hz-hotel-price-warning">Δεν μπορεί να προστεθεί στο budget χωρίς τιμή συνολικής διαμονής από την πηγή.</div>'}
+      ${item.propertyToken?`<button type="button" class="hz-hotel-detail-btn" data-hotel-details-index="${index}">Δωμάτια · πωλητές · ακύρωση</button>`:'<div class="hz-hotel-price-warning">Δεν δόθηκε σύνδεσμος αναλυτικών τιμών δωματίων.</div>'}
     </div>
   </article>`;
 }
@@ -170,7 +175,7 @@ function applyFilters(panel){
   const resultsEl=panel.querySelector('.hz-stay-results');
   const summary=panel.querySelector('.hz-stay-summary');
   const limit=Math.min(panel._hotelLimit||INITIAL_VISIBLE,out.length);
-  resultsEl.innerHTML=out.length?out.slice(0,limit).map(x=>resultCard(x,data.nights,all.indexOf(x))).join(''):'<div class="hz-stay-empty">Δεν βρέθηκαν επιλογές με αυτά τα φίλτρα.</div>';
+  resultsEl.innerHTML=out.length?out.slice(0,limit).map(x=>resultCard(x,data.nights,all.indexOf(x),panel._hotelInfo,data.retrievedAt)).join(''):'<div class="hz-stay-empty">Δεν βρέθηκαν επιλογές με αυτά τα φίλτρα.</div>';
   let more=panel.querySelector('.hz-more-wrap');
   if(!more){more=document.createElement('div');more.className='hz-more-wrap';summary.before(more);}
   if(out.length>limit){
@@ -186,17 +191,93 @@ function renderResults(panel,data,cacheLabel=''){
   badge.classList.add('active');
   badge.textContent=cacheLabel||(data?.cache?.hit?'Horizon cache: επαναχρησιμοποιήθηκαν αποθηκευμένες live τιμές — χωρίς νέα αναζήτηση SerpApi.':'Νέα live αναζήτηση: αποθηκεύτηκε στην Horizon cache για επαναλαμβανόμενα ίδια αιτήματα.');
 }
+
+function roomOfferHTML(offer,index){
+  const cancellation=offer.freeCancellation===true?'Δωρεάν ακύρωση κατά την πηγή'+(offer.freeCancellationUntil?' έως '+offer.freeCancellationUntil:''):
+    offer.freeCancellation===false?'Δεν αναφέρεται δωρεάν ακύρωση':'Πολιτική ακύρωσης άγνωστη';
+  const capacity=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'?
+    'Δηλωμένη χωρητικότητα '+offer.numGuests+' ατόμων χωρίς επιβεβαίωση κούνιας':
+    offer.capacityStatus==='insufficient'?'Χωρητικότητα μικρότερη από ενήλικες + παιδιά':
+    'Μη επιβεβαιωμένη χωρητικότητα';
+  const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&Number(offer.total)>0;
+  return '<div class="hz-hotel-offer"><b>'+esc(offer.seller)+(offer.official?' · επίσημη σελίδα':'')+'</b>'+
+    '<div>'+esc(offer.roomName||'Τύπος δωματίου μη διαθέσιμος')+'</div>'+
+    '<div class="hz-hotel-room-price">'+money(offer.total,offer.currency)+'</div>'+
+    '<p>'+esc(capacity)+' · '+esc(cancellation)+'</p>'+
+    '<p>'+(offer.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή αναφέρει φόρους και τέλη.':'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται.')+
+    ' Η κούνια/διαμονή βρέφους δεν έχει επιβεβαιωθεί.</p>'+
+    (offer.bookingUrl?'<a href="'+esc(offer.bookingUrl)+'" target="_blank" rel="noopener noreferrer">Έλεγχος στην ιστοσελίδα πωλητή</a>':'<p>Δεν δόθηκε ασφαλής σύνδεσμος κράτησης.</p>')+
+    (valid?'<div><button type="button" class="hz-hotel-select" data-hotel-room-index="'+index+'">Προσθήκη συγκεκριμένης προσφοράς στο budget</button></div>':
+      '<p>Δεν επιτρέπεται επιλογή χωρίς επιβεβαιωμένη χωρητικότητα για ενήλικες και παιδιά.</p>')+
+    '</div>';
+}
+async function showRoomDetails(panel,index){
+  const info=panel._hotelInfo,hotel=panel._hotelData?.results?.[index],target=panel.querySelector('.hz-hotel-detail');
+  if(!info||!hotel?.propertyToken)return;
+  target.textContent='Ελέγχω δωμάτια και προσφορές για '+hotel.name+'…';
+  panel._hotelDetails=null;
+  try{
+    const response=await fetch(API_BASE+'/hotel-details',{method:'POST',
+      headers:{'content-type':'application/json'},
+      body:JSON.stringify({propertyToken:hotel.propertyToken,checkInDate:info.checkIn,checkOutDate:info.checkOut,
+        adults:info.adults,children:info.children,infants:info.infants,childrenAges:info.childrenAges})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.ok===false)throw new Error(data.error||'HTTP '+response.status);
+    if(panel._hotelInfo!==info)return;
+    panel._hotelDetails={data,hotel};
+    const offers=Array.isArray(data.offers)?data.offers:[];
+    target.innerHTML='<h5>'+esc(data.name)+' · προσφορές συγκεκριμένων δωματίων</h5>'+
+      '<div class="hz-hotel-price-warning">Ανεξάρτητη αναζήτηση δωματίων: '+esc(data.retrievedAt||'ώρα άγνωστη')+
+      '. Η δηλωμένη χωρητικότητα δεν αποδεικνύει ότι επιτρέπεται βρέφος ή παρέχεται δωρεάν κούνια. Ελέγξτε την τελική τιμή, το τέλος ανθεκτικότητας και τις προϋποθέσεις ακύρωσης στον πωλητή.</div>'+
+      (data.cribAdvertised?'<div class="hz-hotel-price-warning">Το ξενοδοχείο αναφέρει βρεφική κούνια στις παροχές, αλλά η διαθεσιμότητα και τυχόν χρέωση είναι άγνωστες.</div>':'')+
+      (offers.length?offers.map(roomOfferHTML).join(''):'<div class="hz-stay-empty">Ο πάροχος δεν επέστρεψε αναλυτικές τιμές δωματίων για τις ημερομηνίες.</div>');
+    target.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }catch(e){
+    target.textContent='Δεν ολοκληρώθηκε ο έλεγχος δωματίων: '+String(e.message||e);
+  }
+}
+function selectRoom(panel,index){
+  const info=panel._hotelInfo,detail=panel._hotelDetails;
+  const offer=detail?.data?.offers?.[index],hotel=detail?.hotel;
+  if(!info||!offer||!hotel||offer.capacityStatus!=='listed_capacity_sufficient_for_non_infants'||
+     !hotelFresh(detail.data.retrievedAt)||!(Number(offer.total)>0)){
+    panel.querySelector('.hz-hotel-selected').textContent='Η προσφορά δεν μπορεί να προστεθεί: χωρητικότητα, τιμή ή χρόνος ελέγχου δεν έχουν επιβεβαιωθεί.';return;
+  }
+  saveStaySelection(panel,info,hotel,{
+    name:hotel.name,id:hotel.id,total:offer.total,currency:offer.currency,
+    taxStatus:offer.taxStatus,priceSource:offer.seller,
+    roomName:offer.roomName,seller:offer.seller,freeCancellation:offer.freeCancellation,
+    bookingUrl:offer.bookingUrl,bookingKind:'named_room_offer'
+  },detail.data.retrievedAt);
+}
+function saveStaySelection(panel,info,hotel,option,retrievedAt){
+  const fee=climateFee(info,hotel);
+  const record={at:Date.parse(retrievedAt),editedAt:Date.now(),destination:info.name,
+    checkInDate:info.checkIn,checkOutDate:info.checkOut,nights:info.nights,
+    adults:info.adults,children:info.children,infants:info.infants,childrenAges:info.childrenAges||[],
+    name:option.name,id:option.id,total:Number(option.total),currency:option.currency||'EUR',
+    taxStatus:option.taxStatus||'taxes_and_fees_unknown',
+    priceSource:option.priceSource||'Google Hotels',source:'Google Hotels via SerpApi',
+    retrievedAt,roomName:option.roomName||null,seller:option.seller||null,
+    freeCancellation:option.freeCancellation??null,bookingUrl:option.bookingUrl||null,
+    bookingKind:option.bookingKind||'property_list_quote',
+    possibleClimateFeeEUR:fee?.amountEUR??null,climateFeeIncluded:null,
+    bookingStatus:'quote_only_not_checked_out'};
+  try{localStorage.setItem(selectionKey(info),JSON.stringify(record));}catch{}
+  const feeNote=fee?' Ενδεχόμενο επιπλέον τέλος ανθεκτικότητας '+money(fee.amountEUR)+' (δεν προστέθηκε αυτόματα).':' Το τέλος ανθεκτικότητας δεν υπολογίζεται χωρίς τεκμηριωμένη κατηγορία.';
+  panel.querySelector('.hz-hotel-selected').textContent='Επιλογή '+option.name+(option.roomName?' / '+option.roomName:'')+
+    ': '+money(option.total,option.currency)+' για '+info.nights+' βράδια. Προσφορά πηγής, όχι εγγυημένο checkout.'+feeNote+
+    ' Βρεφική κούνια, τελικοί φόροι και όροι κράτησης χρειάζονται επιβεβαίωση.';
+  document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{detail:{destination:info.name,selected:true,total:record.total,currency:record.currency}}));
+}
 function selectStay(panel,index){
   const info=panel._hotelInfo,data=panel._hotelData,option=data?.results?.[index];
   if(!info||!option||!(Number(option.total)>0))return;
-  const record={at:Date.now(),destination:info.name,checkInDate:info.checkIn,checkOutDate:info.checkOut,
-    nights:info.nights,adults:info.adults,children:info.children,infants:info.infants,childrenAges:info.childrenAges||[],
-    name:option.name,id:option.id,total:Number(option.total),currency:option.currency||'EUR',
-    taxStatus:option.taxStatus||'taxes_and_fees_unknown',priceSource:option.priceSource||'Google Hotels',source:'Google Hotels via SerpApi',retrievedAt:data.retrievedAt||null,
-    bookingStatus:'quote_only_not_checked_out'};
-  try{localStorage.setItem(selectionKey(info),JSON.stringify(record));}catch{}
-  panel.querySelector('.hz-hotel-selected').textContent=`Επιλέχθηκε ${option.name}: ${money(option.total,option.currency)} για ${info.nights} διανυκτερεύσεις. ${option.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή δηλώνει φόρους/τέλη.':'Δεν έχει επιβεβαιωθεί ότι περιλαμβάνονται φόροι/τέλη.'} Τοπικές χρεώσεις ή παροχή βρεφικής κούνιας μπορεί να διαφέρουν κατά την κράτηση.`;
-  document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{detail:{destination:info.name,selected:true,total:record.total,currency:record.currency}}));
+  if(!hotelFresh(data.retrievedAt)){
+    panel.querySelector('.hz-hotel-selected').textContent='Η τιμή έχει παλιώσει. Άνοιξε τις λεπτομέρειες δωματίων για νεότερη προσφορά.';
+    return;
+  }
+  saveStaySelection(panel,info,option,{...option,bookingKind:'property_list_quote'},data.retrievedAt);
 }
 async function searchStays(panel,info){
   const btn=panel.querySelector('.hz-stay-load');
@@ -286,9 +367,10 @@ function renderPanel(pane,name){
       <div class="hz-amenity-title">Παροχές</div><div class="hz-amenity-chips"></div>
       <div class="hz-filter-actions"><button type="button" class="hz-reset">Καθαρισμός φίλτρων</button></div>
     </div>
-    <div class="hz-stay-results"></div><div class="hz-stay-summary"></div>`;
+    <div class="hz-stay-results"></div><div class="hz-stay-summary"></div><div class="hz-hotel-detail" aria-live="polite">Επίλεξε «Δωμάτια · πωλητές · ακύρωση» για έλεγχο συγκεκριμένης προσφοράς.</div>`;
   panel.querySelector('.hz-stay-load').addEventListener('click',()=>searchStays(panel,info));
-  panel.querySelector('.hz-stay-results').addEventListener('click',e=>{const btn=e.target.closest?.('[data-hotel-index]');if(btn)selectStay(panel,Number(btn.dataset.hotelIndex));});
+  panel.querySelector('.hz-stay-results').addEventListener('click',e=>{const btn=e.target.closest?.('[data-hotel-index]');if(btn)selectStay(panel,Number(btn.dataset.hotelIndex));const detail=e.target.closest?.('[data-hotel-details-index]');if(detail)showRoomDetails(panel,Number(detail.dataset.hotelDetailsIndex));});
+  panel.querySelector('.hz-hotel-detail').addEventListener('click',e=>{const room=e.target.closest?.('[data-hotel-room-index]');if(room)selectRoom(panel,Number(room.dataset.hotelRoomIndex));});
 }
 function addPanel(overlay){
   const name=overlay.querySelector('.hd-head h3')?.textContent?.trim();if(!name)return;
