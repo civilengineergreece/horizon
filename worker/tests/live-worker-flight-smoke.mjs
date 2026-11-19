@@ -26,6 +26,14 @@ try{
   assert.equal(health.status,200,'Public Worker /health must respond with HTTP 200');
   assert.equal(health.data.ok,true);
   record('Flights provider configured',String(!!health.data?.providers?.googleFlights?.enabled));
+  let schema=null;
+  for(let n=0;n<16;n++){
+    const r=await request('/flight-capabilities');
+    if(r.status===200&&r.data.schemaVersion===3){schema=r.data;break;}
+    if(n<15)await new Promise(resolve=>setTimeout(resolve,10000));
+  }
+  record('Flight production schema',String(schema?.schemaVersion||'NOT READY'));
+  assert.equal(schema?.schemaVersion,3,'Cloudflare is not running the strict flight price audit version');
 
   // Current Worker version exposes POST /flight-returns. GET must return 405.
   // Older deployments route GET requests to the 404 fallback.
