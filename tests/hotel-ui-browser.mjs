@@ -56,7 +56,50 @@ try{
   assert.ok(estimate?.includes('Εκτίμηση'), 'Nightly-only must not be shown as verified total');
   assert.ok(estimate?.includes('140'), 'Nightly-only indicative multiplication is visible as estimate');
   assert.ok(estimate?.includes('φόροι/τέλη άγνωστοι'), 'Taxes disclaimer shown');
-  console.log('RESULT: PASS — hotel occupancy, price provenance, tax labels and estimate transparency in Chrome');
+
+  const choiceCard=page.locator('.hz-stay-card').filter({hasText:'Test Hotel Taxes Included'});
+  const rejected=page.locator('.hz-stay-card').filter({hasText:'Test Hotel Nightly Only'});
+  assert.equal(await rejected.locator('.hz-hotel-select').count(),0,'Estimated nightly stays cannot be chosen as a live quote');
+  await choiceCard.locator('.hz-hotel-select').click();
+  const selection=await page.evaluate(()=>{
+    const key=Object.keys(localStorage).find(k=>k.startsWith('hz-hotel-selection-v1:'));
+    return key?JSON.parse(localStorage.getItem(key)):null;
+  });
+  assert.equal(selection.total,250);
+  assert.equal(selection.nights,2);
+  assert.equal(selection.infants,1);
+  assert.equal(selection.bookingStatus,'quote_only_not_checked_out');
+
+  const stayBreak=card.locator('.break').filter({hasText:'Επιλεγμένη διαμονή'});
+  await stayBreak.waitFor({timeout:5000});
+  assert.ok((await stayBreak.innerText()).includes('250'),'Selected hotel quote should replace original estimated accommodation');
+  const expected=await page.evaluate(()=>{
+    const r=scored.find(x=>x.name==='Θεσσαλονίκη');
+    return Math.round(r.total-r.transport-r.accommodation+250+305.38+30);
+  });
+  await page.evaluate(()=>{
+    const key='hz-flight-selection-v2:hz-flights-v2:'+
+      ['Αθήνα','Θεσσαλονίκη','2026-12-04','2026-12-06',2,0,1].join('|');
+    localStorage.setItem(key,JSON.stringify({at:Date.now(),fare:305.38,extras:30,scope:'roundtrip'}));
+    document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:'Θεσσαλονίκη',selected:true}}));
+  });
+  await page.waitForTimeout(100);
+  assert.ok((await card.locator('.cost').innerText()).includes(expected.toLocaleString('el-GR')),
+    'Hotel quote plus flight and airport ground fees should replace two estimates without double counting');
+  console.log('Hotel budget: PASS — selected €250 quote plus €305.38 flight and €30 ground, old hotel/air estimates removed');
+
+  await page.evaluate(()=>{
+    state.dates.from='2026-12-10';
+    scored=[scoreDest(window.HORIZON_DESTINATIONS.find(x=>x.name==='Θεσσαλονίκη'))];
+    window.renderResults('match','all');
+  });
+  await page.waitForTimeout(100);
+  const refreshed=page.locator('.destination').filter({hasText:'Θεσσαλονίκη'});
+  assert.equal(await refreshed.locator('.break').filter({hasText:'Επιλεγμένη διαμονή'}).count(),0,
+    'Hotel quote from old dates must not count after changing trip dates');
+  console.log('Hotel quote date safety: PASS');
+
+  console.log('RESULT: PASS — hotel occupancy, tax truth, selected quote budget integration and stale-date safety in Chrome');
 }catch(e){
   console.error('RESULT: FAIL',e?.stack||String(e));process.exitCode=1;
   mkdirSync('artifacts',{recursive:true});

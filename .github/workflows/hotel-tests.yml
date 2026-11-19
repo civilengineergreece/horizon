@@ -6,6 +6,7 @@ on:
       - 'worker/src/index.js'
       - 'worker/tests/stays.test.mjs'
       - 'hotels-panel.js'
+      - 'results-truth.js'
       - 'live-config.js'
       - 'tests/hotel-ui-browser.mjs'
       - '.github/workflows/hotel-tests.yml'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'worker/src/index.js'
       - 'hotels-panel.js'
+      - 'results-truth.js'
       - 'live-config.js'
       - 'tests/hotel-ui-browser.mjs'
   workflow_dispatch:
@@ -33,6 +35,7 @@ jobs:
         run: |
           node --check worker/src/index.js
           node --check hotels-panel.js
+          node --check results-truth.js
           node --check live-config.js
           node --check worker/tests/stays.test.mjs
       - name: Unit-test hotel pricing
