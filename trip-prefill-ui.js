@@ -39,7 +39,7 @@ function patchFlight(panel){
   const btn=panel.querySelector('.hz-flight-search');if(btn&&!btn.disabled)btn.textContent='Έλεγχος πραγματικών τιμών';
   if(panel.dataset.prefillUi==='1')return;panel.dataset.prefillUi='1';
   const from=panel.querySelector('.hz-flight-from'),to=panel.querySelector('.hz-flight-to'),t=tripData(name);if(from?.value)t.from=from.value;if(to?.value)t.to=to.value;
-  const fields=[...panel.querySelectorAll('.hz-flight-field')];fields.forEach(x=>x.classList.add('hz-prefill-hidden'));
+  const fields=[...panel.querySelectorAll('.hz-flight-form .hz-flight-field')];fields.forEach(x=>x.classList.add('hz-prefill-hidden'));
   const {box,render}=summaryBox(t,'flight',()=>{
     const hidden=fields.every(x=>x.classList.contains('hz-prefill-hidden'));fields.forEach(x=>x.classList.toggle('hz-prefill-hidden',!hidden));
     box.querySelector('.hz-auto-trip-edit').textContent=hidden?'Κλείσιμο αλλαγών':'Αλλαγή';
