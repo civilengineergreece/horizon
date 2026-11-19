@@ -92,6 +92,16 @@ function applyAirportGround(panel,selected){
     'Βρέφη κάτω των 6 ετών ταξιδεύουν δωρεάν στις αστικές συγκοινωνίες (όχι απαραίτητα στο αεροπλάνο). '+
     '<span class="hz-flight-note">Οι χρόνοι και η σύνδεση κέντρου με αεροδρόμιο είναι εκτίμηση. Δεν είναι ζωντανή ή ακριβής διαδρομή από την κατοικία/κατάλυμα.</span>';
 }
+function infantRulesHTML(selected,infants){
+  if(!(Number(infants)>0))return '';
+  const rules=window.HORIZON_INFANT_FARE_RULES?.policies?.(selected,infants)||[];
+  const lines=rules.map(p=>{
+    const link=p.url?' <a href="'+esc(p.url)+'" target="_blank" rel="noopener">Επίσημοι όροι</a>':'';
+    return '<div>'+esc(p.airline)+': '+esc(p.rateDescription)+link+'</div>';
+  }).join('');
+  return '<div class="hz-flight-note" data-infant-policy><b>Βρεφικός ναύλος — επίσημοι κανόνες:</b> '+lines+
+    '<div><b>Δεν υπολογίζουμε επιπλέον ποσό:</b> το 10% αφορά τον ναύλο ενηλίκου, όχι το συνολικό κόστος οικογένειας. Ο πάροχος δεν δίνει χωριστή επιβεβαιωμένη χρέωση βρέφους στο API. Ελέγξτε την τιμή και τους φόρους πριν την πληρωμή.</div></div>';
+}
 function publish(panel,selected){
   const sess=sessions.get(panel);if(!sess||!selected)return;
   const fare=Number(selected.fare);if(!Number.isFinite(fare)||fare<=0)return;
@@ -99,13 +109,14 @@ function publish(panel,selected){
   const ground=amount(panel.querySelector('[data-flight-ground]'));
   const mins=amount(panel.querySelector('[data-flight-ground-mins]'));
   const groundAuto=panel.dataset.groundManuallyEdited!=='1'&&!!sess.groundEstimate;
-  const record={at:Date.now(),fare,extras:baggage+ground,estimatedTotal:fare+baggage+ground,scope:selected.scope,groundCostOrigin:groundAuto?'public_bus_fare_benchmark':panel.dataset.groundManuallyEdited==='1'?'user_input':'not_verified',groundEstimate:groundAuto?sess.groundEstimate:null,airportBufferMinutes:120*(selected.scope==='roundtrip'?2:1),bookingSeller:selected.bookingSeller||null,bookingCheckedAt:selected.bookingCheckedAt||null,bookingFareStage:selected.bookingFareStage||'search_offer',baggagePolicies:selected.baggagePolicies||null,infantFareVerified:false,origin:sess.origin,destination:sess.name,from:sess.from,to:sess.to,travelers:sess.travelers,baggage,ground,groundMinutesEachWay:mins,source:'Google Flights via SerpApi',outbound:selected.outbound,returnFlight:selected.returnFlight||null};
+  const record={at:Date.now(),fare,extras:baggage+ground,estimatedTotal:fare+baggage+ground,scope:selected.scope,groundCostOrigin:groundAuto?'public_bus_fare_benchmark':panel.dataset.groundManuallyEdited==='1'?'user_input':'not_verified',groundEstimate:groundAuto?sess.groundEstimate:null,airportBufferMinutes:120*(selected.scope==='roundtrip'?2:1),bookingSeller:selected.bookingSeller||null,bookingCheckedAt:selected.bookingCheckedAt||null,bookingFareStage:selected.bookingFareStage||'search_offer',baggagePolicies:selected.baggagePolicies||null,infantFareVerified:false,infantFareRules:window.HORIZON_INFANT_FARE_RULES?.policies?.(selected,sess.travelers.infants)||[],origin:sess.origin,destination:sess.name,from:sess.from,to:sess.to,travelers:sess.travelers,baggage,ground,groundMinutesEachWay:mins,source:'Google Flights via SerpApi',outbound:selected.outbound,returnFlight:selected.returnFlight||null};
   try{localStorage.setItem(selectionKey(sess.key),JSON.stringify(record));}catch{}
   panel.querySelector('.hz-flight-cost').innerHTML='<b>Επιλεγμένη τιμή '+(selected.scope==='roundtrip'?'μετ’ επιστροφής':'απλής μετάβασης')+': '+euro(fare)+'</b>'+
     selectedLegHTML('Αναχώρηση',selected.outbound)+selectedLegHTML('Επιστροφή',selected.returnFlight)+
     selectedTimeHTML(selected,mins)+
     '<div class="hz-flight-meta">Αποσκευές / χειροκίνητες επιβαρύνσεις: '+euro(baggage)+' · Επίγειες μεταφορές (ενδεικτικές ή χειροκίνητες): '+euro(ground)+' · Σύνολο καταγεγραμμένων ποσών: '+euro(fare+baggage+ground)+'</div>'+
     '<div class="hz-flight-meta">'+(selected.bookingSeller?'Προσφορά πωλητή: '+esc(selected.bookingSeller)+' · ':'Τιμή αναζήτησης Google Flights · ')+(selected.bookingCheckedAt?'Έλεγχος '+esc(new Date(selected.bookingCheckedAt).toLocaleString('el-GR')):'δεν έχει πραγματοποιηθεί έλεγχος προσφοράς πωλητή')+'</div>'+
+    infantRulesHTML(selected,sess.travelers.infants)+
     '<div class="hz-flight-note">Η εμφανιζόμενη προσφορά δεν εγγυάται διαθεσιμότητα ή τελική τιμή checkout. Χρεώσεις βρεφών και αποσκευών πρέπει να επιβεβαιώνονται πριν την πληρωμή. Οι μη γνωστές χρεώσεις δεν θεωρούνται δωρεάν.</div>';
   document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:sess.name,price:fare,extras:baggage+ground,scope:selected.scope,currency:'EUR',selected:true}}));
 }
