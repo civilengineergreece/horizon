@@ -18,18 +18,28 @@ function assess(a){
   if(!a.partyConfirmed)problems.push('Δεν επιβεβαιώθηκαν όλοι οι επισκέπτες.');
   if(!a.roomConfirmed)problems.push('Δεν επιβεβαιώθηκε ο συγκεκριμένος τύπος δωματίου.');
   if(a.infants>0&&!a.infantIncluded)problems.push('Δεν επιβεβαιώθηκε ότι το βρέφος περιλαμβάνεται στην τιμή.');
-  if(a.totalCoverage!=='all_in')problems.push('Δεν επιβεβαιώθηκε ότι το πληρωτέο περιλαμβάνει όλες τις υποχρεωτικές χρεώσεις.');
+  const climateSeparate=a.climateStatus==='excluded';
+  if(!((a.totalCoverage==='all_in'&&!climateSeparate)||
+       (a.totalCoverage==='all_except_climate'&&climateSeparate)))
+    problems.push('Το πληρωτέο πρέπει να καλύπτει όλα τα υποχρεωτικά τέλη, ή όλα εκτός από χωριστά επιβεβαιωμένο τέλος διαμονής.');
+  if(climateSeparate&&!validAmount(a.climateExtra))
+    problems.push('Για χωριστό τέλος διαμονής απαιτείται το ακριβές επιβεβαιωμένο επιπλέον ποσό (€).');
   if(a.infants>0&&!['free','paid','not_needed'].includes(a.cribStatus))
     problems.push('Δεν επιβεβαιώθηκε η δωρεάν/χρεώσιμη κούνια ή ότι δεν χρειάζεται.');
   if(a.infants>0&&a.cribStatus==='paid'&&(!validAmount(a.cribFee)||parseEuro(a.cribFee)<0))
     problems.push('Απαιτείται θετικό κόστος κούνιας όταν δηλώνεται χρεώσιμη.');
-  if(!['included','not_applicable'].includes(a.climateStatus))
-    problems.push('Το τέλος διαμονής/ανθεκτικότητας δεν έχει επιβεβαιωθεί ότι περιλαμβάνεται ή δεν εφαρμόζεται.');
+  if(!['included','excluded','not_applicable'].includes(a.climateStatus))
+    problems.push('Η αντιμετώπιση του τέλους διαμονής/ανθεκτικότητας δεν έχει επιβεβαιωθεί.');
+  if(a.climateApplicable&&a.climateStatus==='not_applicable')
+    problems.push('Για αυτό το ελληνικό ξενοδοχείο προβλέπεται τέλος ανθεκτικότητας: δεν μπορεί να δηλωθεί ως μη εφαρμοστέο.');
   if(!a.cancellationReviewed)problems.push('Δεν έχουν ελεγχθεί οι όροι ακύρωσης.');
   if(a.capacityStatus==='insufficient')problems.push('Η πηγή δηλώνει ανεπαρκή χωρητικότητα για αυτό το δωμάτιο.');
   try{const u=new URL(a.bookingUrl);if(u.protocol!=='https:'||u.username||u.password)throw Error();}catch{problems.push('Δεν υπάρχει ασφαλής σύνδεσμος για τον συγκεκριμένο πωλητή.');}
+  const subtotal=parseEuro(a.total),extra=climateSeparate?parseEuro(a.climateExtra):0;
   return {complete:problems.length===0,problems,manualOnly:true,
-    budgetTotal:problems.length===0?Math.round(parseEuro(a.total)*100)/100:null};
+    budgetTotal:problems.length===0?Math.round((subtotal+extra)*100)/100:null,
+    sellerTotal:problems.length===0?subtotal:null,
+    separatelyConfirmedClimateFee:problems.length===0?extra:null};
 }
 function getPanelDetails(panel){
   const details=panel?._hotelDetails;
@@ -51,7 +61,7 @@ function capture(root,offer,info){
     infantIncluded:checked('infantIncluded'),
     totalCoverage:value('totalCoverage'),
     cribStatus:value('cribStatus'),cribFee:value('cribFee'),
-    climateStatus:value('climateStatus'),
+    climateStatus:value('climateStatus'),climateExtra:value('climateExtra'),
     cancellationReviewed:checked('cancellationReviewed'),
     infants:Number(info?.infants)||0,capacityStatus:offer.capacityStatus,
     bookingUrl:offer.bookingUrl
@@ -65,7 +75,7 @@ function inboxMessage(panel,details,offer){
   const questions=[
     'Το συνολικό πληρωτέο ποσό σε ευρώ για όλη τη διαμονή, μαζί με όλους τους υποχρεωτικούς φόρους και τέλη'+(babies?', το βρέφος και την ενδεχόμενη χρέωση κούνιας':'')+';',
     ...(babies?['Αν επιτρέπεται βρέφος στο συγκεκριμένο δωμάτιο και αν διατίθεται βρεφική κούνια, με ακριβές κόστος και όρους προκράτησης;']:[]),
-    'Αν το τέλος ανθεκτικότητας στην κλιματική κρίση περιλαμβάνεται ή εξοφλείται χωριστά;',
+    'Αν το τέλος ανθεκτικότητας στην κλιματική κρίση περιλαμβάνεται ή εξοφλείται χωριστά και, αν εξοφλείται χωριστά, ποιο είναι το ακριβές συνολικό επιπλέον ποσό για όλα τα δωμάτια και τις διανυκτερεύσεις;',
     'Αν περιλαμβάνεται πρωινό;',
     'Τους πλήρεις όρους ακύρωσης, την προθεσμία και τυχόν χρεώσεις;'
   ];
@@ -95,7 +105,7 @@ function render(panel,index){
     (kind||'<input type="text" name="'+name+'">')+'</label>';
   const sel=(name,items)=>'<select name="'+name+'">'+items.map(i=>'<option value="'+esc(i[0])+'">'+esc(i[1])+'</option>').join('')+'</select>';
   const yes=name=>'<label class="hz-checkout-check"><input type="checkbox" name="'+name+'"> ';
-  root.innerHTML='<h5>Έλεγχος τελικής τιμής και βρεφικής κούνιας</h5>'+
+  root.innerHTML='<h5>Έλεγχος τελικής τιμής'+(info.infants?' και βρεφικής κούνιας':'')+'</h5>'+
     '<div class="hz-hotel-checkout-warning"><b>Μόνο χειροκίνητη καταχώριση:</b> τα παρακάτω δεν επαληθεύονται αυτόματα από τη Google Hotels. Δεν ζητούνται στοιχεία επιβατών, κάρτες ή πληρωμές. Η αποθήκευση ΔΕΝ πραγματοποιεί κράτηση.</div>'+
     '<p><b>'+esc(details.data.name)+'</b> · '+esc(offer.seller)+' · '+
     esc(offer.roomName||'ο τύπος δωματίου δεν δόθηκε από την πηγή')+'<br>'+
@@ -114,7 +124,8 @@ function render(panel,index){
     line('totalCoverage','Περιλαμβάνει όλες τις υποχρεωτικές χρεώσεις;',sel('totalCoverage',[
       ['unknown','Άγνωστο'],
       ['all_in','Ναι, όλα μέσα στο πληρωτέο ποσό'],
-      ['not_all_in','Όχι / υπάρχουν επιπλέον χρεώσεις']
+      ['all_except_climate','Όλα εκτός από χωριστό, επαληθευμένο τέλος διαμονής'],
+      ['not_all_in','Όχι / υπάρχουν άλλες επιπλέον χρεώσεις']
     ]))+
     line('cribStatus','Βρεφική κούνια',sel('cribStatus',[
       ['unknown','Δεν έχει επιβεβαιωθεί'],
@@ -128,12 +139,14 @@ function render(panel,index){
     line('climateStatus','Τέλος διαμονής/ανθεκτικότητας',sel('climateStatus',[
       ['unknown','Άγνωστο'],
       ['included','Περιλαμβάνεται στο πληρωτέο ποσό'],
-      ['excluded','Πληρώνεται επιπλέον · το ποσό δεν είναι τελικό'],
+      ['excluded','Πληρώνεται χωριστά · ακριβές ποσό επιβεβαιωμένο'],
       ['not_applicable','Δεν εφαρμόζεται (επιβεβαιώθηκε)']
     ]))+
+    line('climateExtra','Επιβεβαιωμένο επιπλέον τέλος διαμονής (€) για όλη τη διαμονή',
+      '<input type="text" name="climateExtra" inputmode="decimal" placeholder="Μόνο αν πληρώνεται χωριστά">')+
     '</div><div class="hz-checkout-checks">'+
     yes('datesConfirmed')+'Επαληθεύτηκαν οι ακριβείς ημερομηνίες.</label>'+
-    yes('partyConfirmed')+'Επαληθεύτηκαν όλοι οι επισκέπτες (και το βρέφος).</label>'+
+    yes('partyConfirmed')+'Επαληθεύτηκαν όλοι οι επισκέπτες'+(info.infants?' (μαζί με τα βρέφη)':'')+'.</label>'+
     yes('roomConfirmed')+'Επαληθεύτηκε ο συγκεκριμένος τύπος δωματίου / κρεβατιών.</label>'+
     yes('infantIncluded')+'Το βρέφος περιλαμβάνεται ρητά στο πληρωτέο ποσό.</label>'+
     yes('cancellationReviewed')+'Ελέγχθηκαν οι ακριβείς όροι ακύρωσης (ακόμη και αν δεν είναι δωρεάν).</label>'+
@@ -146,6 +159,8 @@ function render(panel,index){
   if(info.infants===0){
     ['cribStatus','cribFee','infantIncluded'].forEach(key=>root.querySelector('[name="'+key+'"]')?.closest('label')?.remove());
   }
+  root.querySelector('[name="climateExtra"]')?.closest('label')?.insertAdjacentHTML('afterend',
+    '<div class="hz-checkout-warning">Αν το τέλος εξοφλείται χωριστά, καταχώρισε ΜΟΝΟ το ακριβές ποσό που επιβεβαίωσε ο πωλητής. Μην χρησιμοποιείς την ενδεικτική νομοθετική εκτίμηση ως επαληθευμένη χρέωση. Στην επιλογή «όλα εκτός τέλους διαμονής», κάθε άλλη υποχρεωτική χρέωση (και τυχόν κούνια) πρέπει να περιλαμβάνεται στο checkout.</div>');
   root.querySelector('.hz-checkout-inquiry').value=inboxMessage(panel,details,offer);
   root.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -153,7 +168,13 @@ function save(panel,root){
   const details=getPanelDetails(panel),i=Number(root.dataset.offerIndex);
   const offer=details?.data?.offers?.[i],hotel=details?.hotel,info=panel._hotelInfo;
   if(!offer||!info||!hotel)return;
-  const a=capture(root,offer,info),out=assess(a);
+  const a=capture(root,offer,info);
+  a.climateApplicable=!!window.HORIZON_HOTEL_CLIMATE_FEE?.estimate?.({
+    checkInDate:info.checkIn,checkOutDate:info.checkOut,hotelClass:hotel.hotelClass,
+    type:hotel.type||'hotel',
+    countryCode:(window.HORIZON_DESTINATIONS||[]).some(d=>d.name===info.name&&d.region==='Ελλάδα')?'GR':null
+  });
+  const out=assess(a);
   if(!out.complete){
     status(root,'Ανεπαρκής επαλήθευση · δεν αλλάζει το budget: '+out.problems.join(' '));return;
   }
@@ -167,7 +188,8 @@ function save(panel,root){
     countryCode:(window.HORIZON_DESTINATIONS||[]).some(d=>d.name===info.name&&d.region==='Ελλάδα')?'GR':null
   })||null;
   const key='hz-hotel-selection-v1:'+
-    [info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants].join('|');
+    [info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,
+      ...(info.children?(info.childrenAges||[]):[])].join('|');
   const record={
     at:fetched,editedAt:Date.now(),checkoutAt:Date.now(),
     destination:info.name,checkInDate:info.checkIn,checkOutDate:info.checkOut,
@@ -176,10 +198,11 @@ function save(panel,root){
     name:hotel.name,id:hotel.id,
     seller:offer.seller,roomName:offer.roomName||null,bookingUrl:offer.bookingUrl,
     currency:'EUR',total:out.budgetTotal,userCheckoutTotal:out.budgetTotal,
+    sellerCheckoutTotal:out.sellerTotal,confirmedClimateExtraEUR:out.separatelyConfirmedClimateFee,
     providerQuotedTotal:Number(offer.total),priceSource:offer.seller,
     source:'User-entered seller checkout (not independently verified)',
     reviewEvidence:'manual_seller_checkout',checkoutReviewValid:true,
-    taxStatus:'user_reported_all_mandatory_included',
+    taxStatus:'user_reported_all_mandatory_accounted_for',
     climateFeeIncluded:a.climateStatus==='included',
     possibleClimateFeeEUR:fee?.amountEUR??null,
     cribStatus:a.cribStatus,cribFee:a.cribStatus==='paid'?parseEuro(a.cribFee):0,
@@ -191,12 +214,13 @@ function save(panel,root){
   try{localStorage.setItem(key,JSON.stringify(record));}catch{
     status(root,'Η αποθήκευση στον browser απέτυχε. Δεν ενημερώθηκε το budget.');return;
   }
-  status(root,'Καταχωρίστηκε από τον χρήστη ποσό '+amount(out.budgetTotal)+
-    ' από οθόνη checkout. Το Horizon ΔΕΝ το επαλήθευσε ανεξάρτητα και ΔΕΝ πραγματοποιήθηκε κράτηση.',false);
+  status(root,'Καταχωρίστηκε χειροκίνητα συνολικό κόστος '+amount(out.budgetTotal)+
+    (out.separatelyConfirmedClimateFee?' (checkout '+amount(out.sellerTotal)+' + χωριστό τέλος '+amount(out.separatelyConfirmedClimateFee)+')':'')+
+    '. Το Horizon ΔΕΝ το επαλήθευσε ανεξάρτητα και ΔΕΝ πραγματοποιήθηκε κράτηση.',false);
   const chosen=panel.querySelector('.hz-hotel-selected');
-  if(chosen)chosen.textContent='Χειροκίνητη καταχώριση checkout: '+amount(out.budgetTotal)+
-    ' · '+offer.seller+' · περιλαμβάνει το βρέφος και τις δηλωμένες χρεώσεις σύμφωνα με τον χρήστη.'+
-    ' Δεν αποτελεί ανεξάρτητη επαλήθευση ή κράτηση.';
+  if(chosen)chosen.textContent='Χειροκίνητη καταχώριση συνολικού κόστους: '+amount(out.budgetTotal)+
+    ' · '+offer.seller+(info.infants?' · τα βρέφη έχουν δηλωθεί σύμφωνα με τον χρήστη.':'.')+
+    ' Τα χωριστά επιβεβαιωμένα τέλη έχουν συνυπολογιστεί. Δεν αποτελεί ανεξάρτητη επαλήθευση ή κράτηση.';
   document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{
     detail:{destination:info.name,selected:true,total:out.budgetTotal,currency:'EUR',
       evidence:'user_reported_seller_checkout'}
