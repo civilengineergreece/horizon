@@ -76,3 +76,68 @@ test('missing provider key reports unavailable rather than fake results',async()
   assert.equal(r.status,503);
   assert.equal((await r.json()).code,'SERPAPI_KEY_REQUIRED');
 });
+
+
+test('booking options use selected booking token and return seller price and baggage policies',async()=>{
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async url=>{
+    const u=new URL(url);
+    assert.equal(u.hostname,'serpapi.com');
+    assert.equal(u.searchParams.get('booking_token'),'selected-booking-token');
+    assert.equal(u.searchParams.get('type'),'1');
+    assert.equal(u.searchParams.get('infants_on_lap'),'1');
+    assert.equal(u.searchParams.get('return_date'),'2026-11-29');
+    return Response.json({baggage_prices:{together:['1 free carry-on','Checked bag: 30']},
+      booking_options:[{together:{book_with:'Example airline',price:355,
+        baggage_prices:['1 free carry-on','Checked bag: 30'],
+        booking_request:{url:'https://www.google.com/travel/clk/f',post_data:'signed=token'}}}]});
+  };
+  try{
+    const input={origin:'Athens',destination:'Thessaloniki',
+      outboundDate:'2026-11-27',returnDate:'2026-11-29',adults:2,children:0,infants:1,
+      bookingToken:'selected-booking-token'};
+    const response=await worker.fetch(new Request(base+'/flight-booking-options',{method:'POST',
+      headers:{Origin:origin,'content-type':'application/json'},body:JSON.stringify(input)}),
+      {SERPAPI_API_KEY:'mock-only',ALLOWED_ORIGIN:origin},{});
+    assert.equal(response.status,200);
+    const result=await response.json();
+    assert.equal(result.results[0].price,355);
+    assert.equal(result.results[0].seller,'Example airline');
+    assert.deepEqual(result.results[0].baggage.together,['1 free carry-on','Checked bag: 30']);
+    assert.equal(result.results[0].bookingUrl,null,'POST booking actions must not be exposed as ordinary links');
+    assert.equal(result.infantBreakdownConfirmed,false,'No unsupported claim of infant fare breakdown');
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('booking endpoint rejects missing token and non-POST request',async()=>{
+  const env={SERPAPI_API_KEY:'mock-only'};
+  const bad=await worker.fetch(new Request(base+'/flight-booking-options',{method:'POST',
+    headers:{'content-type':'application/json'},body:JSON.stringify({
+      origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-11-27',bookingToken:''})}),env,{});
+  assert.equal(bad.status,400);
+  const invalidMethod=await worker.fetch(new Request(base+'/flight-booking-options'),env,{});
+  assert.equal(invalidMethod.status,405);
+});
+
+test('separate-ticket booking prices combine only when both parts have explicit prices',async()=>{
+  const originalFetch=globalThis.fetch;
+  let n=0;
+  globalThis.fetch=async()=>{
+    n++;
+    return Response.json({booking_options:[{separate_tickets:true,
+      departing:{book_with:'Seller A',price:150},returning:{book_with:'Seller B',price:170}},
+      {separate_tickets:true,departing:{book_with:'Seller C',price:80}}]});
+  };
+  try{
+    const response=await worker.fetch(new Request(base+'/flight-booking-options',{method:'POST',
+      headers:{'content-type':'application/json'},body:JSON.stringify({
+        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-11-27',
+        returnDate:'2026-11-29',adults:1,bookingToken:'valid'})}),
+        {SERPAPI_API_KEY:'mock-only'},{});
+    const data=await response.json();
+    assert.equal(n,1);
+    assert.equal(data.results.length,1);
+    assert.equal(data.results[0].price,320);
+    assert.equal(data.results[0].separateTickets,true);
+  }finally{globalThis.fetch=originalFetch;}
+});
