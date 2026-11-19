@@ -330,3 +330,28 @@ test('flight capability endpoint needs no paid provider call and confirms strict
     assert.equal(caps.validatesTravelerCounts,true);
   }finally{globalThis.fetch=original;}
 });
+
+
+test('seller quote is rejected if provider-selected flight numbers contradict the pinned selection',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>Response.json({
+    selected_flights:[
+      {flights:[{airline:'SKY express',flight_number:'GQ380',duration:55,
+        departure_airport:{id:'ATH',time:'2026-12-04 07:30'},arrival_airport:{id:'SKG',time:'2026-12-04 08:25'}}]},
+      {flights:[{airline:'SKY express',flight_number:'GQ388',duration:60,
+        departure_airport:{id:'SKG',time:'2026-12-06 22:00'},arrival_airport:{id:'ATH',time:'2026-12-06 23:00'}}]}
+    ],
+    booking_options:[{together:{book_with:'Different Flight Seller',price:150}}]
+  });
+  try{
+    const response=await worker.fetch(new Request(base+'/flight-booking-options',{method:'POST',
+      headers:{'content-type':'application/json'},body:JSON.stringify({
+        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
+        returnDate:'2026-12-06',adults:2,infants:1,
+        outboundSegments:[{flightNumber:'GQ380',departure:{airport:'ATH',time:'2026-12-04 07:30'},arrival:{airport:'SKG',time:'2026-12-04 08:25'}}],
+        returnSegments:[{flightNumber:'GQ389',departure:{airport:'SKG',time:'2026-12-06 22:00'},arrival:{airport:'ATH',time:'2026-12-06 23:00'}}]
+      })}),{SERPAPI_API_KEY:'mock-only'},{});
+    assert.equal(response.status,502);
+    assert.equal((await response.json()).code,'ITINERARY_MISMATCH');
+  }finally{globalThis.fetch=original;}
+});
