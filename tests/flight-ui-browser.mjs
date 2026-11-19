@@ -104,7 +104,7 @@ try{
   assert.equal(stale.length,0);
   log('Reset','Changing outbound clears prior selected fare');
 
-  console.log('RESULT: PASS — actual GitHub Pages UI interactions with mocked provider responses');
+  console.log('RESULT: PASS — browser interactions against served PR branch with mocked provider responses');
 }catch(e){
   console.error('RESULT: FAIL',e?.stack||String(e));
   mkdirSync('artifacts',{recursive:true});
