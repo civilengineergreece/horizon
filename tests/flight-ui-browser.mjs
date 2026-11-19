@@ -25,6 +25,8 @@ let outboundHits=0,returnHits=0;
 try{
   await page.route(/\/flights\?/,async route=>{
     outboundHits++;
+    const q=new URL(route.request().url()).searchParams;
+    if(q.get('outboundDate')==='2026-12-20')await new Promise(resolve=>setTimeout(resolve,800));
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
       body:JSON.stringify({ok:true,fareScope:'roundtrip_outbound_only',retrievedAt:new Date().toISOString(),currency:'EUR',results:[flight('ATH','SKG',281,'test-token')]})});
   });
@@ -187,6 +189,18 @@ try{
     .locator('.break').filter({hasText:'Μεταφορά'}).innerText();
   assert.ok(clearTotal.includes('Live τιμή'),'New flight search must clear prior selected budget quote');
   log('One-way and fare reset','One-way quote included; new search immediately removes old fare from budget');
+
+  // Delayed upstream response from an abandoned search must not overwrite a
+  // new trip or leave the search button disabled.
+  await page.locator('.hz-flight-from').fill('2026-12-20');
+  await page.locator('.hz-flight-to').fill('2026-12-22');
+  await page.locator('.hz-flight-search').click();
+  await page.locator('.hz-flight-from').fill('2026-12-21');
+  await page.waitForTimeout(1000);
+  assert.equal(await page.locator('.hz-flight-card').count(),0,'Old in-flight response must be discarded');
+  assert.equal(await page.locator('.hz-flight-search').isEnabled(),true,'User can start a new search after cancelling old trip');
+  log('Async safety','Delayed response discarded after date change; search button stays enabled');
+
 
 
 
