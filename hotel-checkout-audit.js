@@ -17,17 +17,17 @@ function assess(a){
   if(!a.datesConfirmed)problems.push('Δεν επιβεβαιώθηκαν οι ίδιες ημερομηνίες.');
   if(!a.partyConfirmed)problems.push('Δεν επιβεβαιώθηκαν όλοι οι επισκέπτες.');
   if(!a.roomConfirmed)problems.push('Δεν επιβεβαιώθηκε ο συγκεκριμένος τύπος δωματίου.');
-  if(!a.infantIncluded)problems.push('Δεν επιβεβαιώθηκε ότι το βρέφος περιλαμβάνεται στην τιμή.');
+  if(a.infants>0&&!a.infantIncluded)problems.push('Δεν επιβεβαιώθηκε ότι το βρέφος περιλαμβάνεται στην τιμή.');
   if(a.totalCoverage!=='all_in')problems.push('Δεν επιβεβαιώθηκε ότι το πληρωτέο περιλαμβάνει όλες τις υποχρεωτικές χρεώσεις.');
-  if(!['free','paid','not_needed'].includes(a.cribStatus))
+  if(a.infants>0&&!['free','paid','not_needed'].includes(a.cribStatus))
     problems.push('Δεν επιβεβαιώθηκε η δωρεάν/χρεώσιμη κούνια ή ότι δεν χρειάζεται.');
-  if(a.cribStatus==='paid'&&(!validAmount(a.cribFee)||parseEuro(a.cribFee)<0))
+  if(a.infants>0&&a.cribStatus==='paid'&&(!validAmount(a.cribFee)||parseEuro(a.cribFee)<0))
     problems.push('Απαιτείται θετικό κόστος κούνιας όταν δηλώνεται χρεώσιμη.');
   if(!['included','not_applicable'].includes(a.climateStatus))
     problems.push('Το τέλος διαμονής/ανθεκτικότητας δεν έχει επιβεβαιωθεί ότι περιλαμβάνεται ή δεν εφαρμόζεται.');
   if(!a.cancellationReviewed)problems.push('Δεν έχουν ελεγχθεί οι όροι ακύρωσης.');
   if(a.capacityStatus==='insufficient')problems.push('Η πηγή δηλώνει ανεπαρκή χωρητικότητα για αυτό το δωμάτιο.');
-  if(!a.bookingUrl||!/^https:\/\//i.test(a.bookingUrl))problems.push('Δεν υπάρχει ασφαλής σύνδεσμος για τον συγκεκριμένο πωλητή.');
+  try{const u=new URL(a.bookingUrl);if(u.protocol!=='https:'||u.username||u.password)throw Error();}catch{problems.push('Δεν υπάρχει ασφαλής σύνδεσμος για τον συγκεκριμένο πωλητή.');}
   return {complete:problems.length===0,problems,manualOnly:true,
     budgetTotal:problems.length===0?Math.round(parseEuro(a.total)*100)/100:null};
 }
@@ -40,7 +40,7 @@ function status(root,text,isWarning=true){
   const el=root.querySelector('[data-checkout-message]');
   if(!el)return;el.textContent=text;el.style.color=isWarning?'#ffd6a0':'#abedcf';
 }
-function capture(root,offer){
+function capture(root,offer,info){
   const value=key=>root.querySelector('[name="'+key+'"]')?.value||'';
   const checked=key=>!!root.querySelector('[name="'+key+'"]')?.checked;
   return {
@@ -53,7 +53,7 @@ function capture(root,offer){
     cribStatus:value('cribStatus'),cribFee:value('cribFee'),
     climateStatus:value('climateStatus'),
     cancellationReviewed:checked('cancellationReviewed'),
-    capacityStatus:offer.capacityStatus,
+    infants:Number(info?.infants)||0,capacityStatus:offer.capacityStatus,
     bookingUrl:offer.bookingUrl
   };
 }
@@ -82,7 +82,7 @@ function render(panel,index){
     root.className='hz-hotel-checkout-audit';
     panel.querySelector('.hz-hotel-detail').after(root);
   }
-  const hasURL=typeof offer.bookingUrl==='string'&&offer.bookingUrl.startsWith('https://');
+  const hasURL=(()=>{try{const url=new URL(offer.bookingUrl);return url.protocol==='https:'&&!url.username&&!url.password;}catch{return false;}})();
   root.dataset.offerIndex=String(index);
   const line=(name,label,kind)=>'<label class="hz-checkout-field">'+esc(label)+
     (kind||'<input type="text" name="'+name+'">')+'</label>';
@@ -136,6 +136,9 @@ function render(panel,index){
     '<button type="button" data-hotel-audit-copy>Αντιγραφή ερωτήσεων προς το ξενοδοχείο</button></div>'+
     '<div data-checkout-message role="status" aria-live="polite">Το τελικό πληρωτέο ποσό δεν είναι επιβεβαιωμένο.</div>'+
     '<textarea class="hz-checkout-inquiry" readonly aria-label="Ερωτήσεις προς το ξενοδοχείο"></textarea>';
+  if(info.infants===0){
+    ['cribStatus','cribFee','infantIncluded'].forEach(key=>root.querySelector('[name="'+key+'"]')?.closest('label')?.remove());
+  }
   root.querySelector('.hz-checkout-inquiry').value=inboxMessage(panel,details,offer);
   root.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
@@ -143,7 +146,7 @@ function save(panel,root){
   const details=getPanelDetails(panel),i=Number(root.dataset.offerIndex);
   const offer=details?.data?.offers?.[i],hotel=details?.hotel,info=panel._hotelInfo;
   if(!offer||!info||!hotel)return;
-  const a=capture(root,offer),out=assess(a);
+  const a=capture(root,offer,info),out=assess(a);
   if(!out.complete){
     status(root,'Ανεπαρκής επαλήθευση · δεν αλλάζει το budget: '+out.problems.join(' '));return;
   }
