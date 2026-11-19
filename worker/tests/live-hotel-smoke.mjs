@@ -43,6 +43,28 @@ try{
   assert.ok(live.body.pagination&&typeof live.body.pagination.hasMore==='boolean',
     'Production hotel API must expose trustworthy pagination metadata');
   mark('Google Hotels more pages',String(live.body.pagination.hasMore));
+  if(live.body.pagination.hasMore){
+    const token=live.body.pagination.nextPageToken;
+    assert.ok(typeof token==='string'&&token.length>0,'No valid nextPageToken');
+    const nextParams=new URLSearchParams(params);
+    nextParams.set('nextPageToken',token);
+    const next=await get('/stays?'+nextParams);
+    mark('Real second hotel page','HTTP '+next.status+'; '+(next.body.results?.length||0)+' listings');
+    assert.equal(next.status,200,'Second Google Hotels page failed');
+    assert.equal(next.body.adults,2);
+    assert.equal(next.body.infants,1);
+    assert.equal(next.body.nights,2);
+    assert.ok(next.body.results?.length>0,'Google Hotels page token returned no listings');
+    const firstIds=new Set(live.body.results.map(x=>String(x.propertyToken||x.id||x.name)));
+    const fresh=next.body.results.filter(x=>!firstIds.has(String(x.propertyToken||x.id||x.name)));
+    mark('Unique second-page properties',String(fresh.length));
+    assert.ok(fresh.length>0,'Next-page token did not discover additional distinct hotels');
+    const located2=fresh.filter(h=>typeof h.latitude==='number'&&typeof h.longitude==='number'&&
+      Number.isFinite(h.latitude)&&Number.isFinite(h.longitude));
+    mark('Second-page geolocated properties',String(located2.length));
+    assert.ok(located2.length>0,'No second-page hotels can be plotted on the map');
+  }
+
   assert.ok(live.body.results.every(x=>Number.isFinite(Date.parse(x.retrievedAt))),
     'Per-hotel timestamps are required to prevent stale map prices');
   for(const h of live.body.results){
