@@ -1,0 +1,35 @@
+name: HORIZON frontend flight UI browser test
+
+on:
+  pull_request:
+    paths:
+      - 'trip-prefill-ui.js'
+      - 'flights-panel.js'
+      - 'tests/flight-ui-browser.mjs'
+      - '.github/workflows/flight-ui-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-flight-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test tools
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Exercise published Horizon flight UI
+        run: node tests/flight-ui-browser.mjs
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: horizon-flight-ui-failure
+          path: artifacts/
