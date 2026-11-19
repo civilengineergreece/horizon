@@ -90,6 +90,8 @@ function resultCard(item,nights,index,info,retrievedAt){
   const total=Number(item.total)>0?Number(item.total):null;
   const estimate=!total&&Number(item.totalEstimate)>0?Number(item.totalEstimate):null;
   const fee=climateFee(info,item);
+  const isGreekDestination=(window.HORIZON_DESTINATIONS||[]).some(d=>d.name===info?.name&&d.region==='Ελλάδα');
+  const missingFeeText=isGreekDestination?'Τέλος ανθεκτικότητας: η κατηγορία του καταλύματος δεν έχει τεκμηριωθεί.':'Ο ελληνικός υπολογισμός τέλους δεν εφαρμόζεται εκτός Ελλάδας.';
   const taxes=total&&item.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή περιλαμβάνει φόρους/τέλη':
     total?'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται':'Ενδεικτικό σύνολο — φόροι/τέλη άγνωστοι';
   return `<article class="hz-stay-card">
@@ -105,7 +107,7 @@ function resultCard(item,nights,index,info,retrievedAt){
       <div class="hz-stay-meta">${esc(rating)}${item.priceSource?` · ${esc(item.priceSource)}`:''}</div>
       ${amenities.length?`<div class="hz-stay-amenities">${amenities.map(a=>`<span>${esc(a)}</span>`).join('')}</div>`:''}
       <span class="hz-stay-source">${total?'Συνολική τιμή καταλόγου Google Hotels':'Εκτίμηση από τιμή ανά βράδυ'}</span>
-      ${fee?`<div class="hz-hotel-price-warning">Πιθανό τέλος ανθεκτικότητας: ${money(fee.amountEUR)} για 1 δωμάτιο / ${fee.nights} βράδια. Άγνωστο αν περιλαμβάνεται ήδη · δεν προστέθηκε στο budget. <a href="${esc(fee.sourceUrl)}" target="_blank" rel="noopener">Άρθρο 44</a></div>`:'<div class="hz-hotel-price-warning">${(window.HORIZON_DESTINATIONS||[]).find(d=>d.name===info?.name)?.region==='Ελλάδα'?'Τέλος ανθεκτικότητας: δεν μπορεί να υπολογιστεί ασφαλώς με τα διαθέσιμα στοιχεία κατηγορίας.':'Ο ελληνικός υπολογισμός τέλους δεν εφαρμόζεται σε προορισμούς εκτός Ελλάδας.'}</div>'}
+      ${fee?`<div class="hz-hotel-price-warning">Πιθανό τέλος ανθεκτικότητας: ${money(fee.amountEUR)} για 1 δωμάτιο / ${fee.nights} βράδια. Άγνωστο αν περιλαμβάνεται ήδη · δεν προστέθηκε στο budget. <a href="${esc(fee.sourceUrl)}" target="_blank" rel="noopener">Άρθρο 44</a></div>`:`<div class="hz-hotel-price-warning">${esc(missingFeeText)}</div>`}
       ${total?`<button type="button" class="hz-hotel-select" data-hotel-index="${index}" ${hotelFresh(retrievedAt)?'':'disabled title="Χρειάζεται νέα τιμή για επιλογή στο budget"'}>Προσωρινή τιμή καταλόγου στο budget</button>`:'<div class="hz-hotel-price-warning">Δεν μπορεί να προστεθεί στο budget χωρίς τιμή συνολικής διαμονής από την πηγή.</div>'}
       ${item.propertyToken?`<button type="button" class="hz-hotel-detail-btn" data-hotel-details-index="${index}">Δωμάτια · πωλητές · ακύρωση</button>`:'<div class="hz-hotel-price-warning">Δεν δόθηκε σύνδεσμος αναλυτικών τιμών δωματίων.</div>'}
     </div>
