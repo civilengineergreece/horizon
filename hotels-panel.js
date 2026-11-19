@@ -121,7 +121,9 @@ function resultCard(item,nights,index,info,retrievedAt){
   const estimate=!total&&Number(item.totalEstimate)>0?Number(item.totalEstimate):null;
   const fee=climateFee(info,item);
   const isGreekDestination=(window.HORIZON_DESTINATIONS||[]).some(d=>d.name===info?.name&&d.region==='Ελλάδα');
-  const missingFeeText=isGreekDestination?'Τέλος ανθεκτικότητας: η κατηγορία του καταλύματος δεν έχει τεκμηριωθεί.':'Ο ελληνικός υπολογισμός τέλους δεν εφαρμόζεται εκτός Ελλάδας.';
+  const missingFeeText=isGreekDestination?
+    'Τέλος ανθεκτικότητας: η νόμιμη επιβάρυνση ή ο συντελεστής για αυτή την ημερομηνία/κατηγορία δεν έχει επιβεβαιωθεί. Ρώτησε τον πωλητή.':
+    'Ο ελληνικός υπολογισμός τέλους δεν εφαρμόζεται εκτός Ελλάδας.';
   const taxes=total&&item.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή περιλαμβάνει φόρους/τέλη':
     total?'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται':'Ενδεικτικό σύνολο — φόροι/τέλη άγνωστοι';
   return `<article class="hz-stay-card" data-hotel-card-index="${index}">
@@ -138,7 +140,7 @@ function resultCard(item,nights,index,info,retrievedAt){
       ${amenities.length?`<div class="hz-stay-amenities">${amenities.map(a=>`<span>${esc(a)}</span>`).join('')}</div>`:''}
       <span class="hz-stay-source">${total?'Συνολική τιμή καταλόγου Google Hotels':'Εκτίμηση από τιμή ανά βράδυ'}</span>
       ${fee?`<div class="hz-hotel-price-warning">Πιθανό τέλος ανθεκτικότητας: ${money(fee.amountEUR)} για 1 δωμάτιο / ${fee.nights} βράδια. Άγνωστο αν περιλαμβάνεται ήδη · δεν προστέθηκε στο budget. <a href="${esc(fee.sourceUrl)}" target="_blank" rel="noopener">Άρθρο 44</a></div>`:`<div class="hz-hotel-price-warning">${esc(missingFeeText)}</div>`}
-      ${total?`<button type="button" class="hz-hotel-select" data-hotel-index="${index}" ${hotelFresh(retrievedAt)?'':'disabled title="Χρειάζεται νέα τιμή για επιλογή στο budget"'}>Προσωρινή τιμή καταλόγου στο budget</button>`:'<div class="hz-hotel-price-warning">Δεν μπορεί να προστεθεί στο budget χωρίς τιμή συνολικής διαμονής από την πηγή.</div>'}
+      ${total?`<button type="button" class="hz-hotel-select" data-hotel-index="${index}" ${hotelFresh(retrievedAt)&&String(item.currency||'EUR').toUpperCase()==='EUR'?'':'disabled title="Απαιτείται πρόσφατη τιμή σε ευρώ"'}>Προσωρινή τιμή καταλόγου στο budget</button>`:'<div class="hz-hotel-price-warning">Δεν μπορεί να προστεθεί στο budget χωρίς τιμή συνολικής διαμονής από την πηγή.</div>'}
       ${item.propertyToken?`<button type="button" class="hz-hotel-detail-btn" data-hotel-details-index="${index}">Δωμάτια · πωλητές · ακύρωση</button>`:'<div class="hz-hotel-price-warning">Δεν δόθηκε σύνδεσμος αναλυτικών τιμών δωματίων.</div>'}
     </div>
   </article>`;
@@ -240,7 +242,8 @@ function roomOfferHTML(offer,index){
   const breakfast=offer.breakfastIncluded===true?'Πρωινό: περιλαμβάνεται':offer.breakfastIncluded===false?'Πρωινό: δεν περιλαμβάνεται':'Πρωινό: άγνωστο';
   const beds=Array.isArray(offer.beds)&&offer.beds.length?' · Κρεβάτια: '+offer.beds.map(b=>(b.count?b.count+'× ':'')+b.type).join(', '):' · Κρεβάτια: άγνωστα';
   const safeBooking=safeUrl(offer.bookingUrl);
-  const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&Number(offer.total)>0&&!!safeBooking;
+  const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&
+    Number(offer.total)>0&&String(offer.currency||'EUR').toUpperCase()==='EUR'&&!!safeBooking;
   return '<div class="hz-hotel-offer"><b>'+esc(offer.seller)+(offer.official?' · επίσημη σελίδα':'')+'</b>'+
     '<div>'+esc(offer.roomName||'Τύπος δωματίου μη διαθέσιμος')+'</div>'+
     '<div class="hz-hotel-room-price">'+money(offer.total,offer.currency)+'</div>'+
@@ -292,7 +295,8 @@ function selectRoom(panel,index){
   const info=panel._hotelInfo,detail=panel._hotelDetails;
   const offer=detail?.data?.offers?.[index],hotel=detail?.hotel;
   if(!info||!offer||!hotel||!safeUrl(offer.bookingUrl)||offer.capacityStatus!=='listed_capacity_sufficient_for_non_infants'||
-     !hotelFresh(detail.data.retrievedAt)||!(Number(offer.total)>0)){
+     !hotelFresh(detail.data.retrievedAt)||!(Number(offer.total)>0)||
+     String(offer.currency||'EUR').toUpperCase()!=='EUR'){
     panel.querySelector('.hz-hotel-selected').textContent='Η προσφορά δεν μπορεί να προστεθεί: χωρητικότητα, τιμή ή χρόνος ελέγχου δεν έχουν επιβεβαιωθεί.';return;
   }
   saveStaySelection(panel,info,hotel,{
@@ -325,6 +329,9 @@ function saveStaySelection(panel,info,hotel,option,retrievedAt){
 function selectStay(panel,index){
   const info=panel._hotelInfo,data=panel._hotelData,option=data?.results?.[index];
   if(!info||!option||!(Number(option.total)>0))return;
+  if(String(option.currency||'EUR').toUpperCase()!=='EUR'){
+    panel.querySelector('.hz-hotel-selected').textContent='Δεν προστίθεται ποσό σε άλλο νόμισμα στο budget ευρώ χωρίς επαληθευμένη μετατροπή.';return;
+  }
   if(!hotelFresh(option.retrievedAt||data.retrievedAt)){
     panel.querySelector('.hz-hotel-selected').textContent='Η τιμή έχει παλιώσει. Άνοιξε τις λεπτομέρειες δωματίων για νεότερη προσφορά.';
     return;
