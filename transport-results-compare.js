@@ -47,7 +47,7 @@ function normalizeModes(d){
 function matchingModes(d){const all=normalizeModes(d),sel=selected();return sel.includes('any')?all:all.filter(m=>sel.includes(m));}
 function peopleWeight(kind){const t=stateNow().travelers||{},a=Math.max(1,Number(t.adults)||1),c=Math.max(0,Number(t.children)||0),i=Math.max(0,Number(t.infants)||0);return kind==='ferry'||kind==='bus'||kind==='train'?a+c*.55+i*.05:a+c*.7+i*.1;}
 function formatH(hours){if(!Number.isFinite(hours))return '—';const h=Math.floor(hours),m=Math.round((hours-h)*60);return h?(m?`${h}ω ${m}λ`:`${h}ω`):`${m}λ`;}
-function dates(){const s=stateNow(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1);if(!from)return {from:'',to:''};const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+Math.max(0,days-1));return {from,to:d.toISOString().slice(0,10)};}
+function dates(){const s=stateNow(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1);if(!from)return {from:'',to:''};const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+Math.max(0,days-1));return {from,to:s.dates?.oneWay?'':d.toISOString().slice(0,10)};}
 function flightCache(name){
   try{
     const s=stateNow(),t=s.travelers||{},dt=dates(),
