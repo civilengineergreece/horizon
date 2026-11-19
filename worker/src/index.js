@@ -288,6 +288,24 @@ function pinnedFlightSegments(v){
   }
   return out;
 }
+
+function pinnedRouteMatches(segments,from,to,date){
+  if(!segments?.length||segments[0].date!==date)return false;
+  const airports=x=>/^[A-Z]{3}(?:,[A-Z]{3})*$/.test(x)?x.split(','):null;
+  const a=airports(from),b=airports(to);
+  if(a&&!a.includes(segments[0].departure_id))return false;
+  if(b&&!b.includes(segments.at(-1).arrival_id))return false;
+  for(let i=1;i<segments.length;i++)
+    if(segments[i-1].arrival_id!==segments[i].departure_id)return false;
+  return true;
+}
+function publicSelectedItinerary(data){
+  const groups=Array.isArray(data?.selected_flights)?data.selected_flights:[];
+  return groups.slice(0,3).map(g=>normalizeFlightOption(g,'EUR')).filter(Boolean).map(g=>({
+    departure:g.departure,arrival:g.arrival,airlines:g.airlines,
+    segments:g.segments.map(s=>({flightNumber:s.flightNumber,departure:s.departure,arrival:s.arrival}))
+  }));
+}
 async function flightBookingOptions(request,env,input){
   if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Χρειάζεται SerpApi key για live πτήσεις.',null,{code:'SERPAPI_KEY_REQUIRED'});
   const token=String(input?.bookingToken||'');
@@ -303,6 +321,10 @@ async function flightBookingOptions(request,env,input){
   if(!pax)return fail(request,env,422,'Μη έγκυρος αριθμός ταξιδιωτών.',null,{code:'INVALID_PASSENGERS'});
   const {adults,children,infants}=pax;
   const [from,to]=await Promise.all([resolveFlightId(origin,env),resolveFlightId(destination,env)]);
+  if(!token&&(!pinnedRouteMatches(outboundSegments,from.id,to.id,outbound)||
+     ret&&!pinnedRouteMatches(returnSegments,to.id,from.id,ret))){
+    return fail(request,env,400,'Τα επιλεγμένα δρομολόγια δεν ταιριάζουν στις ζητούμενες ημερομηνίες ή στα αεροδρόμια.',null,{code:'PINNED_FLIGHT_MISMATCH'});
+  }
   const u=new URL('https://serpapi.com/search.json');
   const q={engine:'google_flights',departure_id:from.id,arrival_id:to.id,outbound_date:outbound,
     type:ret?'1':'2',adults:String(adults),children:String(children),currency:'EUR',
@@ -317,6 +339,7 @@ async function flightBookingOptions(request,env,input){
     fareScope:ret?'roundtrip_seller_options':'oneway_seller_options',
     currency:'EUR',origin,destination,outboundDate:outbound,returnDate:ret||null,
     adults,children,infants,results:normalized.results,baggage:normalized.baggage,
+    selectedItinerary:publicSelectedItinerary(data),
     retrievedAt:new Date().toISOString(),
     lookupMethod:token?'booking_token':'selected_flights_json',infantBreakdownConfirmed:false,
     notice:'Οι προσφορές πωλητών, οι πολιτικές αποσκευών και οι χρεώσεις βρεφών υπόκεινται σε έλεγχο πριν την πληρωμή. Καμία τιμή δεν είναι εγγυημένη τιμή checkout.'},
