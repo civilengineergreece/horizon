@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import {mkdirSync} from 'node:fs';
 import {chromium} from 'playwright';
 
-const site='https://civilengineergreece.github.io/horizon/';
+const site=process.env.HORIZON_TEST_URL||'http://127.0.0.1:8765/';
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:1280,height:960}});
 const reports=[];
@@ -67,7 +67,7 @@ try{
   await page.locator('.hz-flight-search').click();
   await page.locator('[data-flight-step="outbound"]').waitFor({timeout:15000});
   assert.equal(outboundHits,1);
-  assert.equal(await page.locator('.hz-flight-results').innerText().then(x=>x.includes('όχι πλήρες ταξίδι')),true);
+  assert.equal(await page.locator('.hz-flight-results').innerText().then(x=>x.includes('δεν έχει επιλεγεί επιστροφή')),true);
   log('Outbound','Initial fare correctly labelled as incomplete');
   await page.locator('[data-flight-step="outbound"]').click();
   await page.locator('[data-flight-step="return"]').waitFor({timeout:15000});
