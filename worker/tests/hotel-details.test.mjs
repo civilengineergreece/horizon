@@ -17,12 +17,14 @@ test('room lookup sends actual family composition and returns named room quotes 
     assert.equal(u.searchParams.get('children_ages'),'1');
     assert.equal(u.searchParams.get('check_in_date'),'2026-12-04');
     assert.equal(u.searchParams.get('check_out_date'),'2026-12-06');
-    return Response.json({name:'Family Example Hotel',hotel_class:'4-star hotel',amenities:['Crib','WiFi'],
+    return Response.json({name:'Family Example Hotel',hotel_class:'4-star hotel',amenities:['WiFi'],
+      amenities_detailed:{popular:[{title:'Crib',label:'Free',available:true}]},
       address:'Sample address',
       prices:[{source:'Hotel direct',official:true,link:'https://example.com/direct',rooms:[
-        {name:'Double with cot on request',num_guests:2,rates:[
+        {name:'Double with cot on request',num_guests:2,beds:[{type:'Queen',count:1}],rates:[
           {total_rate:{extracted_after_taxes_fees:255,extracted_before_taxes_fees:234},
-            free_cancellation:true,link:'https://example.com/book'},
+            free_cancellation:true,free_cancellation_until_date:'2026-12-01',free_cancellation_until_time:'6:00pm',
+            breakfast_included:true,link:'https://example.com/book'},
           {total_rate:{extracted_lowest:220},free_cancellation:false,link:'https://example.com/locked'}]},
         {name:'Single room',num_guests:1,total_rate:{extracted_lowest:150}}
       ]},
@@ -39,12 +41,19 @@ test('room lookup sends actual family composition and returns named room quotes 
     assert.equal(d.hotelClass,4);
     assert.equal(d.infants,1);
     assert.equal(d.cribAdvertised,true);
+    assert.equal(d.cribFeeHint,'property_lists_free');
+    assert.equal(d.cribEvidenceScope,'property_amenity_not_room_confirmation');
     assert.equal(d.cribConfirmedForParty,false);
     assert.equal(d.offers.length,4);
     const refundable=d.offers.find(x=>x.total===255);
     assert.equal(refundable.numGuests,2);
     assert.equal(refundable.capacityStatus,'listed_capacity_sufficient_for_non_infants');
     assert.equal(refundable.freeCancellation,true);
+    assert.equal(refundable.freeCancellationUntil,'2026-12-01');
+    assert.equal(refundable.freeCancellationUntilTime,'6:00pm');
+    assert.equal(refundable.breakfastIncluded,true);
+    assert.equal(refundable.beds.length,1);
+    assert.equal(refundable.beds[0].type,'Queen');
     assert.equal(refundable.taxStatus,'provider_reports_after_taxes_fees');
     assert.equal(refundable.totalBeforeTaxesFees,234);
     const cheap=d.offers.find(x=>x.total===150);
