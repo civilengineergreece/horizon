@@ -70,3 +70,16 @@ test('School-aged children require real ages; infants independently use age 1',a
     assert.deepEqual((await valid.json()).providerAges,[8,1]);
   }finally{globalThis.fetch=original;}
 });
+
+
+test('health-style hotel capabilities endpoint is free of provider calls',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>{throw Error('Capabilities must not contact SerpApi');};
+  try{
+    const res=await worker.fetch(new Request(base+'/hotel-capabilities'),{},{});
+    assert.equal(res.status,200);
+    const data=await res.json();
+    assert.equal(data.schemaVersion,2);
+    assert.equal(data.nightlyEstimateNeverReportedAsActualTotal,true);
+  }finally{globalThis.fetch=original;}
+});
