@@ -1,0 +1,25 @@
+name: HORIZON external Worker / flights smoke test
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/live-worker-flight-smoke.yml'
+      - 'worker/tests/live-worker-flight-smoke.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-production-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate smoke-test syntax
+        run: node --check worker/tests/live-worker-flight-smoke.mjs
+      - name: Test deployed Worker route and live return-flight quote
+        run: node worker/tests/live-worker-flight-smoke.mjs
