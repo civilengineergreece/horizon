@@ -3,9 +3,19 @@
 const AGE_LIMIT_MS=30*60*1000;
 const hookedPanels=new WeakSet();
 function parseEuro(v){
-  const raw=String(v??'').replace(/\s|€/g,'');
-  const standardized=raw.includes(',')&&raw.includes('.')?raw.replace(/\./g,'').replace(',','.'):raw.replace(',','.');
-  return /^\d+(?:\.\d{1,2})?$/.test(standardized)?Number(standardized):NaN;
+  // Greek and international decimal formats; reject malformed or ambiguous amounts.
+  const s=String(v??'').replace(/[\s€\u00a0\u202f]/g,'');
+  if(!s||!/^[0-9.,]+$/.test(s))return NaN;
+  let normalized='';
+  if(/^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(s))
+    normalized=s.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$/.test(s))
+    normalized=s.replace(/,/g,'');
+  else if(/^\d+(?:[.,]\d{1,2})?$/.test(s))
+    normalized=s.replace(',','.');
+  else return NaN;
+  const n=Number(normalized);
+  return Number.isFinite(n)&&n>=0?n:NaN;
 }
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function amount(v){return new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);}
@@ -16,18 +26,30 @@ function assess(a){
   if(!validAmount(a.total))problems.push('Δεν καταχωρίστηκε θετικό συνολικό ποσό σε ευρώ.');
   if(!a.datesConfirmed)problems.push('Δεν επιβεβαιώθηκαν οι ίδιες ημερομηνίες.');
   if(!a.partyConfirmed)problems.push('Δεν επιβεβαιώθηκαν όλοι οι επισκέπτες.');
+  if(a.children>0){
+    if(!Array.isArray(a.childrenAges)||a.childrenAges.length!==a.children||
+       a.childrenAges.some(age=>!Number.isInteger(age)||age<2||age>11))
+      problems.push('Δεν έχουν καταγραφεί οι ακριβείς ηλικίες των παιδιών 2–11 ετών.');
+    if(!a.childAgesConfirmed)
+      problems.push('Δεν επιβεβαιώθηκαν στον πωλητή οι ακριβείς ηλικίες των παιδιών.');
+  }
+  if(!a.allRoomsConfirmed||!Number.isInteger(a.roomsCount)||a.roomsCount<1||a.roomsCount>30)
+    problems.push('Δεν επιβεβαιώθηκε ο αριθμός και το συνολικό κόστος όλων των δωματίων.');
   if(!a.roomConfirmed)problems.push('Δεν επιβεβαιώθηκε ο συγκεκριμένος τύπος δωματίου.');
   if(a.infants>0&&!a.infantIncluded)problems.push('Δεν επιβεβαιώθηκε ότι το βρέφος περιλαμβάνεται στην τιμή.');
+  if(a.infants>0&&!a.infantAccepted)problems.push('Δεν επιβεβαιώθηκε ότι το δωμάτιο δέχεται το βρέφος.');
   const climateSeparate=a.climateStatus==='excluded';
-  if(!((a.totalCoverage==='all_in'&&!climateSeparate)||
-       (a.totalCoverage==='all_except_climate'&&climateSeparate)))
-    problems.push('Το πληρωτέο πρέπει να καλύπτει όλα τα υποχρεωτικά τέλη, ή όλα εκτός από χωριστά επιβεβαιωμένο τέλος διαμονής.');
+  const cribSeparate=a.infants>0&&a.cribStatus==='paid'&&a.cribChargeLocation==='excluded';
+  const coverageExpected=climateSeparate&&cribSeparate?'all_except_climate_and_crib':
+    climateSeparate?'all_except_climate':cribSeparate?'all_except_crib':'all_in';
+  if(a.totalCoverage!==coverageExpected)
+    problems.push('Η δήλωση για τις υποχρεωτικές χρεώσεις δεν συμφωνεί με τον τρόπο πληρωμής τέλους και κούνιας.');
   if(climateSeparate&&!validAmount(a.climateExtra))
     problems.push('Για χωριστό τέλος διαμονής απαιτείται το ακριβές επιβεβαιωμένο επιπλέον ποσό (€).');
-  if(a.infants>0&&!['free','paid','not_needed'].includes(a.cribStatus))
-    problems.push('Δεν επιβεβαιώθηκε η δωρεάν/χρεώσιμη κούνια ή ότι δεν χρειάζεται.');
-  if(a.infants>0&&a.cribStatus==='paid'&&(!validAmount(a.cribFee)||parseEuro(a.cribFee)<0))
-    problems.push('Απαιτείται θετικό κόστος κούνιας όταν δηλώνεται χρεώσιμη.');
+  if(a.infants>0&&a.cribStatus==='paid'&&!['included','excluded'].includes(a.cribChargeLocation))
+    problems.push('Δεν έχει διευκρινιστεί αν η χρέωση κούνιας περιλαμβάνεται ή καταβάλλεται χωριστά.');
+  if(a.cribChargeLocation==='excluded'&&a.cribStatus!=='paid')
+    problems.push('Δεν μπορεί να προστεθεί χωριστή χρέωση κούνιας χωρίς επιβεβαιωμένη χρεώσιμη κούνια.');
   if(!['included','excluded','not_applicable'].includes(a.climateStatus))
     problems.push('Η αντιμετώπιση του τέλους διαμονής/ανθεκτικότητας δεν έχει επιβεβαιωθεί.');
   if(a.climateApplicable&&a.climateStatus==='not_applicable')
@@ -35,11 +57,13 @@ function assess(a){
   if(!a.cancellationReviewed)problems.push('Δεν έχουν ελεγχθεί οι όροι ακύρωσης.');
   if(a.capacityStatus==='insufficient')problems.push('Η πηγή δηλώνει ανεπαρκή χωρητικότητα για αυτό το δωμάτιο.');
   try{const u=new URL(a.bookingUrl);if(u.protocol!=='https:'||u.username||u.password)throw Error();}catch{problems.push('Δεν υπάρχει ασφαλής σύνδεσμος για τον συγκεκριμένο πωλητή.');}
-  const subtotal=parseEuro(a.total),extra=climateSeparate?parseEuro(a.climateExtra):0;
+  const subtotal=parseEuro(a.total),climateExtra=climateSeparate?parseEuro(a.climateExtra):0,
+    cribExtra=cribSeparate?parseEuro(a.cribFee):0;
   return {complete:problems.length===0,problems,manualOnly:true,
-    budgetTotal:problems.length===0?Math.round((subtotal+extra)*100)/100:null,
+    budgetTotal:problems.length===0?Math.round((subtotal+climateExtra+cribExtra)*100)/100:null,
     sellerTotal:problems.length===0?subtotal:null,
-    separatelyConfirmedClimateFee:problems.length===0?extra:null};
+    separatelyConfirmedClimateFee:problems.length===0?climateExtra:null,
+    separatelyConfirmedCribFee:problems.length===0?cribExtra:null};
 }
 function getPanelDetails(panel){
   const details=panel?._hotelDetails;
@@ -57,13 +81,18 @@ function capture(root,offer,info){
     source:value('checkoutSource'),total:value('checkoutTotal'),
     datesConfirmed:checked('datesConfirmed'),
     partyConfirmed:checked('partyConfirmed'),
+    childAgesConfirmed:checked('childAgesConfirmed'),
+    roomsCount:Number(value('roomsCount')),allRoomsConfirmed:checked('allRoomsConfirmed'),
     roomConfirmed:checked('roomConfirmed'),
-    infantIncluded:checked('infantIncluded'),
+    infantIncluded:checked('infantIncluded'),infantAccepted:checked('infantAccepted'),
     totalCoverage:value('totalCoverage'),
     cribStatus:value('cribStatus'),cribFee:value('cribFee'),
+    cribChargeLocation:value('cribChargeLocation'),
     climateStatus:value('climateStatus'),climateExtra:value('climateExtra'),
     cancellationReviewed:checked('cancellationReviewed'),
-    infants:Number(info?.infants)||0,capacityStatus:offer.capacityStatus,
+    infants:Number(info?.infants)||0,children:Number(info?.children)||0,
+    childrenAges:[...(info?.childrenAges||[])],
+    capacityStatus:offer.capacityStatus,
     bookingUrl:offer.bookingUrl
   };
 }
