@@ -395,6 +395,7 @@ async function searchStays(panel,info){
     try{if(typeof save==='function')save();}catch{}
   }
   panel._hotelInfo=info;
+  panel.dataset.signature=[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...info.childrenAges].join('|');
   const local=localRead(info);
   if(local){
     renderResults(panel,local,'Browser cache: άμεση επαναχρησιμοποίηση των ίδιων αποτελεσμάτων — χωρίς κλήση στον Worker.');
