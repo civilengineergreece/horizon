@@ -210,6 +210,14 @@ function save(panel,root){
   const offer=details?.data?.offers?.[i],hotel=details?.hotel,info=panel._hotelInfo;
   if(!offer||!info||!hotel)return;
   const a=capture(root,offer,info);
+  // Confirm the current quote belongs to the exact guest composition used in the search.
+  const party=typeof state!=='undefined'&&state?.travelers?state.travelers:null;
+  if(party&&((Number(party.adults)||1)!==info.adults||
+       (Number(party.children)||0)!==info.children||
+       (Number(party.infants)||0)!==info.infants||
+       (info.children>0&&JSON.stringify(party.childrenAges||[])!==JSON.stringify(info.childrenAges||[])))){
+    status(root,'Άλλαξε η σύνθεση των ταξιδιωτών. Κάνε νέα αναζήτηση πριν καταχωρίσεις συνολικό ποσό.');return;
+  }
   // Paid stays at Greek hotels, rooms and vacation rentals normally carry the statutory fee.
   // Even if the exact rate is unknown, "not applicable" must not silently pass the audit.
   a.climateApplicable=(window.HORIZON_DESTINATIONS||[]).some(
@@ -240,6 +248,7 @@ function save(panel,root){
     seller:offer.seller,roomName:offer.roomName||null,bookingUrl:offer.bookingUrl,
     currency:'EUR',total:out.budgetTotal,userCheckoutTotal:out.budgetTotal,
     sellerCheckoutTotal:out.sellerTotal,confirmedClimateExtraEUR:out.separatelyConfirmedClimateFee,
+    confirmedCribExtraEUR:out.separatelyConfirmedCribFee,roomsCount:a.roomsCount,
     providerQuotedTotal:Number(offer.total),priceSource:offer.seller,
     source:'User-entered seller checkout (not independently verified)',
     reviewEvidence:'manual_seller_checkout',checkoutReviewValid:true,
@@ -256,12 +265,15 @@ function save(panel,root){
     status(root,'Η αποθήκευση στον browser απέτυχε. Δεν ενημερώθηκε το budget.');return;
   }
   status(root,'Καταχωρίστηκε χειροκίνητα συνολικό κόστος '+amount(out.budgetTotal)+
-    (out.separatelyConfirmedClimateFee?' (checkout '+amount(out.sellerTotal)+' + χωριστό τέλος '+amount(out.separatelyConfirmedClimateFee)+')':'')+
+    (out.separatelyConfirmedClimateFee||out.separatelyConfirmedCribFee?
+      ' (checkout '+amount(out.sellerTotal)+(out.separatelyConfirmedClimateFee?
+      ' + τέλος '+amount(out.separatelyConfirmedClimateFee):'')+
+      (out.separatelyConfirmedCribFee?' + κούνια '+amount(out.separatelyConfirmedCribFee):'')+')':'')+
     '. Το Horizon ΔΕΝ το επαλήθευσε ανεξάρτητα και ΔΕΝ πραγματοποιήθηκε κράτηση.',false);
   const chosen=panel.querySelector('.hz-hotel-selected');
   if(chosen)chosen.textContent='Χειροκίνητη καταχώριση συνολικού κόστους: '+amount(out.budgetTotal)+
     ' · '+offer.seller+(info.infants?' · τα βρέφη έχουν δηλωθεί σύμφωνα με τον χρήστη.':'.')+
-    ' Τα χωριστά επιβεβαιωμένα τέλη έχουν συνυπολογιστεί. Δεν αποτελεί ανεξάρτητη επαλήθευση ή κράτηση.';
+    ' Τα χωριστά επιβεβαιωμένα τέλη και η τυχόν κούνια έχουν συνυπολογιστεί, για '+a.roomsCount+' δωμάτια. Δεν αποτελεί ανεξάρτητη επαλήθευση ή κράτηση.';
   document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{
     detail:{destination:info.name,selected:true,total:out.budgetTotal,currency:'EUR',
       evidence:'user_reported_seller_checkout'}
