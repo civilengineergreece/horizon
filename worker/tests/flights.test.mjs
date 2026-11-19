@@ -315,3 +315,18 @@ test('booking options preserve evidence of exact provider-selected flights when 
     assert.equal(data.infantBreakdownConfirmed,false);
   }finally{globalThis.fetch=original;}
 });
+
+
+test('flight capability endpoint needs no paid provider call and confirms strict version',async()=>{
+  const original=globalThis.fetch;
+  globalThis.fetch=async()=>{throw Error('Must not call SerpApi for readiness');};
+  try{
+    const res=await worker.fetch(new Request(base+'/flight-capabilities'),{},{});
+    assert.equal(res.status,200);
+    assert.equal(res.headers.get('cache-control'),'no-store');
+    const caps=await res.json();
+    assert.equal(caps.schemaVersion,3);
+    assert.equal(caps.quoteCacheNoStore,true);
+    assert.equal(caps.validatesTravelerCounts,true);
+  }finally{globalThis.fetch=original;}
+});
