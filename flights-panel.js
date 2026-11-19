@@ -110,7 +110,7 @@ function publish(panel,selected){
   const mins=amount(panel.querySelector('[data-flight-ground-mins]'));
   const groundAuto=panel.dataset.groundManuallyEdited!=='1'&&!!sess.groundEstimate;
   const quoteAt=Number(selected.quoteRetrievedAtMs)||Date.now();
-  const record={at:quoteAt,editedAt:Date.now(),fare,extras:baggage+ground,estimatedTotal:Math.round((fare+baggage+ground)*100)/100,scope:selected.scope,groundCostOrigin:groundAuto?'public_bus_fare_benchmark':panel.dataset.groundManuallyEdited==='1'?'user_input':'not_verified',groundEstimate:groundAuto?sess.groundEstimate:null,airportBufferMinutes:120*(selected.scope==='roundtrip'?2:1),bookingSeller:selected.bookingSeller||null,bookingCheckedAt:selected.bookingCheckedAt||null,bookingFareStage:selected.bookingFareStage||'search_offer',baggagePolicies:selected.baggagePolicies||null,infantFareVerified:false,infantFareRules:window.HORIZON_INFANT_FARE_RULES?.policies?.(selected,sess.travelers.infants)||[],origin:sess.origin,destination:sess.name,from:sess.from,to:sess.to,travelers:sess.travelers,baggage,ground,groundMinutesEachWay:mins,source:'Google Flights via SerpApi',outbound:selected.outbound,returnFlight:selected.returnFlight||null};
+  const record={at:quoteAt,editedAt:Date.now(),fare,extras:baggage+ground,estimatedTotal:Math.round((fare+baggage+ground)*100)/100,scope:selected.scope,groundCostOrigin:groundAuto?'public_bus_fare_benchmark':panel.dataset.groundManuallyEdited==='1'?'user_input':'not_verified',groundEstimate:groundAuto?sess.groundEstimate:null,airportBufferMinutes:120*(selected.scope==='roundtrip'?2:1),bookingSeller:selected.bookingSeller||null,bookingCheckedAt:selected.bookingCheckedAt||null,bookingFareStage:selected.bookingFareStage||'search_offer',bookingMatchStatus:selected.bookingMatchStatus||'not_provided',baggagePolicies:selected.baggagePolicies||null,infantFareVerified:false,infantFareRules:window.HORIZON_INFANT_FARE_RULES?.policies?.(selected,sess.travelers.infants)||[],origin:sess.origin,destination:sess.name,from:sess.from,to:sess.to,travelers:sess.travelers,baggage,ground,groundMinutesEachWay:mins,source:'Google Flights via SerpApi',outbound:selected.outbound,returnFlight:selected.returnFlight||null};
   try{localStorage.setItem(selectionKey(sess.key),JSON.stringify(record));}catch{}
   panel.querySelector('.hz-flight-cost').innerHTML='<b>Επιλεγμένη τιμή '+(selected.scope==='roundtrip'?'μετ’ επιστροφής':'απλής μετάβασης')+': '+euro(fare)+'</b>'+
     selectedLegHTML('Αναχώρηση',selected.outbound)+selectedLegHTML('Επιστροφή',selected.returnFlight)+
@@ -118,7 +118,8 @@ function publish(panel,selected){
     '<div class="hz-flight-meta">Αποσκευές / χειροκίνητες επιβαρύνσεις: '+euro(baggage)+' · Επίγειες μεταφορές (ενδεικτικές ή χειροκίνητες): '+euro(ground)+' · Σύνολο καταγεγραμμένων ποσών: '+euro(fare+baggage+ground)+'</div>'+
     '<div class="hz-flight-meta">'+(selected.bookingSeller?'Προσφορά πωλητή: '+esc(selected.bookingSeller)+' · ':'Τιμή αναζήτησης Google Flights · ')+(selected.bookingCheckedAt?'Έλεγχος '+esc(new Date(selected.bookingCheckedAt).toLocaleString('el-GR')):'δεν έχει πραγματοποιηθεί έλεγχος προσφοράς πωλητή')+'</div>'+
     infantRulesHTML(selected,sess.travelers.infants)+
-    '<div class="hz-flight-note">Η εμφανιζόμενη προσφορά δεν εγγυάται διαθεσιμότητα ή τελική τιμή checkout. Χρεώσεις βρεφών και αποσκευών πρέπει να επιβεβαιώνονται πριν την πληρωμή. Οι μη γνωστές χρεώσεις δεν θεωρούνται δωρεάν.</div>';
+    '<div class="hz-flight-note">Η προσφορά Google Flights δεν εγγυάται συγκεκριμένο τύπο ναύλου (π.χ. SKY joy), διαθεσιμότητα ή τελική τιμή checkout. Δεν γνωρίζουμε αν ο πωλητής αναλύει όλα τα βρεφικά τέλη. Οι μη γνωστές χρεώσεις ΔΕΝ θεωρούνται δωρεάν.'+
+    (selected.bookingSeller&&selected.bookingMatchStatus!=='confirmed'?' Ο πάροχος δεν επιβεβαίωσε ανεξάρτητα τους ακριβείς αριθμούς πτήσεων της προσφοράς.':'')+'</div>';
   document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:sess.name,price:fare,extras:baggage+ground,scope:selected.scope,currency:'EUR',selected:true}}));
 }
 
@@ -149,7 +150,8 @@ async function checkBookingOptions(panel){
     sess.bookingOptions=data;
     if(!choices.length){bookingNotice(panel,'Ο πάροχος δεν έδωσε επιλογές πωλητών για τον συνδυασμό. Αποσκευές και μεταφορά βρέφους ΔΕΝ θεωρούνται δωρεάν.');return;}
     panel.querySelector('.hz-flight-seller-results').innerHTML=
-      '<div class="hz-flight-note">'+choices.length+' προσφορές πωλητών. Δεν αποτελούν εγγυημένη τιμή checkout. Χρεώσεις βρεφών: μη επιβεβαιωμένες.</div>'+
+      '<div class="hz-flight-note">'+choices.length+' προσφορές πωλητών. Δεν αποτελούν εγγυημένη τιμή checkout. Χρεώσεις βρεφών: μη επιβεβαιωμένες. '+
+      (data.itineraryMatch==='confirmed'?'Οι αριθμοί πτήσεων επιβεβαιώθηκαν από την πηγή.':'Η πηγή δεν παρείχε ανεξάρτητη επιβεβαίωση όλων των αριθμών πτήσεων.')+'</div>'+
       choices.slice(0,10).map((x,i)=>{
         const policies=[...(x.baggage?.together||[]),...(x.baggage?.departing||[]),...(x.baggage?.returning||[])];
         const description=policies.length?policies.map(esc).join(' · '):'Δεν δόθηκε πολιτική αποσκευών';
@@ -169,6 +171,7 @@ function selectSeller(panel,index){
   sess.selected.bookingCheckedAt=sess.bookingOptions.retrievedAt||new Date().toISOString();
   sess.selected.quoteRetrievedAtMs=Date.parse(sess.selected.bookingCheckedAt)||Date.now();
   sess.selected.bookingFareStage='seller_quote';
+  sess.selected.bookingMatchStatus=sess.bookingOptions.itineraryMatch||'not_provided';
   sess.selected.baggagePolicies=option.baggage;
   publish(panel,sess.selected);
   bookingNotice(panel,'Επιλέχθηκε η προσφορά '+option.seller+'. Έλεγξε τελική χρέωση και βρεφικά τέλη στον πωλητή πριν την πληρωμή.');
