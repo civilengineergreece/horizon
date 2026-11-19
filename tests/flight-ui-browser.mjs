@@ -34,7 +34,16 @@ try{
     const payload=route.request().postDataJSON();
     assert.equal(payload.departureToken,'test-token');
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
-      body:JSON.stringify({ok:true,fareScope:'roundtrip_return_options',retrievedAt:'2026-11-19T08:50:00Z',currency:'EUR',results:[flight('SKG','ATH',337)]})});
+      body:JSON.stringify({ok:true,fareScope:'roundtrip_return_options',retrievedAt:'2026-11-19T08:50:00Z',currency:'EUR',results:[{...flight('SKG','ATH',337),bookingToken:'test-booking-token'}]})});
+  });
+  await page.route(/\/flight-booking-options$/,async route=>{
+    assert.equal(route.request().method(),'POST');
+    const data=route.request().postDataJSON();
+    assert.equal(data.bookingToken,'test-booking-token');
+    await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
+      body:JSON.stringify({ok:true,provider:'Google Flights via SerpApi',retrievedAt:'2026-11-19T08:55:00Z',
+        results:[{seller:'Test Seller',price:355,currency:'EUR',separateTickets:false,
+          baggage:{together:['1 cabin bag included','1st checked bag: €30'],departing:[],returning:[]}}]})});
   });
   await page.goto(site,{waitUntil:'domcontentloaded',timeout:45000});
   await page.waitForFunction(()=>
@@ -88,14 +97,29 @@ try{
   assert.ok(summary.includes('€337'));
   log('Round trip','Both legs displayed and only combined €337 fare included');
 
+  await page.locator('.hz-flight-booking').click();
+  await page.locator('[data-seller-index="0"]').waitFor({timeout:15000});
+  const sellerContents=await page.locator('.hz-flight-seller-results').innerText();
+  assert.ok(sellerContents.includes('Test Seller'));
+  assert.ok(sellerContents.includes('1 cabin bag included'));
+  await page.locator('[data-seller-index="0"]').click();
+  const sellerRecord=await page.evaluate(()=>{
+    const k=Object.keys(localStorage).find(k=>k.startsWith('hz-flight-selection-v2:'));
+    return k?JSON.parse(localStorage.getItem(k)):null;
+  });
+  assert.equal(sellerRecord.fare,355);
+  assert.equal(sellerRecord.bookingSeller,'Test Seller');
+  assert.equal(sellerRecord.infantFareVerified,false);
+  log('Seller booking quote','Baggage rules and €355 seller price selected; infant fee not asserted free');
+
   await baggage.fill('40');await ground.fill('30');
   const after=await page.evaluate(()=>{
     const k=Object.keys(localStorage).find(k=>k.startsWith('hz-flight-selection-v2:'));
     return k?JSON.parse(localStorage.getItem(k)):null;
   });
   assert.equal(after.extras,70);
-  assert.equal(after.estimatedTotal,407);
-  log('Manual fees','Separated €70 of baggage/transfers from €337 fare');
+  assert.equal(after.estimatedTotal,425);
+  log('Manual fees','Separated €70 of baggage/transfers from €355 seller fare');
 
   const change=page.locator('.hz-flight-change');
   await change.click();
