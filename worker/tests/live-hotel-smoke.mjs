@@ -111,6 +111,8 @@ try{
   assert.equal(details.nights,2);
   assert.equal(details.cribConfirmedForParty,false,'Crib availability must never be invented');
   assert.ok(Array.isArray(details.offers),'Missing normalized property room list');
+  mark('Source property website',details.propertyUrl?'HTTPS link provided':'not provided');
+  mark('Source property phone',details.propertyPhone?'public phone provided':'not provided');
   mark('Named room offers',details.offers.filter(x=>x.roomName).length+' / '+details.offers.length);
   mark('Breakfast term coverage',details.offers.filter(x=>x.breakfastIncluded!==null).length+' / '+details.offers.length);
   mark('Bed term coverage',details.offers.filter(x=>x.beds?.length>0).length+' / '+details.offers.length);
