@@ -6,6 +6,7 @@ on:
       - 'trip-prefill-ui.js'
       - 'live-config.js'
       - 'flights-panel.js'
+      - 'flight-ground-cost.js'
       - 'tests/flight-ui-browser.mjs'
       - '.github/workflows/flight-ui-browser.yml'
   push:
@@ -14,6 +15,7 @@ on:
       - 'trip-prefill-ui.js'
       - 'live-config.js'
       - 'flights-panel.js'
+      - 'flight-ground-cost.js'
   workflow_dispatch:
 
 permissions:

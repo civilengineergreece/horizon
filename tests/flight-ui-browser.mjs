@@ -93,6 +93,11 @@ try{
   assert.ok(record,'Complete flight choice should be stored');
   assert.equal(record.scope,'roundtrip');
   assert.equal(record.fare,337);
+  assert.equal(await ground.inputValue(),'15','Automatic bus fare benchmark for one adult ATH-SKG return');
+  assert.equal(await page.locator('[data-flight-ground-mins]').inputValue(),'120','120 minutes for both airport bus rides per one-way trip');
+  assert.equal(record.groundCostOrigin,'public_bus_fare_benchmark');
+  assert.equal(record.groundEstimate?.airportBufferTotalMinutes,240);
+  log('Airport ground benchmark','€15 roundtrip for one adult + 120 min airport buses per direction; 2h departure buffer');
   const summary=await page.locator('.hz-flight-cost').innerText();
   assert.ok(summary.includes('Αναχώρηση'));
   assert.ok(summary.includes('Επιστροφή'));
