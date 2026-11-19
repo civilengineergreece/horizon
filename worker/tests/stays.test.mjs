@@ -84,3 +84,59 @@ test('health-style hotel capabilities endpoint is free of provider calls',async(
     assert.equal(data.hotelRoomOffers,true);
   }finally{globalThis.fetch=original;}
 });
+
+
+test('hotel pagination preserves exact search criteria and never exposes SerpApi private key',async()=>{
+  const original=globalThis.fetch;let hit=0;
+  globalThis.fetch=async uri=>{
+    hit++;
+    const u=new URL(uri);
+    assert.equal(u.searchParams.get('engine'),'google_hotels');
+    assert.equal(u.searchParams.get('next_page_token'),'CBI=');
+    assert.equal(u.searchParams.get('adults'),'2');
+    assert.equal(u.searchParams.get('children'),'1');
+    assert.equal(u.searchParams.get('children_ages'),'1');
+    assert.equal(u.searchParams.get('check_in_date'),'2026-12-04');
+    return Response.json({properties:[{name:'Second Page Hotel',
+      property_token:'ChgIsecondPageToken2026',gps_coordinates:{latitude:40.62,longitude:22.94},
+      hotel_class:'4-star hotel',total_rate:{extracted_after_taxes_fees:224}}],
+      serpapi_pagination:{current_from:21,current_to:21,next_page_token:'CDI='}});
+  };
+  try{
+    const req=new Request(base+'/stays?'+new URLSearchParams({
+      destination:'Thessaloniki',checkInDate:'2026-12-04',checkOutDate:'2026-12-06',
+      adults:2,children:0,infants:1,nextPageToken:'CBI='
+    }));
+    const res=await worker.fetch(req,{SERPAPI_API_KEY:'not-for-public-response'},{});
+    assert.equal(res.status,200);
+    const raw=await res.text();
+    assert.equal(raw.includes('not-for-public-response'),false);
+    const data=JSON.parse(raw);
+    assert.equal(hit,1);
+    assert.equal(data.results.length,1);
+    assert.equal(data.results[0].total,224);
+    assert.equal(data.results[0].hotelClass,4);
+    assert.equal(data.results[0].latitude,40.62);
+    assert.ok(data.results[0].retrievedAt,'Hotel quote should carry individual retrieval timestamp');
+    assert.equal(data.pagination.nextPageToken,'CDI=');
+    assert.equal(data.pagination.hasMore,true);
+    assert.equal(data.pagination.currentFrom,21);
+  }finally{globalThis.fetch=original;}
+});
+
+test('malformed pagination token fails before any paid provider call',async()=>{
+  const old=globalThis.fetch;let used=0;
+  globalThis.fetch=async()=>{used++;throw Error('must not call provider');};
+  try{
+    for(const token of ['a b c','!malicious!', 'x'.repeat(2100)]){
+      const req=new Request(base+'/stays?'+new URLSearchParams({
+        destination:'Thessaloniki',checkInDate:'2026-12-04',
+        checkOutDate:'2026-12-06',adults:2,infants:1,nextPageToken:token
+      }));
+      const res=await worker.fetch(req,{SERPAPI_API_KEY:'mock-only'},{});
+      assert.equal(res.status,400);
+      assert.equal((await res.json()).code,'INVALID_NEXT_PAGE_TOKEN');
+    }
+    assert.equal(used,0);
+  }finally{globalThis.fetch=old;}
+});
