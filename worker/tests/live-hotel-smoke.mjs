@@ -36,6 +36,15 @@ try{
   assert.deepEqual(live.body.providerAges,[1],'Production Worker must translate infant to Google Hotels age 1');
   assert.equal(live.body.nights,2);
   assert.ok(live.body.results?.length>0,'No actual hotel listings were returned');
+  const mapped=live.body.results.filter(h=>typeof h.latitude==='number'&&typeof h.longitude==='number'&&
+    Number.isFinite(h.latitude)&&Number.isFinite(h.longitude)&&Math.abs(h.latitude)<=90&&Math.abs(h.longitude)<=180);
+  mark('Real hotel coordinates',mapped.length+' of '+live.body.results.length+' with valid GPS positions');
+  assert.ok(mapped.length>0,'No map-able hotel coordinates returned by production Google Hotels');
+  assert.ok(live.body.pagination&&typeof live.body.pagination.hasMore==='boolean',
+    'Production hotel API must expose trustworthy pagination metadata');
+  mark('Google Hotels more pages',String(live.body.pagination.hasMore));
+  assert.ok(live.body.results.every(x=>Number.isFinite(Date.parse(x.retrievedAt))),
+    'Per-hotel timestamps are required to prevent stale map prices');
   for(const h of live.body.results){
     if(Number(h.total)>0)assert.ok(['provider_reports_after_taxes_fees','taxes_and_fees_unknown'].includes(h.taxStatus));
     else if(Number(h.totalEstimate)>0)assert.equal(h.taxStatus,'total_not_provided');
