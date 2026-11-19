@@ -14,6 +14,15 @@ try{
   mark('Worker health','HTTP '+health.status);
   assert.equal(health.status,200);
   assert.equal(health.body.ok,true);
+  let capabilities;
+  for(let attempt=0;attempt<16;attempt++){
+    capabilities=await get('/hotel-capabilities');
+    if(capabilities.status===200&&capabilities.body.schemaVersion===2)break;
+    if(attempt<15)await new Promise(resolve=>setTimeout(resolve,10000));
+  }
+  mark('Hotel API production version','HTTP '+capabilities.status+'; schema '+String(capabilities.body.schemaVersion||'not published'));
+  assert.equal(capabilities.status,200,'New hotel Worker not deployed');
+  assert.equal(capabilities.body.schemaVersion,2,'New hotel pricing schema not deployed');
   const params=new URLSearchParams({
     destination:'Thessaloniki',checkInDate:'2026-12-04',
     checkOutDate:'2026-12-06',adults:'2',children:'0',infants:'1'
