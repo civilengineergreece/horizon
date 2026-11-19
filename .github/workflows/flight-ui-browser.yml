@@ -25,7 +25,11 @@ jobs:
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
-      - name: Exercise published Horizon flight UI
+      - name: Serve the exact PR branch for browser testing
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/horizon-ui-server.log 2>&1 &
+          sleep 2
+      - name: Exercise Horizon flight UI
         run: node tests/flight-ui-browser.mjs
       - name: Upload failure screenshot
         if: failure()
