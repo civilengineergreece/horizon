@@ -170,10 +170,12 @@ try{
   });
   assert.equal(oneWay.oneWay,true);
   assert.equal(oneWay.record.scope,'oneway');
+  assert.equal(oneWay.record.baggage,0,'Past baggage estimate must not carry to a different itinerary');
+  assert.equal(oneWay.record.ground,7.5,'One-way bus transfer should replace old roundtrip manual value');
   await page.waitForTimeout(100);
   const planeTotal=await page.locator('.destination').filter({hasText:'Θεσσαλονίκη'})
     .locator('.break').filter({hasText:'Επιλεγμένη αεροπορική μεταφορά'}).innerText();
-  assert.ok(planeTotal.includes('281'),'One-way fare should be reflected in budget');
+  assert.ok(planeTotal.includes('288,50'),'One-way €281 fare + €7.50 bus transfers should be reflected in budget');
 
   // Starting a new search with the same dates must immediately remove the
   // previous quote from the budget, even when the next result is browser-cached.
