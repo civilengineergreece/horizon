@@ -35,7 +35,7 @@ function summaryBox(t,kind,onEdit){
 function patchFlight(panel){
   if(!panel)return;const overlay=panel.closest('.horizon-detail-overlay'),name=overlay?.querySelector('.hd-head h3')?.textContent?.trim()||'';if(!name)return;
   const title=panel.querySelector('.hz-flights-title');if(title)title.textContent='Πραγματικές τιμές πτήσεων';
-  const copy=panel.querySelector('.hz-flights-copy');if(copy)copy.textContent='Το Horizon έχει ήδη περάσει αφετηρία, ημερομηνίες και ταξιδιώτες από το ταξίδι σου. Πατάς μόνο έλεγχο τιμών.';
+  const copy=panel.querySelector('.hz-flights-copy');if(copy)copy.textContent='Το Horizon συμπληρώνει αυτόματα τα στοιχεία σου. Για ταξίδι μετ’ επιστροφής επιλέγεις αναχώρηση και μετά επιστροφή. Η αρχική τιμή αναχώρησης δεν είναι τελικό κόστος ταξιδιού.';
   const btn=panel.querySelector('.hz-flight-search');if(btn&&!btn.disabled)btn.textContent='Έλεγχος πραγματικών τιμών';
   if(panel.dataset.prefillUi==='1')return;panel.dataset.prefillUi='1';
   const from=panel.querySelector('.hz-flight-from'),to=panel.querySelector('.hz-flight-to'),t=tripData(name);if(from?.value)t.from=from.value;if(to?.value)t.to=to.value;
