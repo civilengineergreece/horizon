@@ -188,8 +188,9 @@ function applyFilters(panel){
     more.innerHTML=`<button type="button" class="hz-more">Εμφάνιση περισσότερων (${out.length-limit})</button>`;
     more.querySelector('button').onclick=()=>{panel._hotelLimit=Math.min(out.length,(panel._hotelLimit||INITIAL_VISIBLE)+10);applyFilters(panel);};
   }else more.innerHTML='';
-  const hasMore=!!data.pagination?.hasMore&&all.length<MAX_LOADED;
-  summary.textContent=out.length?`Εμφανίζονται ${limit} από ${out.length} επιλογές (${all.length} αποτελέσματα που φορτώθηκαν${hasMore?' · υπάρχουν επιπλέον σελίδες':''}). Η Google Hotels δεν εγγυάται κάλυψη όλων των καταλυμάτων της πόλης ή τελική τιμή checkout.`:'Δοκίμασε διαφορετικά φίλτρα ή ημερομηνίες.';
+  const moreAtProvider=!!data.pagination?.hasMore;
+  const hasMore=moreAtProvider&&all.length<MAX_LOADED;
+  summary.textContent=out.length?`Εμφανίζονται ${limit} από ${out.length} επιλογές (${all.length} αποτελέσματα που φορτώθηκαν${hasMore?' · υπάρχουν επιπλέον σελίδες':moreAtProvider?' · όριο χάρτη '+MAX_LOADED+' καταλυμάτων':''}). Η Google Hotels δεν εγγυάται κάλυψη όλων των καταλυμάτων της πόλης ή τελική τιμή checkout.`:'Δοκίμασε διαφορετικά φίλτρα ή ημερομηνίες.';
   const paging=panel.querySelector('.hz-hotel-next-page');
   if(paging){paging.hidden=!hasMore;paging.textContent='Φόρτωση επόμενης σελίδας καταλυμάτων';}
   document.dispatchEvent(new CustomEvent('horizon:hotel-results-updated',{detail:{panel}}));
@@ -295,6 +296,7 @@ function preserveHotelControls(panel){
     stars:panel.querySelector('.hz-stars')?.value||'0',
     rating:panel.querySelector('.hz-rating')?.value||'0',
     max:panel.querySelector('.hz-max-price')?.value||'500',
+    maxCap:panel.querySelector('.hz-max-price')?.max||'500',
     amenities:[...panel.querySelectorAll('.hz-amenity-chips input:checked')]
       .map(el=>panel._amenities?.[Number(el.dataset.amenityIndex)]).filter(Boolean)
   };
@@ -305,7 +307,7 @@ function restoreHotelControls(panel,filter){
   panel.querySelector('.hz-rating').value=filter.rating;
   const range=panel.querySelector('.hz-max-price');
   const oldMax=Number(filter.max);
-  if(oldMax>=Number(range.max)-25)range.value=range.max;
+  if(oldMax>=Number(filter.maxCap))range.value=range.max;
   else range.value=String(Math.min(oldMax,Number(range.max)));
   panel.querySelector('.hz-max-price-label').textContent=money(range.value,panel._hotelData?.currency);
   panel.querySelectorAll('.hz-amenity-chips input').forEach(el=>{
@@ -339,14 +341,15 @@ async function loadNextPage(panel){
     const pagination=next.pagination||{};
     const hasMore=!!pagination.nextPageToken&&pagination.nextPageToken!==nextPageToken;
     const merged={...data,results:[...data.results,...unique].slice(0,MAX_LOADED),
-      pagination:{...pagination,hasMore:hasMore&&data.results.length+unique.length<MAX_LOADED}};
+      pagination:{...pagination,hasMore}};
     panel._hotelData=merged;
     setupFilters(panel,merged);
     restoreHotelControls(panel,filter);
     localWrite(info,merged);
     status.classList.remove('error');
     status.textContent='Φορτώθηκαν '+merged.results.length+' μοναδικά καταλύματα. '+
-      (merged.pagination.hasMore?'Υπάρχουν επιπλέον σελίδες.':'Δεν υπάρχουν άλλες διαθέσιμες σελίδες από αυτή την αναζήτηση.');
+      (merged.results.length>=MAX_LOADED&&merged.pagination.hasMore?'Έφτασε το όριο εμφάνισης '+MAX_LOADED+' καταλυμάτων του MVP.':
+        merged.pagination.hasMore?'Υπάρχουν επιπλέον σελίδες.':'Δεν υπάρχουν άλλες διαθέσιμες σελίδες από αυτή την αναζήτηση.');
   }catch(e){
     status.classList.add('error');status.textContent='Δεν ολοκληρώθηκε η επόμενη σελίδα: '+String(e.message||e);
   }finally{
