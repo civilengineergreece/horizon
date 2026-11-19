@@ -1,9 +1,15 @@
 (()=>{
 'use strict';
 const AGE_LIMIT_MS=30*60*1000;
+const hookedPanels=new WeakSet();
+function parseEuro(v){
+  const raw=String(v??'').replace(/\s|€/g,'');
+  const standardized=raw.includes(',')&&raw.includes('.')?raw.replace(/\./g,'').replace(',','.'):raw.replace(',','.');
+  return /^\d+(?:\.\d{1,2})?$/.test(standardized)?Number(standardized):NaN;
+}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function amount(v){return new Intl.NumberFormat('el-GR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(Number(v)||0);}
-function validAmount(v){if(v==null||String(v).trim()==='')return false;const n=Number(v);return Number.isFinite(n)&&n>0&&n<=1e7;}
+function validAmount(v){const n=parseEuro(v);return Number.isFinite(n)&&n>0&&n<=1e7;}
 function assess(a){
   const problems=[];
   if(a.source!=='seller_checkout')problems.push('Δεν έχει καταγραφεί έλεγχος στην τελευταία οθόνη του πωλητή.');
@@ -15,7 +21,7 @@ function assess(a){
   if(a.totalCoverage!=='all_in')problems.push('Δεν επιβεβαιώθηκε ότι το πληρωτέο περιλαμβάνει όλες τις υποχρεωτικές χρεώσεις.');
   if(!['free','paid','not_needed'].includes(a.cribStatus))
     problems.push('Δεν επιβεβαιώθηκε η δωρεάν/χρεώσιμη κούνια ή ότι δεν χρειάζεται.');
-  if(a.cribStatus==='paid'&&(!validAmount(a.cribFee)||Number(a.cribFee)<0))
+  if(a.cribStatus==='paid'&&(!validAmount(a.cribFee)||parseEuro(a.cribFee)<0))
     problems.push('Απαιτείται θετικό κόστος κούνιας όταν δηλώνεται χρεώσιμη.');
   if(!['included','not_applicable'].includes(a.climateStatus))
     problems.push('Το τέλος διαμονής/ανθεκτικότητας δεν έχει επιβεβαιωθεί ότι περιλαμβάνεται ή δεν εφαρμόζεται.');
@@ -23,7 +29,7 @@ function assess(a){
   if(a.capacityStatus==='insufficient')problems.push('Η πηγή δηλώνει ανεπαρκή χωρητικότητα για αυτό το δωμάτιο.');
   if(!a.bookingUrl||!/^https:\/\//i.test(a.bookingUrl))problems.push('Δεν υπάρχει ασφαλής σύνδεσμος για τον συγκεκριμένο πωλητή.');
   return {complete:problems.length===0,problems,manualOnly:true,
-    budgetTotal:problems.length===0?Math.round(Number(a.total)*100)/100:null};
+    budgetTotal:problems.length===0?Math.round(parseEuro(a.total)*100)/100:null};
 }
 function getPanelDetails(panel){
   const details=panel?._hotelDetails;
@@ -97,7 +103,7 @@ function render(panel,index){
       ['seller_checkout','Η τελευταία οθόνη του πωλητή πριν την πληρωμή'],
       ['written_hotel','Γραπτή απάντηση ξενοδοχείου (όχι checkout)']
     ]))+
-    line('checkoutTotal','Σύνολο (€) που αναγράφεται πριν την πληρωμή','<input type="number" name="checkoutTotal" min="0.01" max="10000000" step="0.01" inputmode="decimal" placeholder="π.χ. 270,00">')+
+    line('checkoutTotal','Σύνολο (€) που αναγράφεται πριν την πληρωμή','<input type="text" name="checkoutTotal" inputmode="decimal" placeholder="π.χ. 270,00">')+
     line('totalCoverage','Περιλαμβάνει όλες τις υποχρεωτικές χρεώσεις;',sel('totalCoverage',[
       ['unknown','Άγνωστο'],
       ['all_in','Ναι, όλα μέσα στο πληρωτέο ποσό'],
@@ -111,7 +117,7 @@ function render(panel,index){
       ['not_available','Δεν υπάρχει διαθέσιμη'],
       ['not_needed','Δεν απαιτείται κούνια']
     ]))+
-    line('cribFee','Χρέωση κούνιας (€), αν υπάρχει','<input type="number" name="cribFee" min="0.01" max="10000" step="0.01" placeholder="Μόνο εάν χρεώνεται">')+
+    line('cribFee','Χρέωση κούνιας (€), αν υπάρχει','<input type="text" name="cribFee" inputmode="decimal" placeholder="Μόνο εάν χρεώνεται">')+
     line('climateStatus','Τέλος διαμονής/ανθεκτικότητας',sel('climateStatus',[
       ['unknown','Άγνωστο'],
       ['included','Περιλαμβάνεται στο πληρωτέο ποσό'],
@@ -166,7 +172,7 @@ function save(panel,root){
     taxStatus:'user_reported_all_mandatory_included',
     climateFeeIncluded:a.climateStatus==='included',
     possibleClimateFeeEUR:fee?.amountEUR??null,
-    cribStatus:a.cribStatus,cribFee:a.cribStatus==='paid'?Number(a.cribFee):0,
+    cribStatus:a.cribStatus,cribFee:a.cribStatus==='paid'?parseEuro(a.cribFee):0,
     breakfastIncluded:offer.breakfastIncluded??null,
     freeCancellation:offer.freeCancellation??null,
     bookingKind:offer.roomName?'named_room_offer':'seller_offer_room_not_supplied',
@@ -227,6 +233,8 @@ document.addEventListener('horizon:hotel-room-offers',event=>{
     button.className='hz-hotel-detail-btn';button.dataset.checkoutOfferIndex=String(i);
     card.appendChild(button);
   });
+  if(hookedPanels.has(panel))return;
+  hookedPanels.add(panel);
   panel.addEventListener('click',e=>{
     const btn=e.target.closest?.('[data-checkout-offer-index]');
     if(btn)render(panel,Number(btn.dataset.checkoutOfferIndex));
