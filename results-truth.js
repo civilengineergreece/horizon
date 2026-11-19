@@ -28,8 +28,16 @@ function cachedSelectedStay(name){
     const v=JSON.parse(localStorage.getItem(key)||'null');
     if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||
       Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL||Number(v.at||0)>Date.now()+30000||!(Number(v.total)>0))return null;
-    if(v.currency!=='EUR'||v.bookingStatus!=='quote_only_not_checked_out')return null;
-    return v;
+    if(v.currency!=='EUR')return null;
+    if(v.bookingStatus==='checkout_user_reported_not_booked'){
+      const checked=Number(v.checkoutAt);
+      if(!Number.isFinite(checked)||checked> Date.now()+30000||
+         Date.now()-checked>FLIGHT_CACHE_TTL||v.reviewEvidence!=='manual_seller_checkout'||
+         v.checkoutReviewValid!==true||Number(v.total)!==Number(v.userCheckoutTotal))return null;
+      return {...v,isUserReported:true};
+    }
+    if(v.bookingStatus!=='quote_only_not_checked_out')return null;
+    return {...v,isUserReported:false};
   }catch{return null;}
 }
 function applyStayBreak(card,r,stay){
@@ -37,10 +45,12 @@ function applyStayBreak(card,r,stay){
   if(!stayBox)return;
   const label=stayBox.querySelector('span'),value=stayBox.querySelector('b');
   if(stay){
-    label.textContent='Επιλεγμένη διαμονή (τιμή πηγής)';
+    label.textContent=stay.isUserReported?'Διαμονή (δηλωμένο checkout · όχι ανεξάρτητη επαλήθευση)':'Επιλεγμένη διαμονή (τιμή πηγής)';
     value.textContent=euro(stay.total);
     value.classList.add('hz-live-value');
-    value.title=stay.taxStatus==='provider_reports_after_taxes_fees'?
+    value.title=stay.isUserReported?
+      'Το ποσό καταχωρίστηκε χειροκίνητα μετά από έλεγχο του πωλητή. Δεν επαληθεύτηκε ανεξάρτητα από το Horizon και δεν έγινε κράτηση.':
+      stay.taxStatus==='provider_reports_after_taxes_fees'?
       'Η πηγή δηλώνει συμπερίληψη φόρων. Το τέλος ανθεκτικότητας μπορεί να χρεώνεται χωριστά: '+
       (stay.possibleClimateFeeEUR===null?'άγνωστο':euro(stay.possibleClimateFeeEUR))+'.':
       'Φόροι και επιβαρύνσεις ενδέχεται να προστίθενται στην τελική τιμή. Πιθανό τέλος ανθεκτικότητας: '+
@@ -58,7 +68,7 @@ function patchGroundCardStay(card,name){
   applyStayBreak(card,r,stay);
   const total=Math.max(0,Number(r.total)-Number(r.accommodation)+Number(stay.total));
   const cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
-  if(cost)cost.innerHTML=`~${euro(total)} <span>με επιλεγμένη διαμονή + ενδεικτικά λοιπά</span>`;
+  if(cost)cost.innerHTML=`~${euro(total)} <span>${stay.isUserReported?'με χειροκίνητα δηλωμένο checkout':'με επιλεγμένη διαμονή'} + ενδεικτικά λοιπά</span>`;
   if(remaining){
     const delta=Number(stateNow().budget?.amount||0)-total;
     remaining.dataset.truth='1';
@@ -94,7 +104,7 @@ function patchPlaneAmounts(card,name){
   }
   if(fare){
     const liveTotal=Math.round((otherCostsWithStay+(includeTransport?fare+extras:0))*100)/100;
-    if(cost)cost.innerHTML=`~${euro(liveTotal)} <span>${includeTransport?'με επιλεγμένη πτήση + ': 'πτήσεις εκτός budget · '}${stay?'επιλεγμένη διαμονή + ':''}ενδεικτικά λοιπά</span>`;
+    if(cost)cost.innerHTML=`~${euro(liveTotal)} <span>${includeTransport?'με επιλεγμένη πτήση + ': 'πτήσεις εκτός budget · '}${stay?(stay.isUserReported?'δηλωμένο checkout (όχι επαληθευμένο) + ':'επιλεγμένη διαμονή + '):''}ενδεικτικά λοιπά</span>`;
     if(remaining){const diff=budget-liveTotal;remaining.dataset.truth='1';remaining.textContent=diff>=0?`Με επιλεγμένη πτήση: μένουν ${euro(diff)}`:`Με επιλεγμένη πτήση: +${euro(Math.abs(diff))} πάνω από budget`;}
   }else{
     if(cost)cost.innerHTML=`~${euro(otherCostsWithStay)} <span>${stay?'επιλεγμένη διαμονή + ':''}ενδεικτικά λοιπά · δεν έχει επιλεγεί πτήση</span>`;
