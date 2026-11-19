@@ -61,6 +61,36 @@ try{
   const inbound=returned.data.results?.find(x=>Number(x.price)>0 && x.departure?.airport==='SKG' && x.arrival?.airport==='ATH');
   assert.ok(inbound,'No return SKG→ATH itinerary with a fare was confirmed');
   record('Full round-trip flow','PASS: selected outbound leads to return options and combined quote');
+  if(process.env.GITHUB_EVENT_NAME==='push'){
+    let bookingRoute;
+    for(let attempt=0;attempt<8;attempt++){
+      bookingRoute=await request('/flight-booking-options');
+      if(bookingRoute.status===405)break;
+      if(attempt<7)await new Promise(resolve=>setTimeout(resolve,12000));
+    }
+    record('Booking options endpoint','GET returns HTTP '+bookingRoute.status+' (expected 405)');
+    assert.equal(bookingRoute.status,405,'Cloudflare deployment did not expose /flight-booking-options');
+
+    const bookable=returned.data.results?.find(x=>x.bookingToken&&Number(x.price)>0);
+    assert.ok(bookable,'Live return options do not contain a booking_token; cannot confirm seller quotes for this route');
+    const details=await request('/flight-booking-options',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({
+        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
+        returnDate:'2026-12-06',adults:1,children:0,infants:0,
+        bookingToken:bookable.bookingToken
+      })
+    });
+    record('Real seller booking options','HTTP '+details.status+'; '+(details.data?.results?.length||0)+' seller quotes');
+    assert.equal(details.status,200,'Booking options provider returned: '+String(details.data?.code||details.data?.error||''));
+    assert.equal(details.data.fareScope,'roundtrip_seller_options');
+    assert.ok(details.data.results?.length>0,'No seller booking prices available in this live search');
+    assert.ok(details.data.results.every(x=>Number(x.price)>0&&x.currency==='EUR'),'Invalid seller price values');
+    record('Baggage policies','Available for '+details.data.results.filter(x=>
+      (x.baggage?.together?.length||0)+(x.baggage?.departing?.length||0)+(x.baggage?.returning?.length||0)>0).length+' options');
+    record('Infant fare breakdown','Not asserted, because live test has zero infants; revalidate infant charges separately');
+  }
+
   record('Limitations','Offer != guaranteed checkout fare; baggage/infant charges and airport transfers remain unverified');
 }catch(error){
   record('RESULT','FAIL — '+String(error?.message||error).slice(0,350));
