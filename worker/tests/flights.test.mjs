@@ -49,6 +49,7 @@ test('round trip flow retains selected outbound token and quotes return combinat
     const returned=await response.json();
     assert.equal(returned.fareScope,'roundtrip_return_options');
     assert.equal(returned.results[0].price,337);
+    assert.equal(returned.results[0].bookingToken,'mock-booking-selection');
     assert.equal(returned.results[0].departure.airport,'SKG');
     assert.equal(returned.results[0].arrival.airport,'ATH');
     assert.equal(calls.length,2);
