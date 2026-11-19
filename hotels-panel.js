@@ -204,17 +204,20 @@ function renderResults(panel,data,cacheLabel=''){
 }
 
 function roomOfferHTML(offer,index){
-  const cancellation=offer.freeCancellation===true?'Δωρεάν ακύρωση κατά την πηγή'+(offer.freeCancellationUntil?' έως '+offer.freeCancellationUntil:''):
+  const cancellation=offer.freeCancellation===true?'Δωρεάν ακύρωση κατά την πηγή'+(offer.freeCancellationUntil?' έως '+offer.freeCancellationUntil:'')+(offer.freeCancellationUntilTime?' · '+offer.freeCancellationUntilTime:''):
     offer.freeCancellation===false?'Δεν αναφέρεται δωρεάν ακύρωση':'Πολιτική ακύρωσης άγνωστη';
   const capacity=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'?
     'Δηλωμένη χωρητικότητα '+offer.numGuests+' ατόμων χωρίς επιβεβαίωση κούνιας':
     offer.capacityStatus==='insufficient'?'Χωρητικότητα μικρότερη από ενήλικες + παιδιά':
     'Μη επιβεβαιωμένη χωρητικότητα';
+  const breakfast=offer.breakfastIncluded===true?'Πρωινό: περιλαμβάνεται':offer.breakfastIncluded===false?'Πρωινό: δεν περιλαμβάνεται':'Πρωινό: άγνωστο';
+  const beds=Array.isArray(offer.beds)&&offer.beds.length?' · Κρεβάτια: '+offer.beds.map(b=>(b.count?b.count+'× ':'')+b.type).join(', '):' · Κρεβάτια: άγνωστα';
   const valid=offer.capacityStatus==='listed_capacity_sufficient_for_non_infants'&&Number(offer.total)>0&&!!offer.bookingUrl;
   return '<div class="hz-hotel-offer"><b>'+esc(offer.seller)+(offer.official?' · επίσημη σελίδα':'')+'</b>'+
     '<div>'+esc(offer.roomName||'Τύπος δωματίου μη διαθέσιμος')+'</div>'+
     '<div class="hz-hotel-room-price">'+money(offer.total,offer.currency)+'</div>'+
-    '<p>'+esc(capacity)+' · '+esc(cancellation)+'</p>'+
+    '<p>'+esc(capacity)+' · '+esc(cancellation)+'</p>'+ 
+    '<p>'+esc(breakfast+beds)+'</p>'+
     '<p>'+(offer.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή αναφέρει φόρους και τέλη.':'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται.')+
     ' Η κούνια/διαμονή βρέφους δεν έχει επιβεβαιωθεί.</p>'+
     (offer.bookingUrl?'<a href="'+esc(offer.bookingUrl)+'" target="_blank" rel="noopener noreferrer">Έλεγχος στην ιστοσελίδα πωλητή</a>':'<p>Δεν δόθηκε ασφαλής σύνδεσμος κράτησης.</p>')+
@@ -242,6 +245,7 @@ async function showRoomDetails(panel,index){
       '. Η δηλωμένη χωρητικότητα δεν αποδεικνύει ότι επιτρέπεται βρέφος ή παρέχεται δωρεάν κούνια. Ελέγξτε την τελική τιμή, το τέλος ανθεκτικότητας και τις προϋποθέσεις ακύρωσης στον πωλητή.</div>'+
       (data.cribAdvertised?'<div class="hz-hotel-price-warning">Το ξενοδοχείο αναφέρει βρεφική κούνια στις παροχές, αλλά η διαθεσιμότητα και τυχόν χρέωση είναι άγνωστες.</div>':'')+
       (offers.length?offers.map(roomOfferHTML).join(''):'<div class="hz-stay-empty">Ο πάροχος δεν επέστρεψε αναλυτικές τιμές δωματίων για τις ημερομηνίες.</div>');
+    document.dispatchEvent(new CustomEvent('horizon:hotel-room-offers',{detail:{panel}}));
     target.scrollIntoView({block:'nearest',behavior:'smooth'});
   }catch(e){
     target.textContent='Δεν ολοκληρώθηκε ο έλεγχος δωματίων: '+String(e.message||e);
@@ -258,7 +262,7 @@ function selectRoom(panel,index){
     name:hotel.name,id:hotel.id,total:offer.total,currency:offer.currency,
     taxStatus:offer.taxStatus,priceSource:offer.seller,
     roomName:offer.roomName,seller:offer.seller,freeCancellation:offer.freeCancellation,
-    bookingUrl:offer.bookingUrl,bookingKind:'named_room_offer'
+    bookingUrl:offer.bookingUrl,bookingKind:offer.roomName?'named_room_offer':'seller_offer_room_not_supplied'
   },detail.data.retrievedAt);
 }
 function saveStaySelection(panel,info,hotel,option,retrievedAt){
@@ -422,7 +426,7 @@ function renderPanel(pane,name){
   panel.dataset.signature=signature;
   panel.innerHTML=`
     <h4>Live τιμές ξενοδοχείων</h4>
-    <div class="hz-hotels-copy">Πραγματικές τιμές μέσα στο Horizon, με φίλτρα και ταξινόμηση. Οι ίδιες αναζητήσεις επαναχρησιμοποιούνται από cache ώστε να περιορίζονται οι κλήσεις στο δωρεάν API.</div>
+    <div class="hz-hotels-copy">Πραγματικές προσφορές Google Hotels, με φίλτρα και χάρτη. Οι τιμές δεν αποτελούν τελικό ποσό checkout. Η επαλήθευση βρέφους, κούνιας και πρόσθετων χρεώσεων γίνεται ξεχωριστά ανά πωλητή.</div>
     <div class="hz-hotels-grid">
       <div class="hz-hotel-chip"><small>Προορισμός</small><b>${esc(info.name)}</b></div>
       <div class="hz-hotel-chip"><small>Διανυκτερεύσεις</small><b>${info.nights}</b></div>
