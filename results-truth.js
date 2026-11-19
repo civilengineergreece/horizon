@@ -21,6 +21,49 @@ function cachedLiveFare(name){
     return Number(v.fare)>0?{fare:Number(v.fare),extras:Math.max(0,Number(v.extras)||0),scope:v.scope}:null;
   }catch{return null;}
 }
+function cachedSelectedStay(name){
+  const t=travelers(),d=flightDates(),key='hz-hotel-selection-v1:'+
+    [name,d.from,d.to,t.adults,t.children,t.infants].join('|');
+  try{
+    const v=JSON.parse(localStorage.getItem(key)||'null');
+    if(!v||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL||!(Number(v.total)>0))return null;
+    if(v.currency!=='EUR'||v.bookingStatus!=='quote_only_not_checked_out')return null;
+    return v;
+  }catch{return null;}
+}
+function applyStayBreak(card,r,stay){
+  const stayBox=[...card.querySelectorAll('.break')].find(x=>/διαμον/i.test(x.querySelector('span')?.textContent||''));
+  if(!stayBox)return;
+  const label=stayBox.querySelector('span'),value=stayBox.querySelector('b');
+  if(stay){
+    label.textContent='Επιλεγμένη διαμονή (τιμή πηγής)';
+    value.textContent=euro(stay.total);
+    value.classList.add('hz-live-value');
+    value.title=stay.taxStatus==='provider_reports_after_taxes_fees'?
+      'Η πηγή δηλώνει συμπερίληψη φόρων. Ενδέχεται να υπάρχουν τοπικά τέλη.':
+      'Φόροι και επιβαρύνσεις ενδέχεται να προστίθενται στην τελική τιμή.';
+  }else{
+    label.textContent='Εκτίμηση διαμονής';
+    value.textContent=euro(r.accommodation);
+    value.classList.remove('hz-live-value');
+    value.title='';
+  }
+}
+function patchGroundCardStay(card,name){
+  const stay=cachedSelectedStay(name),r=scoredByName(name);
+  if(!stay||!r)return false;
+  applyStayBreak(card,r,stay);
+  const total=Math.max(0,Number(r.total)-Number(r.accommodation)+Number(stay.total));
+  const cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
+  if(cost)cost.innerHTML=\`~\${euro(total)} <span>με επιλεγμένη διαμονή + ενδεικτικά λοιπά</span>\`;
+  if(remaining){
+    const delta=Number(stateNow().budget?.amount||0)-total;
+    remaining.dataset.truth='1';
+    remaining.textContent=delta>=0?\`Με επιλεγμένη διαμονή: μένουν \${euro(delta)}\`:
+      \`Με επιλεγμένη διαμονή: +\${euro(-delta)} πάνω από budget\`;
+  }
+  return true;
+}
 function scoredByName(name){return (typeof scored!=='undefined'&&Array.isArray(scored)?scored:[]).find(x=>x.name===name)||null;}
 function destinationByName(name){return (window.HORIZON_DESTINATIONS||[]).find(x=>x.name===name)||{};}
 function isPlaneCard(name){
@@ -33,19 +76,25 @@ function patchPlaneAmounts(card,name){
   if(!isPlaneCard(name))return false;
   const r=scoredByName(name);if(!r)return true;
   const breaks=[...card.querySelectorAll('.break')],transportBox=breaks.find(x=>/μεταφορ/i.test(x.querySelector('span')?.textContent||''));
-  const selection=cachedLiveFare(name),fare=selection?.fare||null,extras=selection?.extras||0,cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
-  const estimatedTransport=Number(r.transport)||0,baseWithoutTransport=Math.max(0,(Number(r.total)||0)-estimatedTransport),budget=Number(stateNow().budget?.amount)||0;
+  const selection=cachedLiveFare(name),fare=selection?.fare||null,extras=selection?.extras||0,
+    stay=cachedSelectedStay(name),cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
+  applyStayBreak(card,r,stay);
+  const estimatedTransport=Number(r.transport)||0,originalStay=Number(r.accommodation)||0,
+    baseWithoutTransport=Math.max(0,(Number(r.total)||0)-estimatedTransport),
+    otherCostsWithStay=Math.max(0,baseWithoutTransport-originalStay+(stay?Number(stay.total):originalStay)),
+    budget=Number(stateNow().budget?.amount)||0,
+    includeTransport=stateNow().budget?.transport!=='no';
   if(transportBox){
     const label=transportBox.querySelector('span'),value=transportBox.querySelector('b');
     if(fare){if(label)label.textContent='Επιλεγμένη αεροπορική μεταφορά';if(value){value.textContent=euro(fare+extras);value.classList.add('hz-live-value');}}
     else{if(label)label.textContent='Μεταφορά';if(value){value.textContent='Live τιμή →';value.classList.add('hz-await-live');}}
   }
   if(fare){
-    const liveTotal=Math.round(baseWithoutTransport+fare+extras);
-    if(cost)cost.innerHTML=`~${euro(liveTotal)} <span>με επιλεγμένη πτήση + χειροκίνητα πρόσθετα + ενδεικτικά λοιπά</span>`;
+    const liveTotal=Math.round(otherCostsWithStay+(includeTransport?fare+extras:0));
+    if(cost)cost.innerHTML=`~${euro(liveTotal)} <span>${includeTransport?'με επιλεγμένη πτήση + ': 'πτήσεις εκτός budget · '}${stay?'επιλεγμένη διαμονή + ':''}ενδεικτικά λοιπά</span>`;
     if(remaining){const diff=budget-liveTotal;remaining.dataset.truth='1';remaining.textContent=diff>=0?`Με επιλεγμένη πτήση: μένουν ${euro(diff)}`:`Με επιλεγμένη πτήση: +${euro(Math.abs(diff))} πάνω από budget`;}
   }else{
-    if(cost)cost.innerHTML=`~${euro(baseWithoutTransport)} <span>εκτίμηση λοιπών · + live μεταφορά</span>`;
+    if(cost)cost.innerHTML=`~${euro(otherCostsWithStay)} <span>${stay?'επιλεγμένη διαμονή + ':''}ενδεικτικά λοιπά · δεν έχει επιλεγεί πτήση</span>`;
     if(remaining){remaining.dataset.truth='1';remaining.textContent='Το συνολικό κόστος ενημερώνεται με τη live πτήση';}
   }
   return true;
@@ -61,9 +110,10 @@ function patch(){
     const name=card.querySelector('h4')?.textContent?.trim()||'';
     const plane=patchPlaneAmounts(card,name);
     if(!plane){
-      const cost=card.querySelector('.cost span');if(cost)cost.textContent='ενδεικτικό budget model · όχι live';
+      const staySelected=patchGroundCardStay(card,name);
+      const cost=card.querySelector('.cost span');if(cost&&!staySelected)cost.textContent='ενδεικτικό budget model · όχι live';
       const remaining=card.querySelector('.cost-head .tiny');if(remaining&&!remaining.dataset.truth){remaining.dataset.truth='1';remaining.textContent=`Ενδεικτικά: ${remaining.textContent}`;}
-      [...card.querySelectorAll('.break span')].forEach(el=>{const t=el.textContent.trim();if(!/^Εκτίμηση /.test(t))el.textContent=`Εκτίμηση ${t.toLowerCase()}`;});
+      [...card.querySelectorAll('.break span')].forEach(el=>{const t=el.textContent.trim();if(/επιλεγμένη διαμονή/i.test(t))return;if(!/^Εκτίμηση /.test(t))el.textContent=`Εκτίμηση ${t.toLowerCase()}`;});
     }
     card.querySelectorAll('.actions a').forEach(a=>{
       const t=a.textContent.trim().toLowerCase();
@@ -75,6 +125,7 @@ function patch(){
 function install(){
   installStyles();
   document.addEventListener('horizon:live-flight-price',()=>setTimeout(patch,0));
+  document.addEventListener('horizon:live-stay-selected',()=>setTimeout(patch,0));
   if(window.__HORIZON_RESULTS_TRUTH__){patch();return true;}
   if(typeof window.renderResults!=='function')return false;
   window.__HORIZON_RESULTS_TRUTH__=true;
