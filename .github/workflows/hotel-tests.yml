@@ -8,6 +8,7 @@ on:
       - 'hotels-panel.js'
       - 'hotels-map.js'
       - 'tests/hotel-map-browser.mjs'
+      - 'tests/hotel-map-real-leaflet-browser.mjs'
       - 'hotel-climate-fee.js'
       - 'tests/hotel-climate-fee.test.mjs'
       - 'worker/tests/hotel-details.test.mjs'
@@ -22,6 +23,7 @@ on:
       - 'hotels-panel.js'
       - 'hotels-map.js'
       - 'tests/hotel-map-browser.mjs'
+      - 'tests/hotel-map-real-leaflet-browser.mjs'
       - 'hotel-climate-fee.js'
       - 'tests/hotel-climate-fee.test.mjs'
       - 'worker/tests/hotel-details.test.mjs'
@@ -47,6 +49,7 @@ jobs:
           node --check hotels-panel.js
           node --check hotels-map.js
           node --check tests/hotel-map-browser.mjs
+          node --check tests/hotel-map-real-leaflet-browser.mjs
           node --check hotel-climate-fee.js
           node --check worker/tests/hotel-details.test.mjs
           node --check tests/hotel-climate-fee.test.mjs
@@ -82,6 +85,7 @@ jobs:
         run: |
           node tests/hotel-ui-browser.mjs
           node tests/hotel-map-browser.mjs
+          node tests/hotel-map-real-leaflet-browser.mjs
       - name: Upload failure screenshot
         if: failure()
         uses: actions/upload-artifact@v4
