@@ -58,12 +58,12 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('transport-choice-ui-fix.js?v=20260823-2','data-horizon-transport-choice-fix');
     loadScript('interest-categories.js?v=20260823-1','data-horizon-interest-categories');
     loadScript('flight-times-core.js?v=20260822-2','data-horizon-flight-times-core');
-    loadScript('results-truth.js?v=20261119-8','data-horizon-results-truth');
+    loadScript('results-truth.js?v=20261119-9','data-horizon-results-truth');
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
     loadScript('hotel-climate-fee.js?v=20261119-2','data-horizon-hotel-climate-fee');
-    loadScript('hotels-panel.js?v=20261119-8','data-horizon-hotels-panel');
+    loadScript('hotels-panel.js?v=20261119-9','data-horizon-hotels-panel');
     loadScript('hotels-map.js?v=20261119-1','data-horizon-hotels-map');
-    loadScript('hotel-checkout-audit.js?v=20261119-3','data-horizon-hotel-checkout-audit');
+    loadScript('hotel-checkout-audit.js?v=20261119-4','data-horizon-hotel-checkout-audit');
     loadScript('flight-ground-cost.js?v=20261119-1','data-horizon-flight-ground-cost');
     loadScript('flight-infant-fare-rules.js?v=20261119-1','data-horizon-infant-fares');
     loadScript('flights-panel.js?v=20261119-10','data-horizon-flights-panel');
@@ -88,7 +88,7 @@ window.HORIZON_LIVE_CONFIG={
 
   const load=()=>{
     if(document.querySelector('script[data-horizon-travelers]')){loadEnhancements();return;}
-    const s=document.createElement('script');s.async=false;s.src='traveler-categories.js?v=20260822-3';s.dataset.horizonTravelers='1';
+    const s=document.createElement('script');s.async=false;s.src='traveler-categories.js?v=20261119-4';s.dataset.horizonTravelers='1';
     s.onload=loadEnhancements;s.onerror=loadEnhancements;document.body.appendChild(s);
   };
 
