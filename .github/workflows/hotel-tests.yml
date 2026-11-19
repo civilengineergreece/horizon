@@ -1,0 +1,70 @@
+name: HORIZON hotel family pricing and tax truth
+
+on:
+  pull_request:
+    paths:
+      - 'worker/src/index.js'
+      - 'worker/tests/stays.test.mjs'
+      - 'hotels-panel.js'
+      - 'live-config.js'
+      - 'tests/hotel-ui-browser.mjs'
+      - '.github/workflows/hotel-tests.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'worker/src/index.js'
+      - 'hotels-panel.js'
+      - 'live-config.js'
+      - 'tests/hotel-ui-browser.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hotel-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check worker/src/index.js
+          node --check hotels-panel.js
+          node --check live-config.js
+          node --check worker/tests/stays.test.mjs
+      - name: Unit-test hotel pricing
+        run: node --test worker/tests/stays.test.mjs
+
+  hotel-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          google-chrome --version
+      - name: Serve PR application
+        if: github.event_name != 'push'
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/hotel-ui-server.log 2>&1 &
+          sleep 2
+      - name: Wait for GitHub Pages rollout
+        if: github.event_name == 'push'
+        run: sleep 50
+      - name: Exercise hotel search in Chrome
+        env:
+          HORIZON_TEST_URL: ${{ github.event_name == 'push' && 'https://civilengineergreece.github.io/horizon/' || 'http://127.0.0.1:8765/' }}
+        run: node tests/hotel-ui-browser.mjs
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: horizon-hotel-test-failure
+          path: artifacts/

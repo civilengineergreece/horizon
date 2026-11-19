@@ -32,7 +32,7 @@ function installStyles(){
     .hz-stay-meta{color:#94a8b7;font-size:.76rem;margin-top:6px;line-height:1.45}.hz-stay-pricebox{text-align:right;min-width:92px}.hz-total-label{color:#8fa3b2;font-size:.64rem}
     .hz-stay-price{font-weight:900;font-size:1.02rem;white-space:nowrap}.hz-stay-night{color:#b9c6ce;font-size:.72rem;margin-top:1px}.hz-stay-amenities{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
     .hz-stay-amenities span{border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:3px 6px;color:#b6c4cd;font-size:.66rem}.hz-stay-source{display:inline-flex;margin-top:8px;padding:5px 8px;border-radius:999px;background:rgba(255,122,22,.09);border:1px solid rgba(255,122,22,.22);color:#ffb273;font-size:.68rem;font-weight:800}
-    .hz-stay-empty{padding:16px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;color:#9fb0bd;text-align:center}.hz-stay-summary{margin-top:10px;color:#9fb0bd;font-size:.76rem;line-height:1.45}
+    .hz-hotel-ages{margin:10px 0;color:#c8d1d9;font-size:.78rem}.hz-hotel-ages label{display:block;margin-bottom:5px}.hz-hotel-ages input{max-width:270px;padding:9px;background:#102638;color:white;border:1px solid #456;border-radius:8px}.hz-hotel-price-warning{font-size:.73rem;line-height:1.45;color:#ffd9a7;margin-top:6px}.hz-stay-empty{padding:16px;border:1px dashed rgba(255,255,255,.13);border-radius:14px;color:#9fb0bd;text-align:center}.hz-stay-summary{margin-top:10px;color:#9fb0bd;font-size:.76rem;line-height:1.45}
     .hz-more-wrap{display:flex;justify-content:center;margin-top:12px}.hz-more{border:1px solid rgba(255,122,22,.35);background:rgba(255,122,22,.08);color:#fff;border-radius:10px;padding:9px 12px;font-weight:800;font-size:.76rem;cursor:pointer}
     @media(max-width:620px){.hz-hotels-grid,.hz-filter-grid{grid-template-columns:1fr}.hz-stay-load{width:100%}.hz-stay-card{grid-template-columns:88px 1fr}.hz-stay-img{width:88px;height:100px}.hz-stay-head{display:block}.hz-stay-pricebox{text-align:left;margin-top:6px}.hz-stay-price{display:inline;margin-right:6px}.hz-total-label{display:inline;margin-right:4px}}
   `;
@@ -55,7 +55,7 @@ function hotelInfo(name){
   const adults=Math.max(1,Math.floor(Number(s.travelers?.adults)||1));
   const children=Math.max(0,Math.floor(Number(s.travelers?.children)||0));
   const infants=Math.max(0,Math.floor(Number(s.travelers?.infants)||0));
-  return {name,days,nights,checkIn,checkOut,adults,children,infants};
+  return {name,days,nights,checkIn,checkOut,adults,children,infants,childrenAges:[]};
 }
 function removeLegacyStayLinks(pane){
   pane.querySelectorAll('.hd-cta-row a').forEach(a=>{
@@ -64,7 +64,7 @@ function removeLegacyStayLinks(pane){
   });
 }
 function localKey(info){
-  return `hz-hotel-cache-v2:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants].join('|')}`;
+  return `hz-hotel-cache-v3:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...(info.childrenAges||[])].join('|')}`;
 }
 function localRead(info){
   try{
@@ -83,20 +83,23 @@ function resultCard(item,nights){
   const rating=item.rating?`★ ${Number(item.rating).toFixed(1)}${item.reviews?` (${Number(item.reviews).toLocaleString('el-GR')})`:''}`:'Χωρίς βαθμολογία';
   const stars=item.hotelClass?`${item.hotelClass}★ ξενοδοχείο`:'Ξενοδοχείο';
   const amenities=Array.isArray(item.amenities)?item.amenities.slice(0,5):[];
-  const total=item.total||(item.nightly&&nights?item.nightly*nights:null);
+  const total=Number(item.total)>0?Number(item.total):null;
+  const estimate=!total&&Number(item.totalEstimate)>0?Number(item.totalEstimate):null;
+  const taxes=total&&item.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή περιλαμβάνει φόρους/τέλη':
+    total?'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται':'Ενδεικτικό σύνολο — φόροι/τέλη άγνωστοι';
   return `<article class="hz-stay-card">
     ${image?`<img class="hz-stay-img" src="${esc(image)}" loading="lazy" alt="">`:`<div class="hz-stay-img placeholder">Χωρίς φωτογραφία</div>`}
     <div>
       <div class="hz-stay-head">
         <div><div class="hz-stay-name">${esc(item.name)}</div><div class="hz-stay-type">${esc(stars)}</div></div>
         <div class="hz-stay-pricebox">
-          ${total?`<div class="hz-total-label">Σύνολο ${nights} ${nights===1?'βράδυ':'βράδια'}</div><div class="hz-stay-price">${money(total,item.currency)}</div>`:''}
-          ${item.nightly?`<div class="hz-stay-night">${money(item.nightly,item.currency)}/βράδυ</div>`:''}
+          ${total?`<div class="hz-total-label">Τιμή πηγής · ${nights} ${nights===1?'βράδυ':'βράδια'}</div><div class="hz-stay-price">${money(total,item.currency)}</div>`:estimate?`<div class="hz-total-label">Εκτίμηση ${nights} βραδιών</div><div class="hz-stay-price">~${money(estimate,item.currency)}</div>`:'<div class="hz-total-label">Σύνολο μη διαθέσιμο</div>'}
+          ${item.nightly?`<div class="hz-stay-night">${money(item.nightly,item.currency)}/βράδυ</div>`:''}<div class="hz-hotel-price-warning">${esc(taxes)}</div>
         </div>
       </div>
       <div class="hz-stay-meta">${esc(rating)}${item.priceSource?` · ${esc(item.priceSource)}`:''}</div>
       ${amenities.length?`<div class="hz-stay-amenities">${amenities.map(a=>`<span>${esc(a)}</span>`).join('')}</div>`:''}
-      <span class="hz-stay-source">Live τιμή μέσα στο Horizon</span>
+      <span class="hz-stay-source">${total?'Τιμή από Google Hotels':'Εκτίμηση από τιμή ανά βράδυ'}</span>
     </div>
   </article>`;
 }
@@ -171,7 +174,7 @@ function applyFilters(panel){
     more.innerHTML=`<button type="button" class="hz-more">Εμφάνιση περισσότερων (${out.length-limit})</button>`;
     more.querySelector('button').onclick=()=>{panel._hotelLimit=Math.min(out.length,(panel._hotelLimit||INITIAL_VISIBLE)+10);applyFilters(panel);};
   }else more.innerHTML='';
-  summary.textContent=out.length?`Εμφανίζονται ${limit} από ${out.length} επιλογές μετά τα φίλτρα (${all.length} live αποτελέσματα συνολικά).`:'Δοκίμασε χαμηλότερη βαθμολογία, περισσότερα χρήματα ανά βράδυ ή καθάρισε τα φίλτρα.';
+  summary.textContent=out.length?`Εμφανίζονται ${limit} από ${out.length} επιλογές (${all.length} αποτελέσματα). Η πηγή δεν εγγυάται τιμές checkout, παιδικό κρεβάτι ή εξαιρούμενους τοπικούς φόρους.`:'Δοκίμασε διαφορετικά φίλτρα ή ημερομηνίες.';
 }
 function renderResults(panel,data,cacheLabel=''){
   setupFilters(panel,data);
@@ -183,6 +186,14 @@ function renderResults(panel,data,cacheLabel=''){
 async function searchStays(panel,info){
   const btn=panel.querySelector('.hz-stay-load');
   const status=panel.querySelector('.hz-stay-status');
+  const agesInput=panel.querySelector('[data-hotel-child-ages]');
+  if(info.children>0){
+    const ages=String(agesInput?.value||'').split(',').map(x=>Number(x.trim()));
+    if(ages.length!==info.children||ages.some(a=>!Number.isInteger(a)||a<1||a>17)){
+      status.classList.add('error');status.textContent=`Συμπλήρωσε ${info.children} ηλικίες παιδιών (1–17), χωρισμένες με κόμμα. Η ηλικία βρέφους περνά αυτόματα ως 1.`;return;
+    }
+    info={...info,childrenAges:ages};
+  }
   const local=localRead(info);
   if(local){
     renderResults(panel,local,'Browser cache: άμεση επαναχρησιμοποίηση των ίδιων αποτελεσμάτων — χωρίς κλήση στον Worker.');
@@ -198,7 +209,7 @@ async function searchStays(panel,info){
   try{
     const res=await fetch(`${API_BASE}/stays`,{
       method:'POST',headers:{'content-type':'application/json'},
-      body:JSON.stringify({destination:info.name,checkInDate:info.checkIn,checkOutDate:info.checkOut,adults:info.adults,children:info.children,infants:info.infants,pageSize:20}),
+      body:JSON.stringify({destination:info.name,checkInDate:info.checkIn,checkOutDate:info.checkOut,adults:info.adults,children:info.children,infants:info.infants,childrenAges:info.childrenAges,pageSize:20}),
       signal:controller.signal
     });
     const data=await res.json().catch(()=>({}));
@@ -207,6 +218,7 @@ async function searchStays(panel,info){
         status.classList.add('error');status.textContent='Δεν είναι ενεργό το SerpApi key στον Cloudflare Worker.';btn.textContent='Live τιμές — API μη ενεργό';return;
       }
       if(data?.code==='FREE_QUOTA_REACHED')throw new Error('Εξαντλήθηκε το δωρεάν μηνιαίο όριο αναζητήσεων.');
+      if(data?.code==='CHILD_AGES_REQUIRED')throw new Error('Για ακριβή τιμή χρειάζονται οι ηλικίες των παιδιών.');
       throw new Error(data.error||`HTTP ${res.status}`);
     }
     localWrite(info,data);
@@ -241,6 +253,8 @@ function renderPanel(pane,name){
       <div class="hz-hotel-chip"><small>Ταξιδιώτες</small><b>${people} συνολικά</b></div>
       <div class="hz-hotel-chip"><small>Αποτελέσματα</small><b>έως 20 ανά live αναζήτηση</b></div>
     </div>
+    ${info.children?`<div class="hz-hotel-ages"><label>Ηλικίες ${info.children} παιδιών (π.χ. 5,8 — χωρίς βρέφη)</label><input data-hotel-child-ages placeholder="Ηλικίες χωρισμένες με κόμμα" aria-label="Ηλικίες παιδιών"></div>`:''}
+    <div class="hz-hotel-price-warning">Τα ${info.infants} βρέφη δηλώνονται στην Google Hotels με ηλικία 1, όπως απαιτεί το API. Η δωρεάν κούνια και τυχόν τέλη διαμονής δεν τεκμαίρονται. Το τελικό ποσό πληρωμής χρειάζεται επιβεβαίωση στο κατάλυμα.</div>
     <button type="button" class="hz-stay-load">Αναζήτηση live τιμών μέσα στο Horizon</button>
     <div class="hz-stay-status">Horizon browser cache 30′ + Cloudflare edge cache 6 ώρες για ίδια στοιχεία αναζήτησης.</div>
     <div class="hz-cache-badge"></div>

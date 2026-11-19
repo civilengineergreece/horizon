@@ -1,0 +1,26 @@
+name: HORIZON live hotel family search smoke
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'worker/src/index.js'
+      - 'worker/tests/live-hotel-smoke.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-hotel-query:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test script syntax
+        run: node --check worker/tests/live-hotel-smoke.mjs
+      - name: Verify Google Hotels quote and infant occupancy on production Worker
+        run: node worker/tests/live-hotel-smoke.mjs

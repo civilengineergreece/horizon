@@ -28,7 +28,9 @@ window.HORIZON_LIVE_CONFIG={
           u.searchParams.set('checkInDate',String(payload.checkInDate||''));
           u.searchParams.set('checkOutDate',String(payload.checkOutDate||''));
           u.searchParams.set('adults',String(payload.adults||2));
-          u.searchParams.set('children',String((Number(payload.children)||0)+(Number(payload.infants)||0)));
+          u.searchParams.set('children',String(Math.max(0,Number(payload.children)||0)));
+          u.searchParams.set('infants',String(Math.max(0,Number(payload.infants)||0)));
+          if(payload.childrenAges?.length)u.searchParams.set('childrenAges',payload.childrenAges.join(','));
           const res=await nativeFetch(u.toString(),{method:'GET',signal:init?.signal});
           const cacheStatus=String(res.headers.get('cf-cache-status')||res.headers.get('x-horizon-cache')||'').toUpperCase();
           const data=await res.clone().json().catch(()=>null);
@@ -57,7 +59,7 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('flight-times-core.js?v=20260822-2','data-horizon-flight-times-core');
     loadScript('results-truth.js?v=20261119-4','data-horizon-results-truth');
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
-    loadScript('hotels-panel.js?v=20260822-7','data-horizon-hotels-panel');
+    loadScript('hotels-panel.js?v=20261119-1','data-horizon-hotels-panel');
     loadScript('flight-ground-cost.js?v=20261119-1','data-horizon-flight-ground-cost');
     loadScript('flight-infant-fare-rules.js?v=20261119-1','data-horizon-infant-fares');
     loadScript('flights-panel.js?v=20261119-9','data-horizon-flights-panel');
