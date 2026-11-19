@@ -1,0 +1,25 @@
+name: HORIZON exact family flight discovery
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'worker/tests/live-gq-family-discovery.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-family-discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: node --check worker/tests/live-gq-family-discovery.mjs
+      - name: Verify exact GQ380 then GQ389 using real Google Flights API
+        run: node worker/tests/live-gq-family-discovery.mjs
