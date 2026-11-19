@@ -26,7 +26,8 @@ function cachedSelectedStay(name){
     [name,d.from,d.to,t.adults,t.children,t.infants].join('|');
   try{
     const v=JSON.parse(localStorage.getItem(key)||'null');
-    if(!v||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL||!(Number(v.total)>0))return null;
+    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||
+      Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL||Number(v.at||0)>Date.now()+30000||!(Number(v.total)>0))return null;
     if(v.currency!=='EUR'||v.bookingStatus!=='quote_only_not_checked_out')return null;
     return v;
   }catch{return null;}
@@ -40,8 +41,10 @@ function applyStayBreak(card,r,stay){
     value.textContent=euro(stay.total);
     value.classList.add('hz-live-value');
     value.title=stay.taxStatus==='provider_reports_after_taxes_fees'?
-      'Η πηγή δηλώνει συμπερίληψη φόρων. Ενδέχεται να υπάρχουν τοπικά τέλη.':
-      'Φόροι και επιβαρύνσεις ενδέχεται να προστίθενται στην τελική τιμή.';
+      'Η πηγή δηλώνει συμπερίληψη φόρων. Το τέλος ανθεκτικότητας μπορεί να χρεώνεται χωριστά: '+
+      (stay.possibleClimateFeeEUR===null?'άγνωστο':euro(stay.possibleClimateFeeEUR))+'.':
+      'Φόροι και επιβαρύνσεις ενδέχεται να προστίθενται στην τελική τιμή. Πιθανό τέλος ανθεκτικότητας: '+
+      (stay.possibleClimateFeeEUR===null?'άγνωστο':euro(stay.possibleClimateFeeEUR))+'.';
   }else{
     label.textContent='Εκτίμηση διαμονής';
     value.textContent=euro(r.accommodation);
