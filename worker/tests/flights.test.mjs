@@ -142,3 +142,42 @@ test('separate-ticket booking prices combine only when both parts have explicit 
     assert.equal(data.results[0].separateTickets,true);
   }finally{globalThis.fetch=originalFetch;}
 });
+
+
+test('booking can pin exact outbound+return segment flight numbers without booking_token',async()=>{
+  const originalFetch=globalThis.fetch;
+  let calls=0;
+  globalThis.fetch=async url=>{
+    calls++;
+    const u=new URL(url);
+    assert.equal(u.searchParams.has('booking_token'),false);
+    const json=JSON.parse(u.searchParams.get('selected_flights_json'));
+    assert.deepEqual(json,{outbound:[{flight_number:'GQ100',departure_id:'ATH',arrival_id:'SKG',date:'2026-12-04'}],
+      return:[{flight_number:'GQ101',departure_id:'SKG',arrival_id:'ATH',date:'2026-12-06'}]});
+    return Response.json({booking_options:[{together:{book_with:'Pin Seller',price:365}}]});
+  };
+  try{
+    const response=await worker.fetch(new Request(base+'/flight-booking-options',{method:'POST',
+      headers:{'content-type':'application/json'},body:JSON.stringify({
+        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',returnDate:'2026-12-06',
+        adults:2,infants:1,bookingToken:'',
+        outboundSegments:[{flightNumber:'GQ 100',departure:{airport:'ATH',time:'2026-12-04 07:30'},arrival:{airport:'SKG',time:'2026-12-04 08:25'}}],
+        returnSegments:[{flightNumber:'GQ 101',departure:{airport:'SKG',time:'2026-12-06 19:00'},arrival:{airport:'ATH',time:'2026-12-06 20:00'}}]
+      })}),{SERPAPI_API_KEY:'mock-only'},{});
+    const data=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(data.lookupMethod,'selected_flights_json');
+    assert.equal(data.results[0].price,365);
+    assert.equal(calls,1);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
+test('invalid pin segments without booking_token cannot trigger provider searches',async()=>{
+  const response=await worker.fetch(new Request(base+'/flight-booking-options',{method:'POST',
+    headers:{'content-type':'application/json'},body:JSON.stringify({
+      origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',returnDate:'2026-12-06',
+      outboundSegments:[{flightNumber:'invalid',departure:{airport:'ATH',time:'2026-12-04 07:30'},arrival:{airport:'SKG'}}],
+      returnSegments:[{flightNumber:'GQ100'}]
+    })}),{SERPAPI_API_KEY:'mock-only'},{});
+  assert.equal(response.status,400);
+});
