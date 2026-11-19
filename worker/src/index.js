@@ -180,7 +180,7 @@ function normalizeGoogleHotel(item,currency,nights){
   const amenities=(Array.isArray(item?.amenities)?item.amenities:[]).slice(0,12).map(x=>cleanText(x,70)).filter(Boolean);
   return {
     id:cleanText(item?.property_token||item?.name||'',220),propertyToken:cleanText(item?.property_token||'',220)||null,name:cleanText(item?.name||'Κατάλυμα',180),
-    type:cleanText(item?.type||'hotel',80),hotelClass:hotelStars(item?.hotel_class),
+    type:cleanText(item?.type||'unknown',80),hotelClass:hotelStars(item?.hotel_class),
     rating:number(item?.overall_rating,0)||null,reviews:number(item?.reviews,0)||null,
     nightly,total,totalEstimate,totalPriceBasis:total!==null?'provider_reported':'estimated_nightly_times_nights',
     totalBeforeTaxesFees:beforeTaxes,totalAfterTaxesFees:afterTaxes,taxStatus,
