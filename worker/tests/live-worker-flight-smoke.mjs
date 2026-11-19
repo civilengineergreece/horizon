@@ -71,14 +71,16 @@ try{
     record('Booking options endpoint','GET returns HTTP '+bookingRoute.status+' (expected 405)');
     assert.equal(bookingRoute.status,405,'Cloudflare deployment did not expose /flight-booking-options');
 
-    const bookable=returned.data.results?.find(x=>x.bookingToken&&Number(x.price)>0);
-    assert.ok(bookable,'Live return options do not contain a booking_token; cannot confirm seller quotes for this route');
+    const bookable=returned.data.results?.find(x=>x.bookingToken&&Number(x.price)>0)||inbound;
+    assert.ok(bookable,'No selected return itinerary');
+    if(!bookable.bookingToken)record('Booking lookup method','Pinned exact outbound + return flight numbers (booking_token unavailable)');
     const details=await request('/flight-booking-options',{
       method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({
         origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
         returnDate:'2026-12-06',adults:1,children:0,infants:0,
-        bookingToken:bookable.bookingToken
+        bookingToken:bookable.bookingToken||'',
+        outboundSegments:selectable.segments||[],returnSegments:bookable.segments||[]
       })
     });
     record('Real seller booking options','HTTP '+details.status+'; '+(details.data?.results?.length||0)+' seller quotes');

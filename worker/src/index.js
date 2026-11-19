@@ -221,12 +221,31 @@ function normalizeBookingOptions(data){
   }).filter(x=>x.price!==null).sort((a,b)=>a.price-b.price);
   return {results,baggage};
 }
+
+function pinnedFlightSegments(v){
+  if(!Array.isArray(v)||!v.length||v.length>6)return null;
+  const out=[];
+  for(const segment of v){
+    const n=cleanText(segment?.flightNumber,18).replace(/\s+/g,'').toUpperCase();
+    const departureId=cleanText(segment?.departure?.airport,5).toUpperCase();
+    const arrivalId=cleanText(segment?.arrival?.airport,5).toUpperCase();
+    const date=String(segment?.departure?.time||'').slice(0,10);
+    if(!/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(n)||
+       !/^[A-Z]{3}$/.test(departureId)||!/^[A-Z]{3}$/.test(arrivalId)||
+       !isoDate(date))return null;
+    out.push({flight_number:n,departure_id:departureId,arrival_id:arrivalId,date});
+  }
+  return out;
+}
 async function flightBookingOptions(request,env,input){
   if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Χρειάζεται SerpApi key για live πτήσεις.',null,{code:'SERPAPI_KEY_REQUIRED'});
   const token=String(input?.bookingToken||'');
   const outbound=isoDate(input?.outboundDate),ret=isoDate(input?.returnDate);
   const origin=cleanText(input?.origin,100),destination=cleanText(input?.destination,100);
-  if(!token||token.length>5000||!outbound||origin.length<2||destination.length<2||ret&&ret<outbound){
+  const outboundSegments=pinnedFlightSegments(input?.outboundSegments);
+  const returnSegments=ret?pinnedFlightSegments(input?.returnSegments):null;
+  const canPin=!!outboundSegments&&(!ret||!!returnSegments);
+  if((!token&&!canPin)||token.length>5000||!outbound||origin.length<2||destination.length<2||ret&&ret<outbound){
     return fail(request,env,400,'Χρειάζεται έγκυρος κωδικός και στοιχεία επιλεγμένης πτήσης.');
   }
   const adults=Math.min(9,Math.max(1,Math.floor(number(input.adults,1))));
@@ -239,6 +258,7 @@ async function flightBookingOptions(request,env,input){
     gl:'gr',hl:'el',travel_class:'1',booking_token:token,api_key:env.SERPAPI_API_KEY};
   if(ret)q.return_date=ret;
   if(infants)q.infants_on_lap=String(infants);
+  if(!token){delete q.booking_token;q.selected_flights_json=JSON.stringify({outbound:outboundSegments,...(ret?{return:returnSegments}:{})});}
   for(const [k,v] of Object.entries(q))u.searchParams.set(k,v);
   const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
   const normalized=normalizeBookingOptions(data);
@@ -247,7 +267,7 @@ async function flightBookingOptions(request,env,input){
     currency:'EUR',origin,destination,outboundDate:outbound,returnDate:ret||null,
     adults,children,infants,results:normalized.results,baggage:normalized.baggage,
     retrievedAt:new Date().toISOString(),
-    infantBreakdownConfirmed:false,
+    lookupMethod:token?'booking_token':'selected_flights_json',infantBreakdownConfirmed:false,
     notice:'Οι προσφορές πωλητών, οι πολιτικές αποσκευών και οι χρεώσεις βρεφών υπόκεινται σε έλεγχο πριν την πληρωμή. Καμία τιμή δεν είναι εγγυημένη τιμή checkout.'},
     200,{'cache-control':'no-store'});
 }

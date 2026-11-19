@@ -16,7 +16,7 @@ const flight=(departure,arrival,price,token=null)=>({
   price,currency:'EUR',durationMinutes:55,stops:0,airlines:['Test airline'],
   departure:{airport:departure,name:departure,time:'2026-12-04 07:30'},
   arrival:{airport:arrival,name:arrival,time:'2026-12-04 08:25'},
-  segments:[{airline:'Test airline',durationMinutes:55,
+  segments:[{airline:'Test airline',flightNumber:departure==='ATH'?'GQ 100':'GQ 101',durationMinutes:55,
     departure:{airport:departure,time:'2026-12-04 07:30'},
     arrival:{airport:arrival,time:'2026-12-04 08:25'}}],
   departureToken:token
@@ -34,12 +34,14 @@ try{
     const payload=route.request().postDataJSON();
     assert.equal(payload.departureToken,'test-token');
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
-      body:JSON.stringify({ok:true,fareScope:'roundtrip_return_options',retrievedAt:'2026-11-19T08:50:00Z',currency:'EUR',results:[{...flight('SKG','ATH',337),bookingToken:'test-booking-token'}]})});
+      body:JSON.stringify({ok:true,fareScope:'roundtrip_return_options',retrievedAt:'2026-11-19T08:50:00Z',currency:'EUR',results:[flight('SKG','ATH',337)]})});
   });
   await page.route(/\/flight-booking-options$/,async route=>{
     assert.equal(route.request().method(),'POST');
     const data=route.request().postDataJSON();
-    assert.equal(data.bookingToken,'test-booking-token');
+    assert.equal(data.bookingToken,'');
+    assert.equal(data.outboundSegments[0].flightNumber,'GQ 100');
+    assert.equal(data.returnSegments[0].flightNumber,'GQ 101');
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
       body:JSON.stringify({ok:true,provider:'Google Flights via SerpApi',retrievedAt:'2026-11-19T08:55:00Z',
         results:[{seller:'Test Seller',price:355,currency:'EUR',separateTickets:false,
