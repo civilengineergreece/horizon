@@ -16,7 +16,7 @@ function parseISO(iso){const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/
 function pretty(iso){const d=parseISO(iso);return d?d.toLocaleDateString('el-GR',{day:'numeric',month:'short',year:'numeric'}):'—';}
 function addDays(iso,n){const d=parseISO(iso);if(!d)return '';d.setDate(d.getDate()+n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function tripData(name){
-  const s=stateNow(),t=s.travelers||{},days=Math.max(1,Number(s.duration)||1),from=s.dates?.from||'',to=from?addDays(from,Math.max(0,days-1)):'';
+  const s=stateNow(),t=s.travelers||{},days=Math.max(1,Number(s.duration)||1),from=s.dates?.from||'',to=s.dates?.oneWay?'':from?addDays(from,Math.max(0,days-1)):'';
   return {name,origin:s.origin||'Αθήνα',from,to,adults:Math.max(1,Number(t.adults)||1),children:Math.max(0,Number(t.children)||0),infants:Math.max(0,Number(t.infants)||0)};
 }
 function peopleText(t){const p=[`${t.adults} ${t.adults===1?'ενήλικας':'ενήλικες'}`];if(t.children)p.push(`${t.children} ${t.children===1?'παιδί':'παιδιά'}`);if(t.infants)p.push(`${t.infants} ${t.infants===1?'βρέφος':'βρέφη'}`);return p.join(' · ');}

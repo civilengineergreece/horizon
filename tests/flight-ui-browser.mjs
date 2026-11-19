@@ -25,8 +25,10 @@ let outboundHits=0,returnHits=0;
 try{
   await page.route(/\/flights\?/,async route=>{
     outboundHits++;
+    const q=new URL(route.request().url()).searchParams;
+    if(q.get('outboundDate')==='2026-12-20')await new Promise(resolve=>setTimeout(resolve,800));
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
-      body:JSON.stringify({ok:true,fareScope:'roundtrip_outbound_only',retrievedAt:'2026-11-19T08:50:00Z',currency:'EUR',results:[flight('ATH','SKG',281,'test-token')]})});
+      body:JSON.stringify({ok:true,fareScope:'roundtrip_outbound_only',retrievedAt:new Date().toISOString(),currency:'EUR',results:[flight('ATH','SKG',281,'test-token')]})});
   });
   await page.route(/\/flight-returns$/,async route=>{
     returnHits++;
@@ -34,7 +36,7 @@ try{
     const payload=route.request().postDataJSON();
     assert.equal(payload.departureToken,'test-token');
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
-      body:JSON.stringify({ok:true,fareScope:'roundtrip_return_options',retrievedAt:'2026-11-19T08:50:00Z',currency:'EUR',results:[flight('SKG','ATH',337)]})});
+      body:JSON.stringify({ok:true,fareScope:'roundtrip_return_options',retrievedAt:new Date().toISOString(),currency:'EUR',results:[flight('SKG','ATH',337)]})});
   });
   await page.route(/\/flight-booking-options$/,async route=>{
     assert.equal(route.request().method(),'POST');
@@ -43,7 +45,7 @@ try{
     assert.equal(data.outboundSegments[0].flightNumber,'GQ 100');
     assert.equal(data.returnSegments[0].flightNumber,'GQ 101');
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
-      body:JSON.stringify({ok:true,provider:'Google Flights via SerpApi',retrievedAt:'2026-11-19T08:55:00Z',
+      body:JSON.stringify({ok:true,provider:'Google Flights via SerpApi',retrievedAt:new Date().toISOString(),
         results:[{seller:'Test Seller',price:355,currency:'EUR',separateTickets:false,
           baggage:{together:['1 cabin bag included','1st checked bag: €30'],departing:[],returning:[]}}]})});
   });
@@ -131,6 +133,7 @@ try{
   });
   assert.equal(after.extras,70);
   assert.equal(after.estimatedTotal,425);
+  assert.equal(after.at,sellerRecord.at,'Changing manual baggage/ground amounts must NOT reset source quote freshness');
   log('Manual fees','Separated €70 of baggage/transfers from €355 seller fare');
 
   const change=page.locator('.hz-flight-change');
@@ -156,6 +159,49 @@ try{
   assert.equal(await page.evaluate(()=>Object.keys(localStorage).filter(k=>k.startsWith('hz-flight-selection-v2:')).length),0);
   assert.ok((await page.locator('#resultsCard').innerText()).includes('6 ημέρες'),'New duration should appear in rendered results');
   log('Date/budget sync','Flight dates 10–15 Dec synchronized to six-day Planner duration; old fare invalidated');
+
+  // A one-way trip has no return date; the old Planner implementation silently
+  // required round-trip fares and omitted genuine one-way prices from the budget.
+  await page.locator('.hz-flight-to').fill('');
+  await page.locator('.hz-flight-search').click();
+  await page.locator('[data-flight-step="outbound"]').waitFor({timeout:15000});
+  await page.locator('[data-flight-step="outbound"]').click();
+  const oneWay=await page.evaluate(()=>{
+    const key=Object.keys(localStorage).find(k=>k.startsWith('hz-flight-selection-v2:'));
+    return {record:key?JSON.parse(localStorage.getItem(key)):null,oneWay:state.dates.oneWay};
+  });
+  assert.equal(oneWay.oneWay,true);
+  assert.equal(oneWay.record.scope,'oneway');
+  assert.equal(oneWay.record.baggage,0,'Past baggage estimate must not carry to a different itinerary');
+  assert.equal(oneWay.record.ground,7.5,'One-way bus transfer should replace old roundtrip manual value');
+  await page.waitForTimeout(100);
+  const planeTotal=await page.locator('.destination').filter({hasText:'Θεσσαλονίκη'})
+    .locator('.break').filter({hasText:'Επιλεγμένη αεροπορική μεταφορά'}).innerText();
+  assert.ok(planeTotal.includes('288,50'),'One-way €281 fare + €7.50 bus transfers should be reflected in budget');
+
+  // Starting a new search with the same dates must immediately remove the
+  // previous quote from the budget, even when the next result is browser-cached.
+  await page.locator('.hz-flight-search').click();
+  await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(()=>
+    Object.keys(localStorage).filter(k=>k.startsWith('hz-flight-selection-v2:')).length),0);
+  const clearTotal=await page.locator('.destination').filter({hasText:'Θεσσαλονίκη'})
+    .locator('.break').filter({hasText:'Μεταφορά'}).innerText();
+  assert.ok(clearTotal.includes('Live τιμή'),'New flight search must clear prior selected budget quote');
+  log('One-way and fare reset','One-way quote included; new search immediately removes old fare from budget');
+
+  // Delayed upstream response from an abandoned search must not overwrite a
+  // new trip or leave the search button disabled.
+  await page.locator('.hz-flight-from').fill('2026-12-20');
+  await page.locator('.hz-flight-to').fill('2026-12-22');
+  await page.locator('.hz-flight-search').click();
+  await page.locator('.hz-flight-from').fill('2026-12-21');
+  await page.waitForTimeout(1000);
+  assert.equal(await page.locator('.hz-flight-card').count(),0,'Old in-flight response must be discarded');
+  assert.equal(await page.locator('.hz-flight-search').isEnabled(),true,'User can start a new search after cancelling old trip');
+  log('Async safety','Delayed response discarded after date change; search button stays enabled');
+
+
 
 
   console.log('RESULT: PASS — browser interactions against served PR branch with mocked provider responses');

@@ -10,12 +10,12 @@ function installStyles(){
 function stateNow(){return typeof state!=='undefined'&&state?state:{};}
 function addDays(iso,n){const d=new Date(`${iso}T12:00:00`);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 function travelers(){const t=stateNow().travelers||{};return {adults:Math.max(1,Number(t.adults)||1),children:Math.max(0,Number(t.children)||0),infants:Math.max(0,Number(t.infants)||0)};}
-function flightDates(){const s=stateNow(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1);return {from,to:from?addDays(from,Math.max(0,days-1)):''};}
+function flightDates(){const s=stateNow(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1);return {from,to:s.dates?.oneWay?'':from?addDays(from,Math.max(0,days-1)):''};}
 function flightCacheKey(name){const s=stateNow(),t=travelers(),d=flightDates(),origin=s.origin||'Αθήνα';return `${FLIGHT_CACHE_PREFIX}${[origin,name,d.from,d.to,t.adults,t.children,t.infants].join('|')}`;}
 function cachedLiveFare(name){
   try{
     const key='hz-flight-selection-v2:'+flightCacheKey(name),v=JSON.parse(localStorage.getItem(key)||'null');
-    if(!v||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL)return null;
+    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL)return null;
     const expectedReturn=flightDates().to;
     if((expectedReturn&&v.scope!=='roundtrip')||(!expectedReturn&&v.scope!=='oneway'))return null;
     return Number(v.fare)>0?{fare:Number(v.fare),extras:Math.max(0,Number(v.extras)||0),scope:v.scope}:null;
