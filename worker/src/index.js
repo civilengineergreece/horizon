@@ -352,6 +352,13 @@ export default {
     const url=new URL(request.url);
     try{
       if(url.pathname==='/health')return reply(request,env,{ok:true,service:'Horizon Live API',providers:{googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},googleFlights:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},liveCards:!!env.SERPAPI_API_KEY},cache:{enabled:true,layer:'cloudflare-workers-cache',ttlHours:WORKER_CACHE_TTL/3600}},200,{'cache-control':'no-store'});
+      if(url.pathname==='/flight-capabilities'){
+        return reply(request,env,{ok:true,service:'Horizon Flight Price Integrity',
+          schemaVersion:3,quoteCacheNoStore:true,
+          validatesRealCalendarDates:true,validatesTravelerCounts:true,
+          validatesRouteAndReturn:true,validatesPinnedFlightIdentity:true
+        },200,{'cache-control':'no-store'});
+      }
       if(url.pathname==='/hotel-capabilities'){
         return reply(request,env,{ok:true,service:'Horizon Hotel Pricing',
           schemaVersion:2,infantAgeRule:'infant_is_age_1_for_google_hotels',
