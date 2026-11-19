@@ -17,33 +17,46 @@ window.HORIZON_LIVE_CONFIG={
     const nativeFetch=window.fetch.bind(window);
     const apiOrigin=(()=>{try{return new URL(window.HORIZON_LIVE_CONFIG.apiBase).origin;}catch{return '';}})();
     window.fetch=async(input,init={})=>{
+      let reqUrl,method,payload;
       try{
         const raw=typeof input==='string'?input:input?.url;
-        const reqUrl=new URL(raw,location.href);
-        const method=String(init?.method||(typeof input!=='string'&&input?.method)||'GET').toUpperCase();
-        if(apiOrigin&&reqUrl.origin===apiOrigin&&reqUrl.pathname==='/stays'&&method==='POST'){
-          const payload=JSON.parse(String(init?.body||'{}'));
-          const u=new URL(`${apiOrigin}/stays`);
-          u.searchParams.set('destination',String(payload.destination||''));
-          u.searchParams.set('checkInDate',String(payload.checkInDate||''));
-          u.searchParams.set('checkOutDate',String(payload.checkOutDate||''));
-          u.searchParams.set('adults',String(payload.adults||2));
-          u.searchParams.set('children',String(Math.max(0,Number(payload.children)||0)));
-          u.searchParams.set('infants',String(Math.max(0,Number(payload.infants)||0)));
-          if(payload.childrenAges?.length)u.searchParams.set('childrenAges',payload.childrenAges.join(','));
-          if(payload.nextPageToken)u.searchParams.set('nextPageToken',String(payload.nextPageToken));
-          const res=await nativeFetch(u.toString(),{method:'GET',signal:init?.signal});
-          const cacheStatus=String(res.headers.get('cf-cache-status')||res.headers.get('x-horizon-cache')||'').toUpperCase();
-          const data=await res.clone().json().catch(()=>null);
-          if(data&&typeof data==='object'){
-            data.cache={...(data.cache||{}),hit:cacheStatus==='HIT'};
-            const headers=new Headers(res.headers);headers.set('content-type','application/json; charset=utf-8');
-            return new Response(JSON.stringify(data),{status:res.status,statusText:res.statusText,headers});
-          }
-          return res;
-        }
-      }catch(e){}
-      return nativeFetch(input,init);
+        reqUrl=new URL(raw,location.href);
+        method=String(init?.method||(typeof input!=='string'&&input?.method)||'GET').toUpperCase();
+        if(!(apiOrigin&&reqUrl.origin===apiOrigin&&reqUrl.pathname==='/stays'&&method==='POST'))
+          return nativeFetch(input,init);
+        payload=JSON.parse(String(init?.body||'{}'));
+      }catch(e){
+        // Don't silently retry an unsuccessful /stays request with a different HTTP method.
+        if(reqUrl?.origin===apiOrigin&&reqUrl?.pathname==='/stays'&&method==='POST')throw e;
+        return nativeFetch(input,init);
+      }
+      const u=new URL(apiOrigin+'/stays');
+      for(const [key,value] of Object.entries({
+        destination:String(payload.destination||''),
+        checkInDate:String(payload.checkInDate||''),
+        checkOutDate:String(payload.checkOutDate||''),
+        adults:String(payload.adults??2),
+        children:String(Math.max(0,Number(payload.children)||0)),
+        infants:String(Math.max(0,Number(payload.infants)||0))
+      }))u.searchParams.set(key,value);
+      if(Array.isArray(payload.childrenAges)&&payload.childrenAges.length)
+        u.searchParams.set('childrenAges',payload.childrenAges.join(','));
+      if(payload.nextPageToken)u.searchParams.set('nextPageToken',String(payload.nextPageToken));
+      if(payload.pageSize)u.searchParams.set('pageSize',String(payload.pageSize));
+      // Propagate timeout/network failures; never mask them by retrying POST.
+      const res=await nativeFetch(u.toString(),{method:'GET',signal:init?.signal});
+      const cacheStatus=String(res.headers.get('cf-cache-status')||
+        res.headers.get('x-horizon-cache')||'').toUpperCase();
+      const data=await res.clone().json().catch(()=>null);
+      if(data&&typeof data==='object'){
+        data.cache={...(data.cache||{}),hit:data.cache?.hit===true||cacheStatus==='HIT'};
+        const headers=new Headers(res.headers);
+        headers.set('content-type','application/json; charset=utf-8');
+        return new Response(JSON.stringify(data),{
+          status:res.status,statusText:res.statusText,headers
+        });
+      }
+      return res;
     };
   };
 
