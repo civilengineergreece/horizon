@@ -7,6 +7,7 @@ on:
       - 'live-config.js'
       - 'flights-panel.js'
       - 'flight-ground-cost.js'
+      - 'flight-infant-fare-rules.js'
       - 'tests/flight-ui-browser.mjs'
       - '.github/workflows/flight-ui-browser.yml'
   push:
@@ -16,6 +17,7 @@ on:
       - 'live-config.js'
       - 'flights-panel.js'
       - 'flight-ground-cost.js'
+      - 'flight-infant-fare-rules.js'
   workflow_dispatch:
 
 permissions:

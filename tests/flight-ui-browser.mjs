@@ -13,10 +13,10 @@ const page=await browser.newPage({viewport:{width:1280,height:960}});
 const reports=[];
 function log(step,msg){reports.push(step+': '+msg);console.log(step+': '+msg);}
 const flight=(departure,arrival,price,token=null)=>({
-  price,currency:'EUR',durationMinutes:55,stops:0,airlines:['Test airline'],
+  price,currency:'EUR',durationMinutes:55,stops:0,airlines:[departure==='ATH'?'AEGEAN':'SKY express'],
   departure:{airport:departure,name:departure,time:'2026-12-04 07:30'},
   arrival:{airport:arrival,name:arrival,time:'2026-12-04 08:25'},
-  segments:[{airline:'Test airline',flightNumber:departure==='ATH'?'GQ 100':'GQ 101',durationMinutes:55,
+  segments:[{airline:departure==='ATH'?'AEGEAN':'SKY express',flightNumber:departure==='ATH'?'GQ 100':'GQ 101',durationMinutes:55,
     departure:{airport:departure,time:'2026-12-04 07:30'},
     arrival:{airport:arrival,time:'2026-12-04 08:25'}}],
   departureToken:token
@@ -57,7 +57,7 @@ try{
   await page.waitForTimeout(1200);
   await page.evaluate(()=>{
     state={origin:'Αθήνα',dates:{from:'2026-12-04',flex:0},duration:3,
-      budget:{amount:1500,transport:'all'},travelers:{adults:1,children:0,infants:0},
+      budget:{amount:1500,transport:'all'},travelers:{adults:1,children:0,infants:1},
       style:'city',stay:'hotel',transport:'plane',interests:['history'],special:''};
     const dest=window.HORIZON_DESTINATIONS.find(x=>x.name==='Θεσσαλονίκη');
     scored=[scoreDest(dest)];
@@ -92,6 +92,11 @@ try{
   });
   assert.ok(record,'Complete flight choice should be stored');
   assert.equal(record.scope,'roundtrip');
+  const infantPolicy=await page.locator('[data-infant-policy]').innerText();
+  assert.ok(infantPolicy.includes('AEGEAN')&&infantPolicy.includes('SKY express'));
+  assert.ok(infantPolicy.includes('10%')&&infantPolicy.includes('90%'));
+  assert.equal(record.infantFareVerified,false,'Non-itemized infant surcharge must remain unverified');
+  log('Infant fare rules','Official AEGEAN/SKY express policies shown without invented infant charge');
   assert.equal(record.fare,337);
   assert.equal(await ground.inputValue(),'15','Automatic bus fare benchmark for one adult ATH-SKG return');
   assert.equal(await page.locator('[data-flight-ground-mins]').inputValue(),'120','120 minutes for both airport bus rides per one-way trip');
