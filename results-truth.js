@@ -55,12 +55,12 @@ function patchGroundCardStay(card,name){
   applyStayBreak(card,r,stay);
   const total=Math.max(0,Number(r.total)-Number(r.accommodation)+Number(stay.total));
   const cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
-  if(cost)cost.innerHTML=\`~\${euro(total)} <span>με επιλεγμένη διαμονή + ενδεικτικά λοιπά</span>\`;
+  if(cost)cost.innerHTML=`~${euro(total)} <span>με επιλεγμένη διαμονή + ενδεικτικά λοιπά</span>`;
   if(remaining){
     const delta=Number(stateNow().budget?.amount||0)-total;
     remaining.dataset.truth='1';
-    remaining.textContent=delta>=0?\`Με επιλεγμένη διαμονή: μένουν \${euro(delta)}\`:
-      \`Με επιλεγμένη διαμονή: +\${euro(-delta)} πάνω από budget\`;
+    remaining.textContent=delta>=0?`Με επιλεγμένη διαμονή: μένουν ${euro(delta)}`:
+      `Με επιλεγμένη διαμονή: +${euro(-delta)} πάνω από budget`;
   }
   return true;
 }
