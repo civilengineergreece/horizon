@@ -106,7 +106,8 @@ function inboxMessage(panel,details,offer){
     ...(babies?['Αν επιτρέπεται βρέφος στο συγκεκριμένο δωμάτιο και αν διατίθεται βρεφική κούνια, με ακριβές κόστος και όρους προκράτησης;']:[]),
     'Αν το τέλος ανθεκτικότητας στην κλιματική κρίση περιλαμβάνεται ή εξοφλείται χωριστά και, αν εξοφλείται χωριστά, ποιο είναι το ακριβές συνολικό επιπλέον ποσό για όλα τα δωμάτια και τις διανυκτερεύσεις;',
     'Αν περιλαμβάνεται πρωινό;',
-    'Τους πλήρεις όρους ακύρωσης, την προθεσμία και τυχόν χρεώσεις;'
+    'Τους πλήρεις όρους ακύρωσης, την προθεσμία και τυχόν χρεώσεις;',
+    'Ότι η τελική τιμή καλύπτει ΟΛΑ τα απαιτούμενα δωμάτια, τις ακριβείς ηλικίες παιδιών και όλες τις χρεώσεις που πληρώνονται χωριστά;'
   ];
   return [
     'Καλησπέρα σας,','',
@@ -149,11 +150,14 @@ function render(panel,index){
       ['seller_checkout','Η τελευταία οθόνη του πωλητή πριν την πληρωμή'],
       ['written_hotel','Γραπτή απάντηση ξενοδοχείου (όχι checkout)']
     ]))+
-    line('checkoutTotal','Σύνολο (€) που αναγράφεται πριν την πληρωμή','<input type="text" name="checkoutTotal" inputmode="decimal" placeholder="π.χ. 270,00">')+
+    line('checkoutTotal','Σύνολο (€) που αναγράφεται πριν την πληρωμή','<input type="text" name="checkoutTotal" inputmode="decimal" placeholder="π.χ. 1.270,00">')+
+    line('roomsCount','Αριθμός δωματίων που καλύπτει το συνολικό ποσό','<input type="number" name="roomsCount" min="1" max="30" step="1" placeholder="π.χ. 1">')+
     line('totalCoverage','Περιλαμβάνει όλες τις υποχρεωτικές χρεώσεις;',sel('totalCoverage',[
       ['unknown','Άγνωστο'],
       ['all_in','Ναι, όλα μέσα στο πληρωτέο ποσό'],
-      ['all_except_climate','Όλα εκτός από χωριστό, επαληθευμένο τέλος διαμονής'],
+      ['all_except_climate','Όλα εκτός από χωριστό τέλος διαμονής'],
+      ['all_except_crib','Όλα εκτός από χωριστή χρέωση κούνιας'],
+      ['all_except_climate_and_crib','Όλα εκτός από χωριστό τέλος και κούνια'],
       ['not_all_in','Όχι / υπάρχουν άλλες επιπλέον χρεώσεις']
     ]))+
     line('cribStatus','Βρεφική κούνια',sel('cribStatus',[
@@ -164,7 +168,12 @@ function render(panel,index){
       ['not_available','Δεν υπάρχει διαθέσιμη'],
       ['not_needed','Δεν απαιτείται κούνια']
     ]))+
-    line('cribFee','Χρέωση κούνιας (€), αν υπάρχει','<input type="text" name="cribFee" inputmode="decimal" placeholder="Μόνο εάν χρεώνεται">')+
+    line('cribFee','Συνολική χρέωση όλων των κουνιών (€), αν υπάρχει','<input type="text" name="cribFee" inputmode="decimal" placeholder="Μόνο εάν χρεώνεται">')+
+    line('cribChargeLocation','Τρόπος χρέωσης κούνιας',sel('cribChargeLocation',[
+      ['unknown','Άγνωστο'],
+      ['included','Περιλαμβάνεται στο ποσό checkout'],
+      ['excluded','Χρεώνεται επιπλέον · επιβεβαιωμένο ποσό']
+    ]))+
     line('climateStatus','Τέλος διαμονής/ανθεκτικότητας',sel('climateStatus',[
       ['unknown','Άγνωστο'],
       ['included','Περιλαμβάνεται στο πληρωτέο ποσό'],
@@ -176,8 +185,11 @@ function render(panel,index){
     '</div><div class="hz-checkout-checks">'+
     yes('datesConfirmed')+'Επαληθεύτηκαν οι ακριβείς ημερομηνίες.</label>'+
     yes('partyConfirmed')+'Επαληθεύτηκαν όλοι οι επισκέπτες'+(info.infants?' (μαζί με τα βρέφη)':'')+'.</label>'+
+    (info.children?yes('childAgesConfirmed')+'Επιβεβαίωσα στον πωλητή τις ηλικίες παιδιών: '+esc(info.childrenAges.join(', '))+' ετών.</label>':'')+
+    yes('allRoomsConfirmed')+'Το συνολικό ποσό καλύπτει ΟΛΑ τα απαιτούμενα δωμάτια.</label>'+
     yes('roomConfirmed')+'Επαληθεύτηκε ο συγκεκριμένος τύπος δωματίου / κρεβατιών.</label>'+
-    yes('infantIncluded')+'Το βρέφος περιλαμβάνεται ρητά στο πληρωτέο ποσό.</label>'+
+    yes('infantIncluded')+'Το βρέφος περιλαμβάνεται ρητά στην προσφορά.</label>'+
+    yes('infantAccepted')+'Το συγκεκριμένο δωμάτιο δέχεται το βρέφος.</label>'+
     yes('cancellationReviewed')+'Ελέγχθηκαν οι ακριβείς όροι ακύρωσης (ακόμη και αν δεν είναι δωρεάν).</label>'+
     '</div>'+
     '<div class="hz-checkout-actions">'+
@@ -186,10 +198,10 @@ function render(panel,index){
     '<div data-checkout-message role="status" aria-live="polite">Το τελικό πληρωτέο ποσό δεν είναι επιβεβαιωμένο.</div>'+
     '<textarea class="hz-checkout-inquiry" readonly aria-label="Ερωτήσεις προς το ξενοδοχείο"></textarea>';
   if(info.infants===0){
-    ['cribStatus','cribFee','infantIncluded'].forEach(key=>root.querySelector('[name="'+key+'"]')?.closest('label')?.remove());
+    ['cribStatus','cribFee','cribChargeLocation','infantIncluded','infantAccepted'].forEach(key=>root.querySelector('[name="'+key+'"]')?.closest('label')?.remove());
   }
   root.querySelector('[name="climateExtra"]')?.closest('label')?.insertAdjacentHTML('afterend',
-    '<div class="hz-checkout-warning">Αν το τέλος εξοφλείται χωριστά, καταχώρισε ΜΟΝΟ το ακριβές ποσό που επιβεβαίωσε ο πωλητής. Μην χρησιμοποιείς την ενδεικτική νομοθετική εκτίμηση ως επαληθευμένη χρέωση. Στην επιλογή «όλα εκτός τέλους διαμονής», κάθε άλλη υποχρεωτική χρέωση (και τυχόν κούνια) πρέπει να περιλαμβάνεται στο checkout.</div>');
+    '<div class="hz-checkout-warning">Καταχώρισε μόνο ΕΠΙΒΕΒΑΙΩΜΕΝΕΣ χρεώσεις. Αν η κούνια ή το τέλος πληρώνονται χωριστά, επίλεξε ακριβώς τις αντίστοιχες εξαιρέσεις ώστε να συνυπολογιστούν μία φορά. Τιμή ενός δωματίου δεν αποτελεί τελικό σύνολο πολλών δωματίων.</div>');
   root.querySelector('.hz-checkout-inquiry').value=inboxMessage(panel,details,offer);
   root.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
