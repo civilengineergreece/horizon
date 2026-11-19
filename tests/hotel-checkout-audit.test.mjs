@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
-const ctx={window:{},document:{addEventListener(){}},navigator:{},Intl,Date};
+const ctx={window:{},document:{addEventListener(){}},navigator:{},Intl,Date,URL};
 vm.runInNewContext(readFileSync('hotel-checkout-audit.js','utf8'),ctx);
 const assess=ctx.window.HorizonHotelCheckoutAudit.assess;
 const complete={
   source:'seller_checkout',total:'286,25',
   datesConfirmed:true,partyConfirmed:true,roomConfirmed:true,infantIncluded:true,
+  infants:1,children:0,childrenAges:[],infantAccepted:true,
+  roomsCount:1,allRoomsConfirmed:true,cribChargeLocation:'included',
   totalCoverage:'all_in',cribStatus:'free',cribFee:'',
   climateStatus:'included',cancellationReviewed:true,
   capacityStatus:'listed_capacity_sufficient_for_non_infants',
@@ -61,8 +63,24 @@ test('paid infant cot requires exact fee and all-in seller total',()=>{
 });
 test('Greek numerical input is parsed, not rounded or silently allowed if ambiguous',()=>{
   assert.equal(assess({...complete,total:'1.234,56'}).budgetTotal,1234.56);
-  assert.equal(assess({...complete,total:'1,234.56'}).complete,false);
+  assert.equal(assess({...complete,total:'1,234.56'}).budgetTotal,1234.56);
   assert.equal(assess({...complete,total:'286,255'}).complete,false);
+});
+
+test('multiple rooms and separate mandatory charges are summed once',()=>{
+  const input={...complete,roomsCount:2,total:'400,00',climateStatus:'excluded',
+    climateExtra:'12,00',cribStatus:'paid',cribFee:'20,00',cribChargeLocation:'excluded',
+    totalCoverage:'all_except_climate_and_crib'};
+  assert.equal(assess(input).budgetTotal,432);
+  for(const patch of [{allRoomsConfirmed:false},{roomsCount:0},{roomsCount:1.5},
+    {climateExtra:''},{cribFee:''},{infantAccepted:false}])
+    assert.equal(assess({...input,...patch}).budgetTotal,null);
+});
+
+test('child ages and Greek fee cannot be skipped',()=>{
+  assert.equal(assess({...complete,children:1,childrenAges:[8],childAgesConfirmed:true}).complete,true);
+  assert.equal(assess({...complete,children:1,childrenAges:[]}).complete,false);
+  assert.equal(assess({...complete,climateApplicable:true,climateStatus:'not_applicable'}).complete,false);
 });
 test('no infant cot needed and levy not applicable can be explicitly confirmed',()=>{
   const r=assess({...complete,cribStatus:'not_needed',climateStatus:'not_applicable'});

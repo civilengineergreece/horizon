@@ -3,6 +3,27 @@ import assert from 'node:assert/strict';
 import worker from '../src/index-v6.js';
 const base='https://example.workers.dev';
 
+test('invalid occupancy and unsupported room allocations fail before provider billing',async()=>{
+  const old=globalThis.fetch;
+  globalThis.fetch=async()=>{throw Error('Provider must not be called');};
+  try{
+    const input={destination:'Thessaloniki',checkInDate:'2026-12-04',checkOutDate:'2026-12-06',adults:2};
+    for(const patch of [{adults:0},{adults:2.5},{adults:11},{children:-1},{infants:'bad'},
+      {rooms:2},{roomsCount:2},{roomCount:0},{roomAllocations:[{adults:2}]}]){
+      for(const method of ['GET','POST']){
+        const payload={...input,...patch};
+        const request=method==='GET'?new Request(base+'/stays?'+new URLSearchParams(payload)):
+          new Request(base+'/stays',{method,headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+        const response=await worker.fetch(request,{SERPAPI_API_KEY:'mock'},{});
+        assert.equal(response.status,422,JSON.stringify(patch));
+      }
+    }
+    const response=await worker.fetch(new Request(base+'/hotel-details',{method:'POST',
+      headers:{'content-type':'application/json'},body:JSON.stringify({rooms:2})}),{SERPAPI_API_KEY:'mock'},{});
+    assert.equal(response.status,422);
+  }finally{globalThis.fetch=old;}
+});
+
 test('Google Hotels receives infant age 1 and does not conflate child occupancy',async()=>{
   const original=globalThis.fetch;
   let requests=0;

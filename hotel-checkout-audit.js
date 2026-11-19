@@ -6,6 +6,8 @@ function parseEuro(v){
   // Greek and international decimal formats; reject malformed or ambiguous amounts.
   const s=String(v??'').replace(/[\s€\u00a0\u202f]/g,'');
   if(!s||!/^[0-9.,]+$/.test(s))return NaN;
+  // A lone separator followed by three digits could mean either cents or thousands.
+  if(/^\d+[.,]\d{3}$/.test(s))return NaN;
   let normalized='';
   if(/^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/.test(s))
     normalized=s.replace(/\./g,'').replace(',','.');
@@ -237,7 +239,7 @@ function save(panel,root){
   }
   const fee=window.HORIZON_HOTEL_CLIMATE_FEE?.estimate?.({
     checkInDate:info.checkIn,checkOutDate:info.checkOut,
-    hotelClass:hotel.hotelClass,type:hotel.type||'hotel',
+    hotelClass:hotel.hotelClass,type:hotel.type||'hotel',units:a.roomsCount,
     countryCode:(window.HORIZON_DESTINATIONS||[]).some(d=>d.name===info.name&&d.region==='Ελλάδα')?'GR':null
   })||null;
   const key='hz-hotel-selection-v1:'+

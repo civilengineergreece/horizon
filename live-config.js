@@ -36,9 +36,11 @@ window.HORIZON_LIVE_CONFIG={
         checkInDate:String(payload.checkInDate||''),
         checkOutDate:String(payload.checkOutDate||''),
         adults:String(payload.adults??2),
-        children:String(Math.max(0,Number(payload.children)||0)),
-        infants:String(Math.max(0,Number(payload.infants)||0))
+        children:String(payload.children??0),
+        infants:String(payload.infants??0)
       }))u.searchParams.set(key,value);
+      for(const key of ['rooms','roomsCount','roomCount','roomAllocations'])
+        if(payload[key]!==undefined)u.searchParams.set(key,typeof payload[key]==='object'?JSON.stringify(payload[key]):String(payload[key]));
       if(Array.isArray(payload.childrenAges)&&payload.childrenAges.length)
         u.searchParams.set('childrenAges',payload.childrenAges.join(','));
       if(payload.nextPageToken)u.searchParams.set('nextPageToken',String(payload.nextPageToken));
@@ -76,12 +78,12 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('hotel-climate-fee.js?v=20261119-2','data-horizon-hotel-climate-fee');
     loadScript('hotels-panel.js?v=20261119-11','data-horizon-hotels-panel');
     loadScript('hotels-map.js?v=20261119-1','data-horizon-hotels-map');
-    loadScript('hotel-checkout-audit.js?v=20261119-5','data-horizon-hotel-checkout-audit');
+    loadScript('hotel-checkout-audit.js?v=20261119-6','data-horizon-hotel-checkout-audit');
     loadScript('flight-ground-cost.js?v=20261119-1','data-horizon-flight-ground-cost');
     loadScript('flight-infant-fare-rules.js?v=20261119-1','data-horizon-infant-fares');
     loadScript('flights-panel.js?v=20261119-10','data-horizon-flights-panel');
     loadScript('trip-prefill-ui.js?v=20261119-5','data-horizon-trip-prefill');
-    loadScript('multimodal-transport.js?v=20260823-3','data-horizon-multimodal');
+    loadScript('multimodal-transport.js?v=20261120-1','data-horizon-multimodal');
     loadScript('multimodal-safety.js?v=20260823-2','data-horizon-multimodal-safety');
     loadScript('transport-results-compare.js?v=20261119-5','data-horizon-transport-results-compare');
     loadScript('airport-transport-fix.js?v=20260823-1','data-horizon-airport-transport-fix');

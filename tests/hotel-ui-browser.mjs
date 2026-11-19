@@ -144,8 +144,10 @@ try{
   await audit.locator('[name=totalCoverage]').selectOption('all_in');
   await audit.locator('[name=cribStatus]').selectOption('paid');
   await audit.locator('[name=cribFee]').fill('12,50');
+  await audit.locator('[name=cribChargeLocation]').selectOption('included');
+  await audit.locator('[name=roomsCount]').fill('1');
   await audit.locator('[name=climateStatus]').selectOption('included');
-  for(const name of ['datesConfirmed','partyConfirmed','roomConfirmed','infantIncluded','cancellationReviewed'])
+  for(const name of ['datesConfirmed','partyConfirmed','roomConfirmed','infantIncluded','infantAccepted','allRoomsConfirmed','cancellationReviewed'])
     await audit.locator('[name='+name+']').check();
   await audit.locator('[data-hotel-audit-save]').click();
   const final=await page.evaluate(()=>{

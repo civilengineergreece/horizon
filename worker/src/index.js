@@ -157,6 +157,8 @@ function normalizeHotelDetails(data,adults,children){
   };
 }
 async function hotelDetails(request,env,input){
+  const roomError=validateHotelRooms(input);
+  if(roomError)return fail(request,env,422,roomError,null,{code:'UNSUPPORTED_ROOM_COUNT'});
   const propertyToken=String(input.propertyToken||'').trim();
   if(!/^[A-Za-z0-9_-]{10,220}$/.test(propertyToken)){
     return fail(request,env,400,'Χρειάζεται έγκυρος κωδικός καταλύματος.',null,{code:'INVALID_PROPERTY_TOKEN'});
@@ -216,21 +218,32 @@ function normalizeGoogleHotel(item,currency,nights){
     amenities,priceSource:cleanText(item?.price_source||'Google Hotels',100),source:'Google Hotels'
   };
 }
-function inputFromUrl(url){return {destination:url.searchParams.get('destination'),checkInDate:url.searchParams.get('checkInDate'),checkOutDate:url.searchParams.get('checkOutDate'),adults:url.searchParams.get('adults'),children:url.searchParams.get('children'),infants:url.searchParams.get('infants'),childrenAges:url.searchParams.get('childrenAges'),nextPageToken:url.searchParams.get('nextPageToken')};}
+function inputFromUrl(url){return Object.fromEntries(url.searchParams);}
+function validateHotelRooms(input){
+  for(const key of ['rooms','roomsCount','roomCount']){
+    if(input[key]!==undefined&&input[key]!==null&&Number(input[key])!==1)
+      return 'Η ζωντανή αναζήτηση δεν υποστηρίζει κατανομή πολλαπλών δωματίων. Χρειάζεται επιβεβαίωση συνολικής προσφοράς από τον πωλητή.';
+  }
+  if(input.roomAllocations!==undefined)return 'Η κατανομή επισκεπτών ανά δωμάτιο δεν υποστηρίζεται από τη ζωντανή αναζήτηση.';
+  return null;
+}
 function parseChildAges(v){
   if(Array.isArray(v))return v.map(x=>Number(x));
   if(v==null||v==='')return [];
   return String(v).split(',').map(x=>Number(x.trim()));
 }
 async function stays(request,env,input){
+  const roomError=validateHotelRooms(input);
+  if(roomError)return fail(request,env,422,roomError,null,{code:'UNSUPPORTED_ROOM_COUNT'});
   const destination=cleanText(input.destination,120),checkIn=isoDate(input.checkInDate),checkOut=isoDate(input.checkOutDate);
   if(destination.length<2)return fail(request,env,400,'Χρειάζεται προορισμός.');
   if(!checkIn||!checkOut)return fail(request,env,400,'Χρειάζονται έγκυρες ημερομηνίες check-in και check-out.');
   const nights=Math.round((Date.parse(checkOut)-Date.parse(checkIn))/86400000);
   if(!Number.isFinite(nights)||nights<1||nights>90)return fail(request,env,400,'Το check-out πρέπει να είναι 1 έως 90 βράδια μετά το check-in.');
-  const adults=Math.min(10,Math.max(1,Math.floor(number(input.adults,2))));
-  const children=Math.min(10,Math.max(0,Math.floor(number(input.children,0))));
-  const infants=Math.min(10,Math.max(0,Math.floor(number(input.infants,0))));
+  const adults=Number(input.adults??2),children=Number(input.children??0),infants=Number(input.infants??0);
+  if(![adults,children,infants].every(Number.isInteger)||adults<1||adults>10||
+    children<0||infants<0||children+infants>10)
+    return fail(request,env,422,'Μη έγκυρος αριθμός ταξιδιωτών.',null,{code:'INVALID_OCCUPANCY'});
   const childAges=parseChildAges(input.childrenAges);
   if(childAges.length!==children||childAges.some(x=>!Number.isInteger(x)||x<1||x>17)){
     return fail(request,env,422,'Για ακριβή αναζήτηση χρειάζονται οι ηλικίες όλων των παιδιών (1–17), εκτός βρεφών.',null,{code:'CHILD_AGES_REQUIRED'});
@@ -517,7 +530,7 @@ export default {
       if(url.pathname==='/hotel-capabilities'){
         return reply(request,env,{ok:true,service:'Horizon Hotel Pricing',
           schemaVersion:5,hotelRoomOffers:true,hotelPagination:true,hotelMapCoordinates:true,hotelRoomTerms:true,infantAgeRule:'infant_is_age_1_for_google_hotels',
-          requiresAgesForOtherChildren:true,taxBasisLabels:true,
+          requiresAgesForOtherChildren:true,taxBasisLabels:true,multiRoomSearch:false,validatesTravelerCounts:true,
           nightlyEstimateNeverReportedAsActualTotal:true
         },200,{'cache-control':'no-store'});
       }

@@ -159,7 +159,7 @@ function patchResultCards(){
   });
 }
 function flightCache(name){
-  try{const s=stateNow(),t=people(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1,to=from?(()=>{const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+Math.max(0,days-1));return d.toISOString().slice(0,10);})():'';const key=`hz-flights-v1:${[s.origin||'Αθήνα',name,from,to,t.adults,t.children,t.infants].join('|')}`;const v=JSON.parse(localStorage.getItem(key)||'null');if(!v?.data?.results?.length)return null;const prices=v.data.results.map(x=>Number(x.price)||0).filter(Boolean);if(!prices.length)return null;return {price:Math.min(...prices),results:v.data.results};}catch{return null;}
+  try{const s=stateNow(),t=people(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1),to=from?(()=>{const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+Math.max(0,days-1));return d.toISOString().slice(0,10);})():'';const key=`hz-flights-v1:${[s.origin||'Αθήνα',name,from,to,t.adults,t.children,t.infants].join('|')}`;const v=JSON.parse(localStorage.getItem(key)||'null');if(!v?.data?.results?.length)return null;const prices=v.data.results.map(x=>Number(x.price)||0).filter(Boolean);if(!prices.length)return null;return {price:Math.min(...prices),results:v.data.results};}catch{return null;}
 }
 function comparisonRows(d,modes){
   const cached=flightCache(d.name);return modes.map(m=>{
