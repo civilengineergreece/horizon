@@ -423,7 +423,7 @@ async function searchStays(panel,info){
   }
   panel._hotelInfo=info;
   panel.dataset.signature=[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...info.childrenAges].join('|');
-  const requestVersion=++panel._hotelSearchVersion;
+  const requestVersion=panel._hotelSearchVersion=(panel._hotelSearchVersion||0)+1;
   // Remove previous room prices even when the guest party and dates are unchanged.
   panel._hotelData=null;panel._hotelDetails=null;panel._hotelFiltered=[];
   panel.querySelector('.hz-stay-results').textContent='';
