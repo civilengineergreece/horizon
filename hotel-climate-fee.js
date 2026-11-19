@@ -12,10 +12,10 @@ function isoDate(s){
   const d=new Date(s+'T00:00:00Z');
   return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===s?d:null;
 }
-function estimate({checkInDate,checkOutDate,hotelClass,type='hotel',units=1}={}){
+function estimate({checkInDate,checkOutDate,hotelClass,type='hotel',countryCode,units=1}={}){
   const from=isoDate(checkInDate),to=isoDate(checkOutDate),stars=Number(hotelClass);
   const kind=String(type||'').trim().toLowerCase();
-  if(!from||!to||to<=from||!Number.isInteger(units)||units!==1 ||
+  if(countryCode!=='GR'||!from||!to||to<=from||!Number.isInteger(units)||units!==1 ||
      !(kind==='hotel'||kind==='ξενοδοχείο')||!RATES[stars])return null;
   const nights=Math.round((to-from)/86400000);
   if(nights<1||nights>90||from.getUTCFullYear()!==2026&&to.getUTCFullYear()!==2026)return null;

@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 const ctx={window:{},Date};
 vm.runInNewContext(readFileSync('hotel-climate-fee.js','utf8'),ctx);
 const calculate=ctx.window.HORIZON_HOTEL_CLIMATE_FEE.estimate;
-const stay=(from,to,hotelClass,type='hotel')=>calculate({checkInDate:from,checkOutDate:to,hotelClass,type});
+const stay=(from,to,hotelClass,type='hotel')=>calculate({checkInDate:from,checkOutDate:to,hotelClass,type,countryCode:'GR'});
 test('official 2026 December hotel levy per room per night, not per person',()=>{
   const four=stay('2026-12-04','2026-12-06',4);
   assert.equal(four.amountEUR,6);
@@ -22,5 +22,6 @@ test('unknown classes, multiple rooms and years outside verified rule cannot pro
   assert.equal(stay('2026-12-04','2026-12-06',null),null);
   assert.equal(stay('2026-12-04','2026-12-06',4,'vacation rental'),null);
   assert.equal(stay('2027-01-04','2027-01-06',4),null);
-  assert.equal(calculate({checkInDate:'2026-12-04',checkOutDate:'2026-12-06',hotelClass:4,units:2}),null);
+  assert.equal(calculate({checkInDate:'2026-12-04',checkOutDate:'2026-12-06',hotelClass:4,countryCode:'GR',units:2}),null);
+  assert.equal(calculate({checkInDate:'2026-12-04',checkOutDate:'2026-12-06',hotelClass:4,countryCode:'IT'}),null);
 });
