@@ -7,6 +7,11 @@ on:
       - 'flights-panel.js'
       - 'tests/flight-ui-browser.mjs'
       - '.github/workflows/flight-ui-browser.yml'
+  push:
+    branches: ['main']
+    paths:
+      - 'trip-prefill-ui.js'
+      - 'flights-panel.js'
   workflow_dispatch:
 
 permissions:
@@ -26,10 +31,16 @@ jobs:
           npm install --no-save playwright
           google-chrome --version
       - name: Serve the exact PR branch for browser testing
+        if: github.event_name != 'push'
         run: |
           python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/horizon-ui-server.log 2>&1 &
           sleep 2
+      - name: Allow GitHub Pages deployment to settle
+        if: github.event_name == 'push'
+        run: sleep 50
       - name: Exercise Horizon flight UI
+        env:
+          HORIZON_TEST_URL: ${{ github.event_name == 'push' && 'https://civilengineergreece.github.io/horizon/' || 'http://127.0.0.1:8765/' }}
         run: node tests/flight-ui-browser.mjs
       - name: Upload failure screenshot
         if: failure()
