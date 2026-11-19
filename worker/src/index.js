@@ -22,7 +22,7 @@ function fail(request,env,status,message,details,extra={}){
 }
 function cleanText(v,max=160){return String(v||'').trim().slice(0,max);}
 function number(v,fallback=0){const n=Number(v);return Number.isFinite(n)?n:fallback;}
-function isoDate(v){return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):null;}
+function isoDate(v){const s=String(v||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const d=new Date(s+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===s?s:null;}
 function safeUrl(v){try{const u=new URL(String(v||''));return u.protocol==='https:'?u.toString():null;}catch{return null;}}
 function norm(v){return String(v||'').trim().toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
 async function body(request){
@@ -157,6 +157,24 @@ function normalizeFlightOption(item,currency){
   const airlines=[...new Set(segments.map(x=>x.airline).filter(Boolean))];
   return {price:number(item?.price,0)||null,currency,durationMinutes:number(item?.total_duration,0)||segments.reduce((s,x)=>s+(x.durationMinutes||0),0)||null,stops:Math.max(0,segments.length-1),airlines,departure:segments[0].departure,arrival:segments[segments.length-1].arrival,segments,type:cleanText(item?.type,80),source:'Google Flights',departureToken:cleanText(item?.departure_token,5000),bookingToken:cleanText(item?.booking_token,5000),fareDetails:{baggage:'unknown',infantBreakdown:'unknown',airportTransfers:'not_included'}};
 }
+
+function flightPassengers(input){
+  const read=(v,def)=>v===undefined||v===null||v===''?def:Number(v);
+  const adults=read(input?.adults,1),children=read(input?.children,0),infants=read(input?.infants,0);
+  if(![adults,children,infants].every(Number.isInteger)||
+     adults<1||adults>9||children<0||children>8||infants<0||infants>8||
+     infants>adults||adults+children+infants>9)return null;
+  return {adults,children,infants};
+}
+function validAirportsAndDate(item,fromId,toId,date){
+  const first=item?.segments?.[0],last=item?.segments?.at(-1);
+  if(!first||!last)return false;
+  const codes=v=>/^[A-Z]{3}(?:,[A-Z]{3})*$/.test(v)?v.split(','):null;
+  const fromCodes=codes(fromId),toCodes=codes(toId);
+  if(fromCodes&&!fromCodes.includes(first.departure?.airport))return false;
+  if(toCodes&&!toCodes.includes(last.arrival?.airport))return false;
+  return String(first.departure?.time||'').slice(0,10)===date;
+}
 function flightInputFromUrl(url){return {origin:url.searchParams.get('origin'),destination:url.searchParams.get('destination'),outboundDate:url.searchParams.get('outboundDate'),returnDate:url.searchParams.get('returnDate'),adults:url.searchParams.get('adults'),children:url.searchParams.get('children'),infants:url.searchParams.get('infants')};}
 async function flights(request,env,input){
   if(!env.SERPAPI_API_KEY)return fail(request,env,503,'Χρειάζεται SerpApi key για live πτήσεις.',null,{code:'SERPAPI_KEY_REQUIRED'});
@@ -164,7 +182,8 @@ async function flights(request,env,input){
   if(origin.length<2||destination.length<2)return fail(request,env,400,'Χρειάζονται αφετηρία και προορισμός.');
   if(!outbound)return fail(request,env,400,'Χρειάζεται έγκυρη ημερομηνία αναχώρησης.');
   if(ret&&ret<outbound)return fail(request,env,400,'Η επιστροφή πρέπει να είναι μετά την αναχώρηση.');
-  const adults=Math.min(9,Math.max(1,Math.floor(number(input.adults,1)))),children=Math.min(8,Math.max(0,Math.floor(number(input.children,0)))),infants=Math.min(8,Math.max(0,Math.floor(number(input.infants,0))));
+  const pax=flightPassengers(input);if(!pax)return fail(request,env,422,'Μη έγκυρος αριθμός ταξιδιωτών: έως 9 συνολικά, και κάθε βρέφος αγκαλιάς χρειάζεται έναν ενήλικα.',null,{code:'INVALID_PASSENGERS'});
+  const {adults,children,infants}=pax;
   const [from,to]=await Promise.all([resolveFlightId(origin,env),resolveFlightId(destination,env)]);
   const currency='EUR',u=new URL('https://serpapi.com/search.json');
   u.searchParams.set('engine','google_flights');u.searchParams.set('departure_id',from.id);u.searchParams.set('arrival_id',to.id);
@@ -173,8 +192,8 @@ async function flights(request,env,input){
   u.searchParams.set('currency',currency);u.searchParams.set('gl','gr');u.searchParams.set('hl','el');u.searchParams.set('travel_class','1');u.searchParams.set('sort_by','2');u.searchParams.set('api_key',env.SERPAPI_API_KEY);
   const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
   const raw=[...(Array.isArray(data?.best_flights)?data.best_flights:[]),...(Array.isArray(data?.other_flights)?data.other_flights:[])];
-  const results=raw.map(x=>normalizeFlightOption(x,currency)).filter(Boolean).sort((a,b)=>(a.price??1e15)-(b.price??1e15)).slice(0,15);
-  return reply(request,env,{ok:true,provider:'Google Flights via SerpApi',origin,destination,resolved:{origin:from,destination:to},outboundDate:outbound,returnDate:ret||null,adults,children,infants,currency,results,priceInsights:data?.price_insights||null,fareScope:ret?'roundtrip_outbound_only':'one_way',retrievedAt:new Date().toISOString(),meta:{returned:results.length},cache:{enabled:true,layer:'cloudflare-workers-cache',ttlSeconds:WORKER_CACHE_TTL}},200,cacheHeaders());
+  const results=raw.map(x=>normalizeFlightOption(x,currency)).filter(x=>x&&validAirportsAndDate(x,from.id,to.id,outbound)).sort((a,b)=>(a.price??1e15)-(b.price??1e15)).slice(0,15);
+  return reply(request,env,{ok:true,provider:'Google Flights via SerpApi',origin,destination,resolved:{origin:from,destination:to},outboundDate:outbound,returnDate:ret||null,adults,children,infants,currency,results,priceInsights:data?.price_insights||null,fareScope:ret?'roundtrip_outbound_only':'one_way',retrievedAt:new Date().toISOString(),meta:{returned:results.length},cache:{enabled:false,layer:'none',ttlSeconds:0}},200,{'cache-control':'no-store'});
 }
 
 
@@ -191,9 +210,9 @@ async function flightReturns(request,env,input){
   const departureToken=String(input.departureToken||'');
   if(origin.length<2||destination.length<2||!outbound||!ret||ret<outbound)return fail(request,env,400,'Χρειάζονται έγκυρα στοιχεία πτήσης μετ’ επιστροφής.');
   if(!departureToken||departureToken.length>5000)return fail(request,env,400,'Χρειάζεται έγκυρη επιλογή πτήσης αναχώρησης.');
-  const adults=Math.min(9,Math.max(1,Math.floor(number(input.adults,1))));
-  const children=Math.min(8,Math.max(0,Math.floor(number(input.children,0))));
-  const infants=Math.min(8,Math.max(0,Math.floor(number(input.infants,0))));
+  const pax=flightPassengers(input);
+  if(!pax)return fail(request,env,422,'Μη έγκυρος αριθμός ταξιδιωτών.',null,{code:'INVALID_PASSENGERS'});
+  const {adults,children,infants}=pax;
   const [from,to]=await Promise.all([resolveFlightId(origin,env),resolveFlightId(destination,env)]);
   const u=new URL('https://serpapi.com/search.json');
   u.searchParams.set('engine','google_flights');
@@ -214,7 +233,7 @@ async function flightReturns(request,env,input){
   u.searchParams.set('api_key',env.SERPAPI_API_KEY);
   const data=await fetchJson(u.toString(),{headers:{accept:'application/json'}});
   const raw=[...(Array.isArray(data?.best_flights)?data.best_flights:[]),...(Array.isArray(data?.other_flights)?data.other_flights:[])];
-  const results=raw.map(x=>normalizeFlightOption(x,'EUR')).filter(Boolean).sort((a,b)=>(a.price??1e15)-(b.price??1e15)).slice(0,15);
+  const results=raw.map(x=>normalizeFlightOption(x,'EUR')).filter(x=>x&&validAirportsAndDate(x,to.id,from.id,ret)).sort((a,b)=>(a.price??1e15)-(b.price??1e15)).slice(0,15);
   return reply(request,env,{ok:true,provider:'Google Flights via SerpApi',fareScope:'roundtrip_return_options',
     origin,destination,outboundDate:outbound,returnDate:ret,adults,children,infants,
     currency:'EUR',results,retrievedAt:new Date().toISOString(),
@@ -280,9 +299,9 @@ async function flightBookingOptions(request,env,input){
   if((!token&&!canPin)||token.length>5000||!outbound||origin.length<2||destination.length<2||ret&&ret<outbound){
     return fail(request,env,400,'Χρειάζεται έγκυρος κωδικός και στοιχεία επιλεγμένης πτήσης.');
   }
-  const adults=Math.min(9,Math.max(1,Math.floor(number(input.adults,1))));
-  const children=Math.min(8,Math.max(0,Math.floor(number(input.children,0))));
-  const infants=Math.min(8,Math.max(0,Math.floor(number(input.infants,0))));
+  const pax=flightPassengers(input);
+  if(!pax)return fail(request,env,422,'Μη έγκυρος αριθμός ταξιδιωτών.',null,{code:'INVALID_PASSENGERS'});
+  const {adults,children,infants}=pax;
   const [from,to]=await Promise.all([resolveFlightId(origin,env),resolveFlightId(destination,env)]);
   const u=new URL('https://serpapi.com/search.json');
   const q={engine:'google_flights',departure_id:from.id,arrival_id:to.id,outbound_date:outbound,
@@ -338,8 +357,8 @@ export default {
       return fail(request,env,404,'Άγνωστο endpoint.');
     }catch(e){
       const status=Number(e.status)||0,text=String(e.message||'');
-      if(status===429||/quota|limit|searches per month/i.test(text))return fail(request,env,429,'Έφτασες το δωρεάν όριο αναζητήσεων του μήνα.',e.data||null,{code:'FREE_QUOTA_REACHED'});
-      return fail(request,env,status>=400&&status<600?502:400,text||'Σφάλμα live provider',e.data||null);
+      if(status===429||/quota|limit|searches per month/i.test(text))return fail(request,env,429,'Έφτασες το δωρεάν όριο αναζητήσεων του μήνα.',null,{code:'FREE_QUOTA_REACHED'});
+      return fail(request,env,status>=400&&status<600?502:400,'Ο πάροχος δεν ολοκλήρωσε την αναζήτηση. Δοκίμασε ξανά.',null,{code:'FLIGHT_PROVIDER_ERROR'});
     }
   }
 };
