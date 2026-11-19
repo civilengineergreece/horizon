@@ -86,13 +86,16 @@ function bookingNotice(panel,msg){const n=panel.querySelector('.hz-flight-seller
 async function checkBookingOptions(panel){
   const sess=sessions.get(panel);if(!sess?.selected)return;
   const token=sess.selected.returnFlight?.bookingToken||sess.selected.outbound?.bookingToken;
-  if(!token){bookingNotice(panel,'Η Google Flights δεν επέστρεψε booking_token. Οι χρεώσεις αποσκευών και η τιμή πωλητή παραμένουν άγνωστες.');return;}
+  const hasPin=Array.isArray(sess.selected.outbound?.segments)&&sess.selected.outbound.segments.length&&
+    (!sess.to||Array.isArray(sess.selected.returnFlight?.segments)&&sess.selected.returnFlight.segments.length);
+  if(!token&&!hasPin){bookingNotice(panel,'Δεν υπάρχουν ούτε booking_token ούτε αναλυτικά στοιχεία πτήσης. Οι χρεώσεις παραμένουν άγνωστες.');return;}
   const btn=panel.querySelector('.hz-flight-booking');if(btn)btn.disabled=true;
   bookingNotice(panel,'Αναζητώ τιμές πωλητών και πολιτικές αποσκευών…');
   try{
     const input={origin:sess.origin,destination:sess.name,outboundDate:sess.from,
       returnDate:sess.to||null,adults:sess.travelers.adults,children:sess.travelers.children,
-      infants:sess.travelers.infants,bookingToken:token};
+      infants:sess.travelers.infants,bookingToken:token||'',
+      outboundSegments:sess.selected.outbound?.segments||[],returnSegments:sess.selected.returnFlight?.segments||[]};
     const data=await getData(sess.base+'/flight-booking-options',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(input)});
     const choices=Array.isArray(data.results)?data.results:[];
     sess.bookingOptions=data;
