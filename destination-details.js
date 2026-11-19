@@ -72,7 +72,6 @@ function buildMiniPlan(name,tags){
   ];
 }
 function googleHotelUrl(name){return `https://www.google.com/travel/hotels?q=${q(name)}`;}
-function bookingUrl(name){return `https://www.booking.com/searchresults.html?ss=${q(name)}`;}
 function mapsUrl(name){return `https://www.google.com/maps/search/?api=1&query=${q(name)}`;}
 function thingsUrl(name){return `https://www.google.com/search?q=${q(name+' αξιοθέατα δραστηριότητες')}`;}
 
@@ -109,7 +108,7 @@ function createOverlay(card,initialTab){
           <div class="hd-hero"><small>Ενδεικτικό ποσό διαμονής στο πλάνο σου</small><strong>${esc(stay.split('\n').slice(-1)[0]||stay||'—')}</strong><div class="hd-note">Η τιμή προέρχεται από την τρέχουσα εκτίμηση του Horizon και όχι από live διαθεσιμότητα.</div></div>
           <div class="hd-grid"><div class="hd-card"><small>Τύποι που ταιριάζουν</small><b>${esc((d.stay||['hotel','airbnb']).map(x=>x==='hotel'?'Ξενοδοχείο':x==='airbnb'?'Διαμέρισμα':'Camping').join(' · '))}</b></div><div class="hd-card"><small>Κριτήριο περιοχής</small><b>${tags.includes('sea')?'Παραλιακή / walkable ζώνη':d.type==='nature'?'Βάση κοντά στις εξορμήσεις':'Κεντρική walkable περιοχή'}</b></div></div>
           <div class="hd-section"><h4>Τι να προτιμήσεις</h4><div class="hd-list">${stayIdeas.map((x,i)=>`<div class="hd-item"><span class="hd-num">${i+1}</span><div>${esc(x)}</div></div>`).join('')}</div></div>
-          <div class="hd-cta-row"><button class="hd-cta hd-save ${saved?'saved':''}" data-save>${saved?'✓ Αποθηκευμένο':'☆ Αποθήκευση επιλογής'}</button><a class="hd-cta primary" target="_blank" rel="noopener" href="${bookingUrl(name)}">Booking live επιλογές ↗</a><a class="hd-cta" target="_blank" rel="noopener" href="${googleHotelUrl(name)}">Google Hotels ↗</a></div>
+          <div class="hd-cta-row"><button class="hd-cta hd-save ${saved?'saved':''}" data-save>${saved?'✓ Αποθηκευμένο':'☆ Αποθήκευση επιλογής'}</button><a class="hd-cta" target="_blank" rel="noopener" href="${googleHotelUrl(name)}">Google Hotels ↗</a></div>
         </section>
         <section class="hd-pane" data-pane="transport">
           <div class="hd-hero"><small>Τρέχουσα εκτίμηση μεταφοράς</small><strong>${esc(transport.split('\n').find(x=>/^€/.test(x))||'—')}</strong><div class="hd-note">${esc(transport.replace(/\n/g,' · '))}</div></div>
