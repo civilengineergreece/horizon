@@ -68,7 +68,32 @@ function removeLegacyStayLinks(pane){
   });
 }
 function selectionKey(info){return `hz-hotel-selection-v1:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...(info.children?(info.childrenAges||[]):[])].join('|')}`;}
-function clearSelected(info){try{localStorage.removeItem(selectionKey(info));}catch{}document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{detail:{destination:info.name,selected:false}}));}
+function clearSelected(info){
+  if(!info)return;
+  try{localStorage.removeItem(selectionKey(info));}catch{}
+  document.dispatchEvent(new CustomEvent('horizon:live-stay-selected',{detail:{destination:info.name,selected:false}}));
+}
+function invalidateHotelOffers(panel,reason='Τα στοιχεία άλλαξαν. Αναζήτησε εκ νέου για ενημερωμένες προσφορές.'){
+  // Never leave clickable quotes visible for a different guest age or during a new search.
+  panel._hotelSearchVersion=(panel._hotelSearchVersion||0)+1;
+  if(panel._stayController){panel._stayController.abort();panel._stayController=null;}
+  const previous=panel._hotelInfo;
+  if(previous)clearSelected(previous);
+  panel._hotelData=null;panel._hotelDetails=null;panel._hotelFiltered=[];
+  const empty={'.hz-stay-results':'','.hz-stay-summary':'','.hz-hotel-detail':'Επίλεξε νέα προσφορά για αναλυτικό έλεγχο δωματίων.'};
+  for(const [selector,value] of Object.entries(empty)){
+    const node=panel.querySelector(selector);if(node)node.textContent=value;
+  }
+  panel.querySelector('.hz-hotel-checkout-audit')?.remove();
+  panel.querySelector('.hz-cache-badge')?.classList.remove('active');
+  panel.querySelector('.hz-filters')?.classList.remove('active');
+  panel.querySelector('.hz-hotel-map-shell')?.remove();
+  const next=panel.querySelector('.hz-hotel-next-page');if(next)next.hidden=true;
+  const selected=panel.querySelector('.hz-hotel-selected');
+  if(selected)selected.textContent='Δεν υπάρχει ενεργή προσφορά για τον προϋπολογισμό.';
+  const status=panel.querySelector('.hz-stay-status');
+  if(status){status.classList.remove('error');status.textContent=reason;}
+}
 function localKey(info){
   return `hz-hotel-cache-v3:${[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...(info.childrenAges||[])].join('|')}`;
 }
@@ -388,7 +413,9 @@ async function searchStays(panel,info){
     info={...info,childrenAges:ages};
   }
   const prior=panel._hotelInfo;
-  if(prior&&JSON.stringify(prior.childrenAges)!==JSON.stringify(info.childrenAges))clearSelected(prior);
+  if(prior&&JSON.stringify(prior.childrenAges)!==JSON.stringify(info.childrenAges)){
+    invalidateHotelOffers(panel,'Οι ηλικίες άλλαξαν. Γίνεται νέα αναζήτηση για τη σωστή σύνθεση επισκεπτών.');
+  }
   const s=travelState();
   if(s.travelers&&JSON.stringify(s.travelers.childrenAges||[])!==JSON.stringify(info.childrenAges)){
     s.travelers.childrenAges=[...info.childrenAges];
@@ -396,6 +423,14 @@ async function searchStays(panel,info){
   }
   panel._hotelInfo=info;
   panel.dataset.signature=[info.name,info.checkIn,info.checkOut,info.adults,info.children,info.infants,...info.childrenAges].join('|');
+  const requestVersion=++panel._hotelSearchVersion;
+  // Remove previous room prices even when the guest party and dates are unchanged.
+  panel._hotelData=null;panel._hotelDetails=null;panel._hotelFiltered=[];
+  panel.querySelector('.hz-stay-results').textContent='';
+  panel.querySelector('.hz-hotel-detail').textContent='Περιμένω ανανεωμένα στοιχεία δωματίων.';
+  panel.querySelector('.hz-hotel-checkout-audit')?.remove();
+  panel.querySelector('.hz-filters')?.classList.remove('active');
+  panel.querySelector('.hz-cache-badge')?.classList.remove('active');
   const local=localRead(info);
   if(local){
     renderResults(panel,local,'Browser cache: άμεση επαναχρησιμοποίηση των ίδιων αποτελεσμάτων — χωρίς κλήση στον Worker.');
@@ -407,6 +442,7 @@ async function searchStays(panel,info){
   btn.disabled=true;btn.textContent='Αναζήτηση live τιμών…';
   status.classList.remove('error');status.textContent='Ψάχνω πραγματικές τιμές ξενοδοχείων μέσα στο Horizon…';
   const controller=new AbortController();
+  panel._stayController=controller;
   const timer=setTimeout(()=>controller.abort(),22000);
   try{
     const res=await fetch(`${API_BASE}/stays`,{
@@ -415,6 +451,7 @@ async function searchStays(panel,info){
       signal:controller.signal
     });
     const data=await res.json().catch(()=>({}));
+    if(requestVersion!==panel._hotelSearchVersion)return;
     if(!res.ok||data.ok===false){
       if(data?.code==='SERPAPI_KEY_REQUIRED'){
         status.classList.add('error');status.textContent='Δεν είναι ενεργό το SerpApi key στον Cloudflare Worker.';btn.textContent='Live τιμές — API μη ενεργό';return;
@@ -428,10 +465,15 @@ async function searchStays(panel,info){
     btn.textContent='Οι live τιμές είναι έτοιμες';
     status.textContent=data?.cache?.hit?'Η αναζήτηση εξυπηρετήθηκε από την Horizon edge cache χωρίς νέα κλήση SerpApi.':'Η αναζήτηση ολοκληρώθηκε και αποθηκεύτηκε στην Horizon edge cache.';
   }catch(e){
+    if(requestVersion!==panel._hotelSearchVersion)return;
     btn.textContent='Δοκίμασε ξανά';
     status.classList.add('error');
     status.textContent=e.name==='AbortError'?'Η αναζήτηση άργησε πολύ. Δοκίμασε ξανά.':`Δεν ολοκληρώθηκε η αναζήτηση: ${e.message}`;
-  }finally{clearTimeout(timer);btn.disabled=false;}
+  }finally{
+    clearTimeout(timer);
+    if(panel._stayController===controller)panel._stayController=null;
+    if(requestVersion===panel._hotelSearchVersion)btn.disabled=false;
+  }
 }
 function renderPanel(pane,name){
   removeLegacyStayLinks(pane);
@@ -471,6 +513,12 @@ function renderPanel(pane,name){
       <div class="hz-filter-actions"><button type="button" class="hz-reset">Καθαρισμός φίλτρων</button></div>
     </div>
     <div class="hz-stay-results"></div><div class="hz-stay-summary"></div><button type="button" class="hz-hotel-next-page" hidden>Φόρτωση επόμενης σελίδας καταλυμάτων</button><div class="hz-hotel-detail" aria-live="polite">Επίλεξε «Δωμάτια · πωλητές · ακύρωση» για έλεγχο συγκεκριμένης προσφοράς.</div>`;
+  const ageInput=panel.querySelector('[data-hotel-child-ages]');
+  if(ageInput)ageInput.addEventListener('input',()=>{
+    invalidateHotelOffers(panel,'Άλλαξαν οι ηλικίες των παιδιών. Πάτησε ξανά «Αναζήτηση» για σωστές τιμές.');
+    const load=panel.querySelector('.hz-stay-load');
+    if(load){load.disabled=false;load.textContent='Αναζήτηση με τις νέες ηλικίες';}
+  });
   panel.querySelector('.hz-stay-load').addEventListener('click',()=>searchStays(panel,info));
   panel.querySelector('.hz-hotel-next-page').addEventListener('click',()=>loadNextPage(panel));
   panel.querySelector('.hz-stay-results').addEventListener('click',e=>{const btn=e.target.closest?.('[data-hotel-index]');if(btn)selectStay(panel,Number(btn.dataset.hotelIndex));const detail=e.target.closest?.('[data-hotel-details-index]');if(detail)showRoomDetails(panel,Number(detail.dataset.hotelDetailsIndex));});
