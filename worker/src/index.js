@@ -488,7 +488,7 @@ export default {
       }
       if(url.pathname==='/hotel-capabilities'){
         return reply(request,env,{ok:true,service:'Horizon Hotel Pricing',
-          schemaVersion:3,hotelRoomOffers:true,infantAgeRule:'infant_is_age_1_for_google_hotels',
+          schemaVersion:4,hotelRoomOffers:true,hotelPagination:true,hotelMapCoordinates:true,infantAgeRule:'infant_is_age_1_for_google_hotels',
           requiresAgesForOtherChildren:true,taxBasisLabels:true,
           nightlyEstimateNeverReportedAsActualTotal:true
         },200,{'cache-control':'no-store'});
