@@ -22,13 +22,17 @@ function cachedLiveFare(name){
   }catch{return null;}
 }
 function cachedSelectedStay(name){
-  const t=travelers(),d=flightDates(),key='hz-hotel-selection-v1:'+
-    [name,d.from,d.to,t.adults,t.children,t.infants].join('|');
+  const t=travelers(),d=flightDates(),raw=stateNow().travelers?.childrenAges;
+  const ages=Array.isArray(raw)?raw.map(Number):[];
+  if(t.children&&(ages.length!==t.children||ages.some(a=>!Number.isInteger(a)||a<2||a>11)))return null;
+  const key='hz-hotel-selection-v1:'+
+    [name,d.from,d.to,t.adults,t.children,t.infants,...(t.children?ages:[])].join('|');
   try{
     const v=JSON.parse(localStorage.getItem(key)||'null');
     if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||
       Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL||Number(v.at||0)>Date.now()+30000||!(Number(v.total)>0))return null;
     if(v.currency!=='EUR')return null;
+    if(t.children&&JSON.stringify(v.childrenAges)!==JSON.stringify(ages))return null;
     if(v.bookingStatus==='checkout_user_reported_not_booked'){
       const checked=Number(v.checkoutAt);
       if(!Number.isFinite(checked)||checked> Date.now()+30000||
