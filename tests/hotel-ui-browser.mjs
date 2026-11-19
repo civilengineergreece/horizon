@@ -115,6 +115,7 @@ try{
 
   const stayBreak=card.locator('.break').filter({hasText:'Επιλεγμένη διαμονή'});
   await stayBreak.waitFor({timeout:5000});
+  await page.waitForFunction(()=>[...document.querySelectorAll('.destination .break')].some(el=>el.innerText.includes('Επιλεγμένη διαμονή')&&el.innerText.includes('270')), {timeout:5000});
   assert.ok((await stayBreak.innerText()).includes('270'),'Selected room quote should replace old property list quote');
   const expected=await page.evaluate(()=>{
     const r=scored.find(x=>x.name==='Θεσσαλονίκη');
