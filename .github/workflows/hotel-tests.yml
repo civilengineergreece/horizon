@@ -6,6 +6,8 @@ on:
       - 'worker/src/index.js'
       - 'worker/tests/stays.test.mjs'
       - 'hotels-panel.js'
+      - 'hotel-checkout-audit.js'
+      - 'tests/hotel-checkout-audit.test.mjs'
       - 'hotels-map.js'
       - 'tests/hotel-map-browser.mjs'
       - 'tests/hotel-map-real-leaflet-browser.mjs'
@@ -21,6 +23,8 @@ on:
     paths:
       - 'worker/src/index.js'
       - 'hotels-panel.js'
+      - 'hotel-checkout-audit.js'
+      - 'tests/hotel-checkout-audit.test.mjs'
       - 'hotels-map.js'
       - 'tests/hotel-map-browser.mjs'
       - 'tests/hotel-map-real-leaflet-browser.mjs'
@@ -47,6 +51,8 @@ jobs:
         run: |
           node --check worker/src/index.js
           node --check hotels-panel.js
+          node --check hotel-checkout-audit.js
+          node --check tests/hotel-checkout-audit.test.mjs
           node --check hotels-map.js
           node --check tests/hotel-map-browser.mjs
           node --check tests/hotel-map-real-leaflet-browser.mjs
@@ -57,7 +63,7 @@ jobs:
           node --check live-config.js
           node --check worker/tests/stays.test.mjs
       - name: Unit-test hotel pricing
-        run: node --test worker/tests/stays.test.mjs worker/tests/hotel-details.test.mjs tests/hotel-climate-fee.test.mjs
+        run: node --test worker/tests/stays.test.mjs worker/tests/hotel-details.test.mjs tests/hotel-climate-fee.test.mjs tests/hotel-checkout-audit.test.mjs
 
   hotel-browser:
     runs-on: ubuntu-latest

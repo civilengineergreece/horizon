@@ -17,12 +17,12 @@ try{
   let capabilities;
   for(let attempt=0;attempt<16;attempt++){
     capabilities=await get('/hotel-capabilities');
-    if(capabilities.status===200&&capabilities.body.schemaVersion===4)break;
+    if(capabilities.status===200&&capabilities.body.schemaVersion===5)break;
     if(attempt<15)await new Promise(resolve=>setTimeout(resolve,10000));
   }
   mark('Hotel API production version','HTTP '+capabilities.status+'; schema '+String(capabilities.body.schemaVersion||'not published'));
   assert.equal(capabilities.status,200,'New hotel Worker not deployed');
-  assert.equal(capabilities.body.schemaVersion,4,'New hotel pricing schema not deployed');
+  assert.equal(capabilities.body.schemaVersion,5,'New hotel pricing schema not deployed');
   const params=new URLSearchParams({
     destination:'Thessaloniki',checkInDate:'2026-12-04',
     checkOutDate:'2026-12-06',adults:'2',children:'0',infants:'1'
@@ -89,6 +89,9 @@ try{
   assert.equal(details.cribConfirmedForParty,false,'Crib availability must never be invented');
   assert.ok(Array.isArray(details.offers),'Missing normalized property room list');
   mark('Named room offers',details.offers.filter(x=>x.roomName).length+' / '+details.offers.length);
+  mark('Breakfast term coverage',details.offers.filter(x=>x.breakfastIncluded!==null).length+' / '+details.offers.length);
+  mark('Bed term coverage',details.offers.filter(x=>x.beds?.length>0).length+' / '+details.offers.length);
+  mark('Crib policy signal',String(details.cribFeeHint||'unknown')+' (property-level only; not room confirmation)');
   mark('Safe seller links',details.offers.filter(x=>x.bookingUrl?.startsWith('https://')).length+' / '+details.offers.length);
   mark('Cancellation terms',details.offers.filter(x=>x.freeCancellation!==null).length+' / '+details.offers.length);
   mark('Named room checkout','NOT guaranteed; only a merchant link and a quoted amount are available');
