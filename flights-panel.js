@@ -34,7 +34,7 @@ function choiceCard(item,index,step,isRoundTrip){
   const airline=(item.airlines||[]).join(' + ')||'Αεροπορική',stops=Math.max(0,Number(item.stops)||0);
   const legs=Array.isArray(item.segments)?item.segments:[];
   const segments=legs.length>1?'<div class="hz-flight-meta">Σκέλη: '+legs.map(route).join(' · ')+'</div>':'';
-  const label=step==='return'?'Συνδυασμός μετ’ επιστροφής':isRoundTrip?'Μόνο αναχώρηση — ΟΧΙ τελικό κόστος':'Απλή μετάβαση';
+  const label=step==='return'?'Συνδυασμός μετ’ επιστροφής':isRoundTrip?'Αρχική αναχώρηση — όχι πλήρες ταξίδι':'Απλή μετάβαση';
   const buttonLabel=step==='return'?'Επιλογή επιστροφής':isRoundTrip?'Επιλογή αναχώρησης και έλεγχος επιστροφών':'Επιλογή πτήσης';
   const allowed=valid&&(!isRoundTrip||step!=='outbound'||!!item.departureToken);
   return '<article class="hz-flight-card"><div class="hz-flight-card-top"><div><div class="hz-flight-airline">'+esc(airline)+'</div><div class="hz-flight-route">'+route(item)+'</div></div><div class="hz-flight-price">'+(valid?euro(price):'Χωρίς τιμή')+'</div></div><div class="hz-flight-meta">'+esc(fmtDuration(item.durationMinutes))+' · '+(stops?stops+' ανταποκρίσεις':'Απευθείας')+'</div>'+segments+'<div class="hz-flight-source">'+label+'</div>'+(allowed?'<button class="hz-flight-option" type="button" data-flight-step="'+step+'" data-flight-index="'+index+'">'+buttonLabel+'</button>':'<div class="hz-flight-note">Μη διαθέσιμη επιβεβαίωση τιμής/επιστροφής.</div>')+'</article>';
@@ -87,6 +87,8 @@ async function selectFlight(panel,step,index){
   if(step==='outbound'){
     const item=sess.outboundData?.results?.[index];if(!item||!(Number(item.price)>0))return;
     sess.outbound=item;
+    sess.selected=null;clearSelection(sess.key);panel.querySelector('.hz-flight-cost').textContent='';
+    document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:sess.name,price:0,selected:false}}));
     if(!sess.to){sess.selected={fare:item.price,scope:'oneway',outbound:item};publish(panel,sess.selected);status.textContent='Επιλέχθηκε πτήση απλής μετάβασης.';return;}
     if(!item.departureToken){status.textContent='Η υπηρεσία δεν επέστρεψε επιλογή επιστροφής. Το ποσό αναχώρησης δεν είναι τελικό.';return;}
     if(button)button.disabled=true;
