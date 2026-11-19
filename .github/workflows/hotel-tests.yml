@@ -6,6 +6,8 @@ on:
       - 'worker/src/index.js'
       - 'worker/tests/stays.test.mjs'
       - 'hotels-panel.js'
+      - 'hotels-map.js'
+      - 'tests/hotel-map-browser.mjs'
       - 'hotel-climate-fee.js'
       - 'tests/hotel-climate-fee.test.mjs'
       - 'worker/tests/hotel-details.test.mjs'
@@ -18,6 +20,8 @@ on:
     paths:
       - 'worker/src/index.js'
       - 'hotels-panel.js'
+      - 'hotels-map.js'
+      - 'tests/hotel-map-browser.mjs'
       - 'hotel-climate-fee.js'
       - 'tests/hotel-climate-fee.test.mjs'
       - 'worker/tests/hotel-details.test.mjs'
@@ -41,6 +45,8 @@ jobs:
         run: |
           node --check worker/src/index.js
           node --check hotels-panel.js
+          node --check hotels-map.js
+          node --check tests/hotel-map-browser.mjs
           node --check hotel-climate-fee.js
           node --check worker/tests/hotel-details.test.mjs
           node --check tests/hotel-climate-fee.test.mjs
@@ -73,7 +79,9 @@ jobs:
       - name: Exercise hotel search in Chrome
         env:
           HORIZON_TEST_URL: ${{ github.event_name == 'push' && 'https://civilengineergreece.github.io/horizon/' || 'http://127.0.0.1:8765/' }}
-        run: node tests/hotel-ui-browser.mjs
+        run: |
+          node tests/hotel-ui-browser.mjs
+          node tests/hotel-map-browser.mjs
       - name: Upload failure screenshot
         if: failure()
         uses: actions/upload-artifact@v4
