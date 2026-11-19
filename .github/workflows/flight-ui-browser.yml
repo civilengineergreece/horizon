@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'trip-prefill-ui.js'
+      - 'live-config.js'
       - 'flights-panel.js'
       - 'tests/flight-ui-browser.mjs'
       - '.github/workflows/flight-ui-browser.yml'
@@ -11,6 +12,7 @@ on:
     branches: ['main']
     paths:
       - 'trip-prefill-ui.js'
+      - 'live-config.js'
       - 'flights-panel.js'
   workflow_dispatch:
 
