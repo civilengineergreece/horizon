@@ -53,7 +53,7 @@ function flightCache(name){
     const s=stateNow(),t=s.travelers||{},dt=dates(),
       key='hz-flight-selection-v2:hz-flights-v2:'+[s.origin||'Αθήνα',name,dt.from,dt.to,Math.max(1,Number(t.adults)||1),Math.max(0,Number(t.children)||0),Math.max(0,Number(t.infants)||0)].join('|');
     const v=JSON.parse(localStorage.getItem(key)||'null');
-    if(!v||Date.now()-Number(v.at||0)>30*60*1000)return null;
+    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||Date.now()-Number(v.at||0)>30*60*1000)return null;
     if((dt.to&&v.scope!=='roundtrip')||(!dt.to&&v.scope!=='oneway'))return null;
     return Number(v.fare)>0?{fare:Number(v.fare),extras:Math.max(0,Number(v.extras)||0)}:null;
   }catch{return null;}
