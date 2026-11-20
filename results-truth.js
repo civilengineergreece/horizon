@@ -85,7 +85,8 @@ function scoredByName(name){return (typeof scored!=='undefined'&&Array.isArray(s
 function destinationByName(name){return (window.HORIZON_DESTINATIONS||[]).find(x=>x.name===name)||{};}
 function isPlaneCard(name){
   const s=stateNow(),r=scoredByName(name),d=destinationByName(name);
-  if(s.transport==='plane'||r?.transportMode==='plane'||r?.transportDetails?.mode==='plane')return true;
+  if(s.transport==='plane'||(Array.isArray(s.transport)&&s.transport.length===1&&s.transport[0]==='plane')||
+     r?.transportMode==='plane'||r?.transportDetails?.mode==='plane')return true;
   return Array.isArray(d.transport)&&d.transport.length===1&&d.transport[0]==='plane';
 }
 function euro(n){return `€${(Number(n)||0).toLocaleString('el-GR',{minimumFractionDigits:2,maximumFractionDigits:2})}`;}
