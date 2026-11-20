@@ -93,7 +93,7 @@ function euro(n){return `€${(Number(n)||0).toLocaleString('el-GR',{minimumFrac
 function patchPlaneAmounts(card,name){
   if(!isPlaneCard(name))return false;
   const r=scoredByName(name);if(!r)return true;
-  const breaks=[...card.querySelectorAll('.break')],transportBox=breaks.find(x=>/μεταφορ/i.test(x.querySelector('span')?.textContent||''));
+  const breaks=[...card.querySelectorAll('.break')],transportBox=breaks.find(x=>/μεταφορ|αεροπορ/i.test(x.querySelector('span')?.textContent||''));
   const selection=cachedLiveFare(name),fare=selection?.fare||null,extras=selection?.extras||0,
     stay=cachedSelectedStay(name),cost=card.querySelector('.cost'),remaining=card.querySelector('.cost-head .tiny');
   applyStayBreak(card,r,stay);
@@ -106,6 +106,8 @@ function patchPlaneAmounts(card,name){
     const label=transportBox.querySelector('span'),value=transportBox.querySelector('b');
     if(fare){if(label)label.textContent='Επιλεγμένη αεροπορική μεταφορά';if(value){value.textContent=euro(fare+extras);value.classList.add('hz-live-value');}}
     else{if(label)label.textContent='Μεταφορά';if(value){value.textContent='Live τιμή →';value.classList.add('hz-await-live');}}
+    for(const note of [...transportBox.querySelectorAll('span')].slice(1))
+      note.textContent=fare?'Τιμή πηγής και δηλωμένα πρόσθετα · όχι κράτηση':'Επίλεξε live πτήση για όλους τους ταξιδιώτες';
   }
   if(fare){
     const liveTotal=Math.round((otherCostsWithStay+(includeTransport?fare+extras:0))*100)/100;
