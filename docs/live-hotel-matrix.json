@@ -1,0 +1,170 @@
+{
+  "testedAt": "2026-11-20T19:10:09.666Z",
+  "search": {
+    "destination": "Thessaloniki",
+    "checkInDate": "2026-12-04",
+    "checkOutDate": "2026-12-06",
+    "adults": 2,
+    "children": 0,
+    "infants": 0
+  },
+  "cases": [
+    {
+      "name": "adults",
+      "status": 200,
+      "adults": 2,
+      "children": 0,
+      "infants": 0,
+      "providerAges": [],
+      "count": 18,
+      "cors": "https://civilengineergreece.github.io",
+      "retrievedAt": "2026-11-20T19:08:22.074Z",
+      "examples": [
+        {
+          "name": "Arabas Studios",
+          "total": 76,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "STAY Hybrid Youth Hostel",
+          "total": 77,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "Zeus is Loose Hostel",
+          "total": 77,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "child",
+      "status": 200,
+      "adults": 2,
+      "children": 1,
+      "infants": 0,
+      "providerAges": [
+        8
+      ],
+      "count": 18,
+      "cors": "https://civilengineergreece.github.io",
+      "retrievedAt": "2026-11-20T19:08:23.433Z",
+      "examples": [
+        {
+          "name": "Pella Hotel",
+          "total": 113,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "Arabas Studios",
+          "total": 114,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "Zeus is Loose Hostel",
+          "total": 116,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "infant",
+      "status": 200,
+      "adults": 2,
+      "children": 0,
+      "infants": 1,
+      "providerAges": [
+        1
+      ],
+      "count": 18,
+      "cors": "https://civilengineergreece.github.io",
+      "retrievedAt": "2026-11-20T19:08:25.585Z",
+      "examples": [
+        {
+          "name": "Pella Hotel",
+          "total": 113,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "Arabas Studios",
+          "total": 114,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "Zeus is Loose Hostel",
+          "total": 116,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "family",
+      "status": 200,
+      "adults": 2,
+      "children": 1,
+      "infants": 1,
+      "providerAges": [
+        8,
+        1
+      ],
+      "count": 18,
+      "cors": "https://civilengineergreece.github.io",
+      "retrievedAt": "2026-11-20T19:08:27.213Z",
+      "examples": [
+        {
+          "name": "Urban Donkey Hotel",
+          "total": 135,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "Zeus is Loose Hostel",
+          "total": 138,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        },
+        {
+          "name": "Arabas Studios",
+          "total": 148,
+          "totalEstimate": null,
+          "taxStatus": "taxes_and_fees_unknown"
+        }
+      ],
+      "passed": true
+    },
+    {
+      "name": "two_rooms",
+      "status": 422,
+      "code": "UNSUPPORTED_ROOM_COUNT",
+      "cors": "https://civilengineergreece.github.io",
+      "passed": true
+    },
+    {
+      "name": "invalid_adults",
+      "status": 422,
+      "code": "INVALID_OCCUPANCY",
+      "cors": "https://civilengineergreece.github.io",
+      "passed": true
+    },
+    {
+      "name": "missing_child_age",
+      "status": 422,
+      "code": "CHILD_AGES_REQUIRED",
+      "cors": "https://civilengineergreece.github.io",
+      "passed": true
+    }
+  ],
+  "passed": true
+}

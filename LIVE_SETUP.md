@@ -1,62 +1,75 @@
-# Horizon Live API setup
+# HORIZON live API setup
 
-The public Horizon site is hosted on GitHub Pages, so private API credentials must never be placed in `index.html`, `live-api.js`, repository files, or browser storage.
+The static site is published from the repository root on `main`:
+https://civilengineergreece.github.io/horizon/
 
-The repository now contains a Cloudflare Worker under `worker/` that safely proxies three live services:
+The production API is https://horizon-live-api.gnchristou.workers.dev.
+`live-config.js` contains this public URL, never provider credentials.
 
-- `POST /road` → TollGuru road routing, tolls and route costs.
-- `POST /flights` → Amadeus Flight Offers Search.
-- `POST /hotels` → Amadeus Hotel List + Hotel Search v3.
-- `GET /health` → shows which providers are configured.
+## Active provider and routes
 
-## 1. Cloudflare Worker
+The Worker entry point is `worker/src/index-v6.js`; its delegated hotel routes
+use Google Hotels through SerpApi. Google Flights also uses SerpApi.
+The older Amadeus setup is not the active hotel integration.
 
-Create a free Cloudflare account and enable Workers. The free Workers plan is enough for development and early testing.
+- `GET /health`: provider configuration flags, without secret values.
+- `GET /hotel-capabilities`: supported occupancy and search features.
+- `GET` or `POST /stays`: live hotel search and pagination.
+- `GET` or `POST /hotel-details`: property offers and available seller terms.
 
-Two deployment options are supported:
+Children need their actual ages. Infants are sent separately as provider age 1.
+This convention does not establish infant acceptance or cot availability.
+Multi-room requests are rejected with `422 UNSUPPORTED_ROOM_COUNT`; do not
+multiply a single-room quote and present it as verified multi-room availability.
+Missing child ages and invalid occupancy are rejected before provider billing.
 
-### Option A — Cloudflare Workers Builds
+## Cloudflare Workers Builds
 
-Import the GitHub repository `civilengineergreece/horizon` in Cloudflare Workers & Pages and set the Worker root directory to `worker`.
+The connected repository deploys the Worker with root directory `worker`.
+`npm run deploy` invokes `deploy-with-runtime-secret.mjs`.
 
-### Option B — GitHub Actions
+Configure `SERPAPI_API_KEY` as a secret in Workers Builds build variables and
+secrets. The deploy script passes it to Wrangler through a temporary secrets
+file and removes that file afterwards. The deployed Worker must have the same
+named runtime secret. `wrangler.jsonc` declares it as required and preserves
+existing variables with `keep_vars: true`.
 
-Add these repository secrets in GitHub Settings → Secrets and variables → Actions:
+Do not paste secret values in chat, logs, frontend code, browser storage or Git.
+Successful live searches verify that the runtime credential works; they do not
+constitute an inventory or rotation audit of all account secrets.
 
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_API_TOKEN`
+## Alternative manual GitHub Actions deployment
 
-Then run the `Deploy Horizon Live API` workflow manually from GitHub Actions.
+`Deploy Horizon Live API` is a manually triggered workflow. It needs repository
+secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. This workflow runs
+Wrangler directly; provision the runtime `SERPAPI_API_KEY` in Cloudflare first.
+Do not assume this path transfers a build secret into the Worker.
 
-Do not paste these secret values into chat or commit them to the repository.
+## Validation
 
-## 2. TollGuru
+Run offline regression tests from the repository root:
 
-Create a TollGuru developer account and obtain an API key. In the deployed Cloudflare Worker add this as an encrypted Worker secret:
+```sh
+node --test tests/*.test.mjs worker/tests/*.test.mjs
+```
 
-- `TOLLGURU_API_KEY`
+Run the explicit production matrix when live checks are needed:
 
-The Worker sends origin/destination addresses directly to TollGuru and normalizes route distance, duration, toll costs and toll locations. Horizon computes fuel locally from the user's L/100 km value so the selected consumption is always respected.
+```sh
+node worker/tests/live-hotel-matrix.mjs
+```
 
-## 3. Amadeus
+This consumes provider quota for four valid searches. It uses dates 14–16 days
+in the future and checks adults, a child, an infant, a combined family, invalid
+occupancy, missing ages and unsupported rooms. It checks HTTP status, CORS,
+occupancy, provider ages and non-empty priced results. Failures return a nonzero
+exit code. The sanitized result is written to `docs/live-hotel-matrix.json`.
+No seller checkout, reservation or payment is performed by this script.
 
-Create an Amadeus for Developers application. Add the following as encrypted Cloudflare Worker secrets:
+## Price evidence
 
-- `AMADEUS_CLIENT_ID`
-- `AMADEUS_CLIENT_SECRET`
-
-During initial testing `worker/wrangler.jsonc` uses `AMADEUS_ENV = test`. For real live production offers change this to `production` after production access/credentials are enabled.
-
-The same Amadeus credentials power both flights and hotels.
-
-## 4. Connect the Worker URL to Horizon
-
-After deployment Cloudflare provides a URL similar to:
-
-`https://horizon-live-api.<your-workers-subdomain>.workers.dev`
-
-Put that public URL (not a secret) into `live-config.js` as `apiBase`.
-
-## Safety
-
-Never commit API keys, OAuth client secrets, Cloudflare API tokens, passwords or payment credentials. All provider credentials belong in Cloudflare Worker Secrets (or GitHub Actions Secrets only when needed for CI deployment).
+Catalog totals are quotes, not independently verified final checkout totals.
+Unknown taxes, infant acceptance, cot availability and cot fees must remain
+unknown unless explicitly confirmed. Separate mandatory charges must be added
+once for all rooms and nights. Manual seller-checkout entry remains labeled as
+user-reported, even when all required fields are complete.
