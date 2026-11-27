@@ -13,10 +13,11 @@ function cors(request,env){
 function reply(request,env,data,status=200,extra={}){return new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(request,env),...extra}});}
 function clean(v,max=180){return String(v??'').trim().slice(0,max);}
 function norm(v){return String(v||'').trim().toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
-function iso(v){return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):null;}
+function iso(v){const s=String(v||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const d=new Date(s+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===s?s:null;}
 function num(v){
   if(v&&typeof v==='object')return num(v.amount??v.value??v.min??v.lowest);
-  const n=Number(v);return Number.isFinite(n)?n:null;
+  if(v===null||v===undefined||String(v).trim()==='')return null;
+  const n=Number(v);return Number.isFinite(n)&&n>=0?n:null;
 }
 function safeUrl(v){try{const u=new URL(String(v||''));return u.protocol==='https:'?u.toString():null;}catch{return null;}}
 function parseMcp(text){
@@ -63,8 +64,11 @@ function normalizeTrip(x){
   const currency=clean((priceRaw&&typeof priceRaw==='object'&&(priceRaw.currency||priceRaw.currencyCode))||x.currency||x.currencyCode||'EUR',8);
   const bookingUrl=safeUrl(pick(x,['bookingUrl','booking_url','redirectUrl','redirect_url','deeplink','url']));
   const duration=num(pick(x,['durationMinutes','duration_minutes','duration']));
-  if(!dep&&!arr&&!operator&&!vessel&&price===null&&!bookingUrl)return null;
-  return {operator:clean(typeof operator==='object'?(operator.name||operator.label):operator,100)||null,vessel:clean(typeof vessel==='object'?(vessel.name||vessel.label):vessel,100)||null,departure:clean(typeof dep==='object'?(dep.dateTime||dep.time||dep.value):dep,100)||null,arrival:clean(typeof arr==='object'?(arr.dateTime||arr.time||arr.value):arr,100)||null,durationMinutes:duration,price,currency,bookingUrl,source:'Ferryhopper'};
+  // Recursive MCP objects may contain price-only fields unrelated to trips.
+  // Never turn those into a phantom ferry departure.
+  if(!dep||!arr)return null;
+  return {operator:clean(operator&&typeof operator==='object'?(operator.name||operator.label):operator,100)||null,vessel:clean(vessel&&typeof vessel==='object'?(vessel.name||vessel.label):vessel,100)||null,departure:clean(typeof dep==='object'?(dep.dateTime||dep.time||dep.value):dep,100)||null,arrival:clean(typeof arr==='object'?(arr.dateTime||arr.time||arr.value):arr,100)||null,durationMinutes:duration,price,currency,bookingUrl,source:'Ferryhopper',priceBasis:price===null?'not_returned':'starting_fare_per_option_unverified_passengers',
+    includesPassengerParty:false,includesVehicle:false,includesCabin:false,includesInfantFare:false,booked:false};
 }
 function collect(root){
   const out=[],seen=new Set();
@@ -90,12 +94,20 @@ function ports(origin,destination){
 }
 async function oneDirection(origin,destination,date){
   const raw=structured(await searchTrips(origin,destination,date));
-  return collect(raw);
+  return collect(raw).filter(t=>{
+    // A provider time-only string has not independently proved its date,
+    // but an explicit source timestamp on a different day is invalid.
+    const dep=String(t.departure||'');
+    const m=/^(\d{4}-\d{2}-\d{2})[T ]/.exec(dep);
+    return !m||m[1]===date;
+  });
 }
 async function ferries(request,env,url){
   const origin=clean(url.searchParams.get('origin'),100),destination=clean(url.searchParams.get('destination'),100),date=iso(url.searchParams.get('date')),returnDate=iso(url.searchParams.get('returnDate'));
   if(origin.length<2||destination.length<2)return reply(request,env,{ok:false,error:'Χρειάζονται αφετηρία και προορισμός.'},400,{'cache-control':'no-store'});
   if(!date)return reply(request,env,{ok:false,error:'Χρειάζεται έγκυρη ημερομηνία αναχώρησης.'},400,{'cache-control':'no-store'});
+  if(url.searchParams.has('returnDate')&&!returnDate)return reply(request,env,{ok:false,error:'Μη έγκυρη ημερομηνία επιστροφής.'},422,{'cache-control':'no-store'});
+  if(returnDate&&returnDate<date)return reply(request,env,{ok:false,error:'Η επιστροφή προηγείται της αναχώρησης.'},422,{'cache-control':'no-store'});
   const candidates=ports(origin,destination);let lastError=null;
   for(const port of candidates){
     try{
@@ -103,7 +115,7 @@ async function ferries(request,env,url){
       if(!outbound.length&&port!==candidates[candidates.length-1])continue;
       let inbound=[];
       if(returnDate&&returnDate>=date)inbound=await oneDirection(destination,port,returnDate);
-      return reply(request,env,{ok:true,provider:'Ferryhopper MCP',requestedOrigin:origin,ferryPort:port,destination,date,returnDate:returnDate||null,outbound,inbound,priceNote:'Οι τιμές Ferryhopper είναι ενδεικτικές τιμές έναρξης ανά διαθέσιμη επιλογή· το τελικό ποσό επιβεβαιώνεται στην κράτηση.',meta:{outbound:outbound.length,inbound:inbound.length},cache:{enabled:true,ttlSeconds:FERRY_TTL}},200,{'cache-control':`public, max-age=0, s-maxage=${FERRY_TTL}`,'x-horizon-cache':'MISS'});
+      return reply(request,env,{ok:true,provider:'Ferryhopper MCP',requestedOrigin:origin,ferryPort:port,destination,date,returnDate:returnDate||null,outbound,inbound,priceNote:'Οι τιμές Ferryhopper είναι ενδεικτικές τιμές έναρξης ανά επιλογή, όχι συνολικό ποσό ταξιδιού, επιβατών ή οχήματος. Ο τύπος επιβάτη, βρέφος, όχημα, καμπίνα, φόροι και επιστροφή απαιτούν ξεχωριστό checkout.',priceBasis:'per_option_starting_fare',pricingScope:{passengerMixApplied:false,vehicleIncluded:false,cabinIncluded:false,returnFareGuaranteed:false,finalCheckoutVerified:false},retrievedAt:new Date().toISOString(),meta:{outbound:outbound.length,inbound:inbound.length},cache:{enabled:true,ttlSeconds:FERRY_TTL}},200,{'cache-control':`public, max-age=0, s-maxage=${FERRY_TTL}`,'x-horizon-cache':'MISS'});
     }catch(e){lastError=e;}
   }
   return reply(request,env,{ok:false,error:'Δεν ολοκληρώθηκε η live αναζήτηση πλοίων.',details:clean(lastError?.message||'Δεν βρέθηκαν δρομολόγια από τα διαθέσιμα λιμάνια της Αττικής.',300),code:'FERRYHOPPER_MCP_ERROR'},502,{'cache-control':'no-store'});

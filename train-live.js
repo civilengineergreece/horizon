@@ -15,7 +15,7 @@ function stateNow(){try{return typeof state!=='undefined'&&state?state:{};}catch
 function destinationName(){return document.querySelector('.horizon-detail-overlay .hd-head h3')?.textContent?.trim()||'';}
 function addDays(iso,n){const d=new Date(`${iso}T12:00:00`);d.setDate(d.getDate()+n);return d.toISOString().slice(0,10);}
 function tripDates(){const s=stateNow(),from=s.dates?.from||'',days=Math.max(1,Number(s.duration)||1);return {from,to:from?addDays(from,Math.max(0,days-1)):''};}
-function cacheKey(name,from,to){const s=stateNow();return `hz-trains-v1:${[s.origin||'Αθήνα',name,from,to].join('|')}`;}
+function cacheKey(name,from,to){const s=stateNow(),t=s.travelers||{};return `hz-trains-v2:${[s.origin||'Αθήνα',name,from,to,Number(t.adults)||1,Number(t.children)||0,Number(t.infants)||0].join('|')}`;}
 function cacheGet(k){try{const v=JSON.parse(localStorage.getItem(k)||'null');return v&&Date.now()-Number(v.at||0)<TTL?v.data:null;}catch{return null;}}
 function cacheSet(k,data){try{localStorage.setItem(k,JSON.stringify({at:Date.now(),data}));}catch{}}
 function fmtTime(v){
@@ -41,12 +41,17 @@ function updateComparison(data){
   const cells=row.cells;
   cells[1].innerHTML=`<b>${duration(out.durationMinutes)}</b><span class="hz-tr-note">${fmtTime(out.departure)} → ${fmtTime(out.arrival)}</span>`;
   const fare=data?.fares?.roundTrip;
-  if(fare&&Number.isFinite(Number(fare.amount))){
-    cells[2].innerHTML=`<b>${euro(fare.amount,fare.currency)} / ενήλικα</b><span class="hz-tr-note">μετ’ επιστροφής · fare από το feed, όχι εγγύηση τελικής κράτησης</span>`;
+  // The comparison header is FAMILY ROUND-TRIP cost. A feed fare is for
+  // an unspecified individual rider; never replace the family estimate.
+  cells[2].querySelector('[data-train-feed-fare]')?.remove();
+  const note=document.createElement('span');note.className='hz-tr-note';note.dataset.trainFeedFare='1';
+  if(fare?.amount!=null&&Number.isFinite(Number(fare.amount))&&Number(fare.amount)>0){
+    note.textContent='Ατομικός ναύλος feed (2 σκέλη): '+euro(fare.amount,fare.currency)+
+      ' — δεν έχει υπολογιστεί η σύνθεση επιβατών / δεν είναι τελικό checkout.';
   }else{
-    const note=cells[2].querySelector('.hz-tr-note');
-    if(!note){const n=document.createElement('span');n.className='hz-tr-note';n.textContent='Στενή εκτίμηση τιμής · το feed δεν έδωσε fare.';cells[2].appendChild(n);}
+    note.textContent='Το feed δεν επέστρεψε αξιόπιστο ναύλο ομάδας· η τιμή του πίνακα παραμένει ενδεικτική.';
   }
+  cells[2].appendChild(note);
   cells[3].innerHTML=`<span class="hz-tr-status-live">Live Transitous</span><span class="hz-tr-note">${out.realtime?'Realtime':'Προγραμματισμένο'} δρομολόγιο${delayText(out)} · ${esc(out.route||'Hellenic Train')}</span>`;
   row.classList.add('hz-tr-selected');
   document.dispatchEvent(new CustomEvent('horizon:live-train-price',{detail:{destination:destinationName(),data}}));
@@ -55,11 +60,15 @@ function render(target,data){
   const list=Array.isArray(data?.outbound)?data.outbound:[];
   if(!list.length){target.innerHTML='<div class="hz-surface-note">Το Transitous δεν επέστρεψε διαθέσιμο σιδηροδρομικό δρομολόγιο για αυτή την ημερομηνία. Η στενή εκτίμηση του Horizon παραμένει στον πίνακα.</div>';return;}
   updateComparison(data);
-  target.innerHTML=list.slice(0,6).map(x=>{
-    const fare=x?.fare&&Number.isFinite(Number(x.fare.amount))?`<span class="hz-surface-price">${euro(x.fare.amount,x.fare.currency)} / ενήλικα</span>`:'<span class="hz-surface-meta">τιμή: εκτίμηση στον πίνακα</span>';
+  const rawAttrib=String(data.attribution||'https://transitous.org/sources/');
+  const attrib=(()=>{try{const u=new URL(rawAttrib);return u.protocol==='https:'?u.href:'https://transitous.org/sources/';}catch{return 'https://transitous.org/sources/';}})();
+  target.innerHTML='<div class="hz-surface-note">Προγραμματισμένο ή realtime δρομολόγιο από Transitous, ανάλογα με το feed. Οι ατομικοί ναύλοι δεν αποτελούν οικογενειακό ή τελικό πληρωτέο κόστος. Δεν έχει επιβεβαιωθεί θέση ή checkout.</div>'+list.slice(0,6).map(x=>{
+    const fare=x?.fare?.amount!=null&&Number(x.fare.amount)>0&&Number.isFinite(Number(x.fare.amount))?
+      `<span class="hz-surface-price">${euro(x.fare.amount,x.fare.currency)} · ναύλος feed ανά επιλογή (όχι οικογένεια)</span>`:
+      '<span class="hz-surface-meta">Ατομικός ναύλος: μη διαθέσιμος · οικογενειακό κόστος: εκτίμηση στον πίνακα</span>';
     const status=x.cancelled?'<span class="hz-train-badge">ΑΚΥΡΩΣΗ</span>':x.realtime?'<span class="hz-train-badge">REALTIME</span>':'<span class="hz-train-badge">LIVE ΠΡΟΓΡΑΜΜΑ</span>';
     return `<div class="hz-surface-card"><div class="hz-surface-row"><div><b>🚆 ${esc(x.route||x.agency||'Hellenic Train')} ${status}</b><div class="hz-surface-meta">${fmtTime(x.departure)} → ${fmtTime(x.arrival)} · ${duration(x.durationMinutes)}${x.transfers?` · ${Number(x.transfers)} αλλαγή${Number(x.transfers)>1?'ές':''}`:' · απευθείας'}${delayText(x)}</div><div class="hz-surface-meta">${esc(x.from||data.originStation||'')} → ${esc(x.to||data.destinationStation||'')}</div></div><div>${fare}</div></div></div>`;
-  }).join('')+`<div class="hz-train-attrib">Δεδομένα δρομολογίων: <a href="${esc(data.attribution||'https://transitous.org/sources/')}" target="_blank" rel="noopener">Transitous / MOTIS – πηγές</a>. Η τιμή εμφανίζεται ως fare μόνο όταν επιστρέφεται από το υποκείμενο feed.</div>`;
+  }).join('')+`<div class="hz-train-attrib">Δεδομένα δρομολογίων: <a href="${esc(attrib)}" target="_blank" rel="noopener">Transitous / MOTIS – πηγές</a>. Η τιμή εμφανίζεται ως fare μόνο όταν επιστρέφεται από το υποκείμενο feed.</div>`;
 }
 async function load(btn,target){
   const s=stateNow(),name=destinationName(),dt=tripDates();
@@ -79,7 +88,7 @@ function patch(){
   const box=pane.querySelector('.hz-surface-live');if(!box)return;
   const btn=box.querySelector('[data-surface="train"]');if(!btn)return;
   btn.textContent='🚆 Πραγματικά τρένα';btn.classList.add('live');box.style.display='';
-  const copy=box.querySelector('.hz-surface-copy');if(copy)copy.textContent='Live/realtime τρένα μέσω Transitous/MOTIS και πραγματικά πλοία μέσω Ferryhopper. Η αναζήτηση χρησιμοποιεί αυτόματα αφετηρία, προορισμό και ημερομηνίες. Για το τρένο, αν το feed δεν επιστρέψει fare, κρατάμε στενή και ξεκάθαρη εκτίμηση τιμής.';
+  const copy=box.querySelector('.hz-surface-copy');if(copy)copy.textContent='Δρομολόγια τρένων μέσω Transitous/MOTIS και πλοίων μέσω Ferryhopper. Τα ωράρια του feed και τα πραγματικά realtime δεδομένα διακρίνονται. Οι ναύλοι feed είναι ατομικές ενδείξεις· τιμές Ferryhopper από/ανά επιλογή, χωρίς οικογενειακό checkout.';
   if(btn.dataset.transitousBound==='1')return;
   btn.dataset.transitousBound='1';
   btn.onclick=()=>load(btn,box.querySelector('.hz-surface-results'));

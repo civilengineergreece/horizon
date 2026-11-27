@@ -47,13 +47,13 @@ function tuneSurfaceCopy(box,trainOn,ferryOn){
   box.classList.toggle('hz-live-train-box',trainOn);
   if(trainOn&&ferryOn){
     if(head)head.textContent='Ζωντανός έλεγχος μεταφοράς';
-    if(copy)copy.textContent='Live/realtime τρένα μέσω Transitous/MOTIS και πραγματικά πλοία μέσω Ferryhopper για τις ημερομηνίες του Planner.';
+    if(copy)copy.textContent='Δρομολόγια τρένων μέσω Transitous/MOTIS και πλοίων μέσω Ferryhopper. Οι τιμές πλοίων είναι τιμές έναρξης ανά επιλογή, όχι συνολικό οικογενειακό checkout.';
   }else if(trainOn){
     if(head)head.textContent='Ζωντανός έλεγχος τρένων';
     if(copy)copy.textContent='Πραγματικές ώρες, διάρκεια και realtime ενημέρωση τρένων μέσω Transitous/MOTIS. Αν το feed δεν δώσει fare, η τιμή παραμένει καθαρή εκτίμηση.';
   }else if(ferryOn){
     if(head)head.textContent='Ζωντανός έλεγχος πλοίων';
-    if(copy)copy.textContent='Πραγματικά ακτοπλοϊκά δρομολόγια και διαθέσιμες τιμές μέσω Ferryhopper για τις ημερομηνίες του Planner.';
+    if(copy)copy.textContent='Ακτοπλοϊκά δρομολόγια μέσω Ferryhopper. Οι εμφανιζόμενες τιμές έναρξης είναι ανά επιλογή και όχι τελικός ναύλος οικογένειας, βρέφους ή οχήματος.';
   }
 }
 function cleanSurfaceBoxes(){

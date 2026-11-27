@@ -32,6 +32,9 @@ function hasRealLive(row){
 }
 function markEstimate(row,mode){
   if(!row||row.cells.length<4||hasRealLive(row))return;
+  // Ferryhopper reports a route schedule, not a passenger/vehicle checkout.
+  // Preserve the schedule's provenance while the price cell remains estimated.
+  if(mode==='ferry'&&/Ferryhopper/.test(row.cells[3]?.textContent||''))return;
   const costCell=row.cells[2],statusCell=row.cells[3],timeCell=row.cells[1];
   const n=numberFromEuro(costCell.textContent);
   if(n&&!/–/.test(costCell.textContent||''))costCell.innerHTML=`<b>${rangeText(n)}</b>`;
@@ -44,21 +47,16 @@ function patchCompare(){
   const pane=document.querySelector('.horizon-detail-overlay [data-pane="transport"]');
   if(!pane)return;
   const copy=pane.querySelector('.hz-tr-compare .hz-tr-copy');
-  if(copy)copy.textContent='Σύγκριση διαθέσιμων τρόπων για τις επιλογές σου. Οι πτήσεις ενημερώνονται με πραγματικές τιμές, τα τρένα με live/realtime δρομολόγια Transitous και, όπου λειτουργεί, τα πλοία με Ferryhopper. Αν το train feed δεν δώσει fare, εμφανίζεται στενή εκτίμηση τιμής. Τα ΚΤΕΛ παραμένουν εκτίμηση και το ΙΧ είναι υπολογισμός καυσίμων και διοδίων.';
+  if(copy)copy.textContent='Σύγκριση πιθανών τρόπων για τις επιλογές σου. Οι πτήσεις δίνουν προσφορές προς επιβεβαίωση, τα τρένα δρομολόγια Transitous και τα πλοία Ferryhopper με τιμές έναρξης ανά επιλογή, όχι οικογενειακό checkout. Αν το train feed δεν δώσει fare, εμφανίζεται στενή εκτίμηση τιμής. Τα ΚΤΕΛ παραμένουν εκτίμηση και το ΙΧ είναι υπολογισμός καυσίμων και διοδίων.';
   pane.querySelectorAll('.hz-tr-table tbody tr').forEach(row=>{
     const mode=rowMode(row);
     if(mode==='bus'||mode==='train'||mode==='ferry')markEstimate(row,mode);
   });
 }
 function patchSurface(){
-  document.querySelectorAll('.horizon-detail-overlay .hz-surface-live').forEach(box=>{
-    box.querySelectorAll('[data-surface="bus"]').forEach(b=>b.remove());
-    const copy=box.querySelector('.hz-surface-copy');
-    if(copy)copy.textContent='Χρησιμοποιούνται αυτόματα η αφετηρία, ο προορισμός και οι ημερομηνίες του Planner. Τα τρένα αναζητούνται live μέσω Transitous/MOTIS και τα πλοία μέσω Ferryhopper. Για ΚΤΕΛ κρατάμε καθαρή εκτίμηση στη δοκιμαστική έκδοση· στην επαγγελματική έκδοση θα χρησιμοποιηθεί Omio.';
-    const actions=box.querySelector('.hz-surface-actions');
-    if(actions&&!actions.querySelector('button'))box.style.display='none';
-    else box.style.display='';
-  });
+  // The provider panel owns its buttons, warnings and visibility. Do not
+  // delete the KTEL "not connected" notice or overwrite Ferryhopper fare
+  // disclosures; the transport cleanup module handles selection filters.
 }
 function patchCards(){
   document.querySelectorAll('#resultsCard .destination').forEach(card=>{
