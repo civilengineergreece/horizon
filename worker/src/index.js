@@ -437,10 +437,10 @@ function normalizeBookingOptions(data){
     const departingHandoff=bookingHandoff(departing?.booking_request);
     const returningHandoff=bookingHandoff(returning?.booking_request);
     const bookingActions=combined?[{part:'combined',seller:cleanText(together?.book_with||source.book_with,140),
-      handoff:combined}]:option?.separate_tickets===true?
+      handoff:combined}]:option?.separate_tickets===true||returning?
       [{part:'departing',seller:cleanText(departing?.book_with,140),handoff:departingHandoff},
        {part:'returning',seller:cleanText(returning?.book_with,140),handoff:returningHandoff}]
-        .filter(x=>x.handoff):departingHandoff?[{part:'combined',seller:cleanText(source.book_with,140),
+        .filter(x=>x.handoff):departingHandoff?[{part:'departing',seller:cleanText(source.book_with,140),
       handoff:departingHandoff}]:[];
     const firstHandoff=bookingActions[0]?.handoff||null;
     return {id:index,seller:cleanText(source.book_with||'Μη κατονομασμένος πωλητής',140),
