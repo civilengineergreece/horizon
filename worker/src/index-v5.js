@@ -20,7 +20,7 @@ const STATIONS={
 
 function norm(v){return String(v||'').trim().toLocaleLowerCase('el-GR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
 function clean(v,max=220){return String(v??'').trim().slice(0,max);}
-function iso(v){return /^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):null;}
+function iso(v){const s=String(v||'');if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const d=new Date(s+'T00:00:00Z');return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===s?s:null;}
 function cors(request,env){
   const origin=request.headers.get('Origin')||'';
   const allowed=env.ALLOWED_ORIGIN||'https://civilengineergreece.github.io';
@@ -29,7 +29,21 @@ function cors(request,env){
 }
 function reply(request,env,data,status=200,extra={}){return new Response(JSON.stringify(data),{status,headers:{...JSON_HEADERS,...cors(request,env),...extra}});}
 function station(v){return STATIONS[norm(v)]||null;}
-function timeForDate(date){return `${date}T00:00:00Z`;}
+function timeForDate(date){
+  // The trip is planned using the Greek station's local day, not 00:00 UTC
+  // (which would incorrectly omit the first 2–3 hours of Greek service).
+  const zone=new Intl.DateTimeFormat('en',{timeZone:'Europe/Athens',timeZoneName:'shortOffset'})
+    .formatToParts(new Date(date+'T12:00:00Z')).find(p=>p.type==='timeZoneName')?.value||'GMT+2';
+  const m=/GMT([+-])(\d{1,2})/.exec(zone),offset=m?m[1]+m[2].padStart(2,'0')+':00':'+02:00';
+  return date+'T00:00:00'+offset;
+}
+function localGreekDay(value){
+  const d=new Date(value);if(!Number.isFinite(d.getTime()))return null;
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Athens',
+    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
+  const x=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+  return x.year+'-'+x.month+'-'+x.day;
+}
 function asArray(v){return Array.isArray(v)?v:[];}
 function number(v){const n=Number(v);return Number.isFinite(n)?n:null;}
 function trainLegs(it){return asArray(it?.legs).filter(l=>['RAIL','HIGHSPEED_RAIL','LONG_DISTANCE','NIGHT_RAIL','REGIONAL_RAIL','REGIONAL_FAST_RAIL','SUBURBAN','SUBWAY'].includes(String(l?.mode||'').toUpperCase()));}
@@ -53,12 +67,20 @@ function fareFromItinerary(it){
   if(!all.length)return null;
   const defaults=all.filter(x=>x.riderCategory?.isDefaultFareCategory===true);
   const uncategorized=all.filter(x=>!x.riderCategory);
-  const pool=defaults.length?defaults:uncategorized.length?uncategorized:all;
+  // Don't select an arbitrary reduced/child/student rider category and
+  // present it as a generic adult fare.
+  const pool=defaults.length?defaults:uncategorized.length?uncategorized:[];if(!pool.length)return null;
   pool.sort((a,b)=>a.amount-b.amount);
   const p=pool[0];
   return {amount:Math.round(p.amount*100)/100,currency:p.currency,kind:'feed-fare-direct',name:p.name,riderCategory:p.riderCategory?.riderCategoryName||null};
 }
 function normalizeItinerary(it){
+  // A bus or other motorized transfer can change both fare and itinerary
+  // identity; don't silently report the railway portion as a direct train.
+  const modes=asArray(it?.legs).map(l=>String(l?.mode||'').toUpperCase());
+  const rail=new Set(['RAIL','HIGHSPEED_RAIL','LONG_DISTANCE','NIGHT_RAIL','REGIONAL_RAIL',
+    'REGIONAL_FAST_RAIL','SUBURBAN','SUBWAY']);
+  if(modes.some(m=>m&&m!=='WALK'&&!rail.has(m)))return null;
   const legs=trainLegs(it);if(!legs.length)return null;
   const first=legs[0],last=legs[legs.length-1];
   const departure=firstValue(first,['startTime','expectedDeparture','scheduledStartTime','scheduledDeparture']);
@@ -83,10 +105,10 @@ function normalizeItinerary(it){
   };
 }
 function itineraryKey(x){return [x.departure,x.arrival,x.route,x.tripId].join('|');}
-function normalizeResponse(data){
+function normalizeResponse(data,date){
   const raw=asArray(data?.itineraries).length?asArray(data.itineraries):asArray(data?.plan?.itineraries);
   const out=[],seen=new Set();
-  for(const it of raw){const x=normalizeItinerary(it);if(!x)continue;const k=itineraryKey(x);if(seen.has(k))continue;seen.add(k);out.push(x);}
+  for(const it of raw){const x=normalizeItinerary(it);if(!x||localGreekDay(x.departure)!==date)continue;const k=itineraryKey(x);if(seen.has(k))continue;seen.add(k);out.push(x);}
   return out.sort((a,b)=>String(a.departure||'').localeCompare(String(b.departure||''))).slice(0,8);
 }
 async function queryTransitous(from,to,date){
@@ -116,7 +138,7 @@ async function queryTransitous(from,to,date){
     });
     const data=await r.json().catch(()=>null);
     if(!r.ok||!data)throw new Error(`Transitous HTTP ${r.status}`);
-    return normalizeResponse(data);
+    return normalizeResponse(data,date);
   }finally{clearTimeout(timer);}
 }
 function cheapestFare(list){
@@ -130,6 +152,8 @@ async function trains(request,env,url){
   const from=station(originName),to=station(destinationName);
   if(!from||!to)return reply(request,env,{ok:false,error:'Η live δοκιμή τρένων καλύπτει προς το παρόν Αθήνα, Θεσσαλονίκη, Λάρισα και Μετέωρα/Καλαμπάκα.',code:'TRAIN_STATION_NOT_MAPPED'},400,{'cache-control':'no-store'});
   if(!date)return reply(request,env,{ok:false,error:'Χρειάζεται έγκυρη ημερομηνία αναχώρησης.'},400,{'cache-control':'no-store'});
+  if(url.searchParams.has('returnDate')&&!returnDate)return reply(request,env,{ok:false,error:'Μη έγκυρη ημερομηνία επιστροφής.'},422,{'cache-control':'no-store'});
+  if(returnDate&&returnDate<date)return reply(request,env,{ok:false,error:'Η επιστροφή προηγείται της αναχώρησης.'},422,{'cache-control':'no-store'});
   const cacheKey=new Request(url.toString(),{method:'GET'});
   try{
     const cached=await caches.default.match(cacheKey);
@@ -141,7 +165,9 @@ async function trains(request,env,url){
     const [outbound,inbound]=await Promise.all([outboundPromise,inboundPromise]);
     const outFare=cheapestFare(outbound),inFare=cheapestFare(inbound);
     const roundTripFare=outFare&&inFare&&outFare.currency===inFare.currency?{amount:Math.round((outFare.amount+inFare.amount)*100)/100,currency:outFare.currency,kind:'feed-fare-direct'}:null;
-    const data={ok:true,provider:'Transitous/MOTIS',source:'Hellenic Train / Greek railway open feeds as aggregated by Transitous',origin:originName,destination:destinationName,originStation:from.name,destinationStation:to.name,date,returnDate:returnDate||null,outbound,inbound,fares:{outbound:outFare,inbound:inFare,roundTrip:roundTripFare},fareNote:roundTripFare?'Το fare προέρχεται από fare information του Transitous/MOTIS για απλό απευθείας σιδηροδρομικό σκέλος. Δεν αποτελεί εγγύηση διαθεσιμότητας ή τελικής τιμής κράτησης.':'Το ελληνικό feed δεν επέστρεψε αξιοποιήσιμο και μη αμφίσημο fare για αυτή την αναζήτηση· το Horizon κρατά στενή εκτίμηση τιμής.',realtimeNote:'Το Transitous χρησιμοποιεί realtime ενημερώσεις όταν παρέχονται από την πηγή. Οι προγραμματισμένες ώρες παραμένουν διαθέσιμες όταν δεν υπάρχει realtime σήμα.',attribution:'https://transitous.org/sources/',cache:{enabled:true,ttlSeconds:TRAIN_TTL}};
+    const data={ok:true,provider:'Transitous/MOTIS',priceBasis:'individual_feed_fare_unverified_travel_party',
+      pricingScope:{passengerMixApplied:false,vehicleIncluded:false,finalCheckoutVerified:false},
+      retrievedAt:new Date().toISOString(),source:'Greek railway open feeds as aggregated by Transitous',origin:originName,destination:destinationName,originStation:from.name,destinationStation:to.name,date,returnDate:returnDate||null,outbound,inbound,fares:{outbound:outFare,inbound:inFare,roundTrip:roundTripFare},fareNote:roundTripFare?'Το fare προέρχεται από fare information του Transitous/MOTIS για απλό απευθείας σιδηροδρομικό σκέλος. Δεν αποτελεί εγγύηση διαθεσιμότητας ή τελικής τιμής κράτησης.':'Το ελληνικό feed δεν επέστρεψε αξιοποιήσιμο και μη αμφίσημο fare για αυτή την αναζήτηση· το Horizon κρατά στενή εκτίμηση τιμής.',realtimeNote:'Το Transitous χρησιμοποιεί realtime ενημερώσεις όταν παρέχονται από την πηγή. Οι προγραμματισμένες ώρες παραμένουν διαθέσιμες όταν δεν υπάρχει realtime σήμα.',attribution:'https://transitous.org/sources/',cache:{enabled:true,ttlSeconds:TRAIN_TTL}};
     const response=reply(request,env,data,200,{'cache-control':`public, max-age=0, s-maxage=${TRAIN_TTL}`,'x-horizon-cache':'MISS'});
     try{await caches.default.put(cacheKey,response.clone());}catch{}
     return response;
