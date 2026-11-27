@@ -9,7 +9,7 @@ const CONSENT_VERSION='2026-11-27';
 const BILLABLE_SEARCH_PATHS=new Set([
   '/flights','/flight-returns','/flight-booking-options','/stays','/hotel-details'
 ]);
-const EDGE_IP=/^[a-fA-F\\d.:]{2,45}$/;
+const EDGE_IP=/^[0-9a-fA-F:.]{2,45}$/;
 
 
 function allowedOrigin(env){return env.ALLOWED_ORIGIN||'https://civilengineergreece.github.io';}
