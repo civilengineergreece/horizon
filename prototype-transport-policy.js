@@ -32,6 +32,9 @@ function hasRealLive(row){
 }
 function markEstimate(row,mode){
   if(!row||row.cells.length<4||hasRealLive(row))return;
+  // Ferryhopper reports a route schedule, not a passenger/vehicle checkout.
+  // Preserve the schedule's provenance while the price cell remains estimated.
+  if(mode==='ferry'&&/Ferryhopper/.test(row.cells[3]?.textContent||''))return;
   const costCell=row.cells[2],statusCell=row.cells[3],timeCell=row.cells[1];
   const n=numberFromEuro(costCell.textContent);
   if(n&&!/–/.test(costCell.textContent||''))costCell.innerHTML=`<b>${rangeText(n)}</b>`;
