@@ -16,9 +16,21 @@ function collect(editor){
   const name=editor.dataset.destination||document.querySelector('.horizon-detail-overlay .hd-head h3')?.textContent?.trim()||'Ταξίδι';
   const days=[...editor.querySelectorAll('.hz-edit-day')].map((day,i)=>{
     const rows=[...day.querySelectorAll('.hz-edit-row')].map(r=>({time:safe(r.querySelector('.hz-slot-time')?.value),text:safe(r.querySelector('.hz-slot-text')?.value)})).filter(x=>x.time||x.text);
-    const fallback=parseCost(day.querySelector('.hz-edit-cost')?.textContent),low=n(day.querySelector('[data-hz-budget-low]')?.value,fallback.low),high=Math.max(low,n(day.querySelector('[data-hz-budget-high]')?.value,fallback.high));
+    const fallback=parseCost(day.querySelector('.hz-edit-cost')?.textContent);
+    const rawLow=day.querySelector('[data-hz-budget-low]')?.value;
+    const rawHigh=day.querySelector('[data-hz-budget-high]')?.value;
+    const low=rawLow===undefined?fallback.low:Number(rawLow);
+    const high=rawHigh===undefined?fallback.high:Number(rawHigh);
+    if((rawLow!==undefined&&!String(rawLow).trim())||
+       (rawHigh!==undefined&&!String(rawHigh).trim())||
+       !Number.isFinite(low)||!Number.isFinite(high)||low<0||high<low||
+       low>1e7||high>1e7||
+       Math.round(low*100)!==low*100&&Math.abs(Math.round(low*100)-low*100)>1e-6||
+       Math.round(high*100)!==high*100&&Math.abs(Math.round(high*100)-high*100)>1e-6)
+      throw new Error(`Μη έγκυρο ημερήσιο budget στην ημέρα ${i+1}. Έλεγξε τα ποσά από/έως.`);
     return {day:i+1,title:safe(day.querySelector('.hz-day-title')?.value)||`Ημέρα ${i+1}`,rows,notes:day.querySelector('.hz-edit-notes')?.value||'',budget:{low,high},mapUrl:makeMapUrl(name,rows)};
   });
+  if(!days.length)throw new Error('Δεν υπάρχει ημέρα ταξιδιού για εξαγωγή.');
   const allRows=days.flatMap(d=>d.rows);return {name,days,tripNotes:editor.querySelector('.hz-trip-notes')?.value||'',mapUrl:makeMapUrl(name,allRows)};
 }
 function prepareMultiline(field){field.enableMultiline();}
