@@ -136,6 +136,47 @@ try{
   assert.equal(after.at,sellerRecord.at,'Changing manual baggage/ground amounts must NOT reset source quote freshness');
   log('Manual fees','Separated €70 of baggage/transfers from €355 seller fare');
 
+  const audit=page.locator('.hz-flight-checkout-review');
+  await audit.locator('[name="total"]').waitFor({timeout:15000});
+  assert.ok((await audit.innerText()).includes('μόνο χειροκίνητα'));
+  await audit.locator('[name="total"]').fill('440,50');
+  await audit.locator('[name="source"]').selectOption('search_result');
+  await audit.locator('.hz-flight-checkout-save').click();
+  assert.ok((await audit.locator('.hz-flight-checkout-status').innerText()).includes('Δεν ενημερώθηκε το budget'));
+  let beforeAudit=await page.evaluate(()=>{
+    const key=Object.keys(localStorage).find(x=>x.startsWith('hz-flight-selection-v2:'));
+    return JSON.parse(localStorage.getItem(key));
+  });
+  assert.equal(beforeAudit.fare,355,'Search price must never become verified checkout');
+  await audit.locator('[name="source"]').selectOption('seller_final_payment_screen');
+  for(const name of ['datesAndFlights','passengers','infants','infantPolicy','baggageAndSeats',
+    'mandatoryCharges','cancellation','availability'])
+    await audit.locator('[name="'+name+'"]').check();
+  await audit.locator('.hz-flight-checkout-save').click();
+  const manuallyAudited=await page.evaluate(()=>{
+    const key=Object.keys(localStorage).find(x=>x.startsWith('hz-flight-selection-v2:'));
+    return JSON.parse(localStorage.getItem(key));
+  });
+  assert.equal(manuallyAudited.fare,440.50);
+  assert.equal(manuallyAudited.baggage,0,'Seller total includes requested baggage; never double count old €40');
+  assert.equal(manuallyAudited.extras,30,'Ground is separately estimated, not part of airline checkout');
+  assert.equal(manuallyAudited.estimatedTotal,470.50);
+  assert.equal(manuallyAudited.sourceFareBeforeCheckout,355);
+  assert.equal(manuallyAudited.sourceBaggageExtraBeforeCheckout,40);
+  assert.equal(manuallyAudited.bookingStatus,'checkout_user_reported_not_booked');
+  assert.equal(manuallyAudited.reviewEvidence,'manual_flight_seller_checkout');
+  assert.equal(manuallyAudited.infantFareVerified,false,'Manual checklist is not independent infant-fare verification');
+  assert.ok((await audit.innerText()).includes('όχι κράτηση'));
+  log('Airline seller final-screen audit','Manually checked €440.50 all-in airline + €30 ground, no double baggage, never marked booked');
+  await baggage.fill('41');
+  const afterBaggageEdit=await page.evaluate(()=>{
+    const key=Object.keys(localStorage).find(x=>x.startsWith('hz-flight-selection-v2:'));
+    return JSON.parse(localStorage.getItem(key));
+  });
+  assert.equal(afterBaggageEdit.bookingStatus,'quote_only_not_checked_out',
+    'Editing extras must invalidate manual checkout instead of silently adjusting final price');
+  assert.equal(afterBaggageEdit.fare,355);
+
   const change=page.locator('.hz-flight-change');
   await change.click();
   assert.equal(await page.locator('[data-flight-step="outbound"]').count(),1);
