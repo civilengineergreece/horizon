@@ -38,7 +38,11 @@ test('ferry supplier starting fares do not become family, infant, cabin or vehic
     {departureDateTime:outbound?'2026-12-04T07:30:00+02:00':'2026-12-06T16:30:00+02:00',
       arrivalDateTime:outbound?'2026-12-04T11:10:00+02:00':'2026-12-06T20:20:00+02:00',
       operatorName:'Sample <script>alert(1)</script>',vesselName:'Example',
-      price:outbound?46:null,bookingUrl:'https://www.ferryhopper.com/'}]}}});
+      price:outbound?46:null,bookingUrl:'https://www.ferryhopper.com/'},
+    {price:1,bookingUrl:'https://example.com/not-a-ferry-trip'},
+    {departureDateTime:'2026-12-20T08:00:00+02:00',
+      arrivalDateTime:'2026-12-20T12:00:00+02:00',
+      operatorName:'Wrong-day ferry',price:2}]}}});
  };
  try{
   const path='/ferries?origin=Athens&destination=Syros&date=2026-12-04&returnDate=2026-12-06';
@@ -53,6 +57,8 @@ test('ferry supplier starting fares do not become family, infant, cabin or vehic
   assert.equal(data.pricingScope.cabinIncluded,false);
   assert.equal(data.pricingScope.finalCheckoutVerified,false);
   assert.equal(data.priceBasis,'per_option_starting_fare');
+  assert.equal(data.outbound.length,1,'Exclude price-only objects and departures on other dates');
+  assert.equal(data.inbound.length,1,'Return date must also match');
   assert.equal(data.outbound[0].price,46);
   assert.equal(data.outbound[0].includesInfantFare,false);
   assert.equal(data.outbound[0].booked,false);
