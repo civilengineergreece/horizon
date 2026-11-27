@@ -66,8 +66,13 @@ function defaultDays(name,d){
   return days;
 }
 function storageKey(name){
-  const s=stateNow(),dates=s.dates||s.dateRange||s.calendar||{};
-  return `horizon-itinerary-editor-v1:${name}:${JSON.stringify(dates)}:${duration()}`;
+  const s=stateNow(),t=s.travelers||{},dates=s.dates||s.dateRange||s.calendar||{};
+  // Different departure dates or passenger parties must never inherit an
+  // unrelated itinerary (including an outdated infant/child configuration).
+  const scope={name,origin:s.origin||'',dates,duration:duration(),
+    adults:Number(t.adults)||0,children:Number(t.children)||0,
+    infants:Number(t.infants)||0,childrenAges:t.childrenAges||s.childrenAges||[]};
+  return 'horizon-itinerary-editor-v2:'+JSON.stringify(scope);
 }
 function loadPlan(name,d){
   const fresh={name,days:defaultDays(name,d),tripNotes:''};
