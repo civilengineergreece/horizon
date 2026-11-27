@@ -33,6 +33,20 @@ try {
   assert.equal(flights.providerBookingHandoff,true,'Published Worker must support supplier-provided seller handoff');
   assert.equal(flights.signedGooglePostSupported,true,'Published Worker must support signed Google Flights POST');
   assert.equal(flights.sellerCheckoutVerified,false,'Do not misrepresent real checkout or transaction verification');
+  const emailGet=await fetch(base+'/email-pdf',{
+    headers:{Accept:'application/json',Origin:'https://civilengineergreece.github.io'},
+    signal:AbortSignal.timeout(20000)});
+  assert.equal(emailGet.status,405,'GET email relay must not send anything');
+  assert.equal(emailGet.headers.get('cache-control'),'no-store');
+  const emailInvalid=await fetch(base+'/email-pdf',{
+    method:'POST',headers:{Origin:'https://civilengineergreece.github.io',
+      'content-type':'application/json'},body:'{}',signal:AbortSignal.timeout(20000)});
+  assert.ok([400,503].includes(emailInvalid.status),'Invalid/disabled email relay must deny');
+  const emailInvalidBody=await emailInvalid.json();
+  assert.equal(emailInvalidBody.ok,false);
+  assert.ok(['EMAIL_DISABLED','INVALID_EMAIL'].includes(emailInvalidBody.code),
+    'No real email must be sent during readiness check');
+  console.log('PASS: public email relay rejects invalid/disabled requests without any mail or billing');
   console.log('PASS: production Worker up; Google Flights & Hotels configured; '+
     'capabilities and CORS verified, without any paid provider lookup');
 }catch(err) {
