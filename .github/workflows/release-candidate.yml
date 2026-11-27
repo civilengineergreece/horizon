@@ -84,3 +84,34 @@ jobs:
           node-version: '22'
       - name: Check deployed Worker without spending API quota
         run: node worker/tests/production-health.mjs
+
+published-site-browser:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [syntax-and-unit, greek-family-browser, nonbillable-production-health]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test tools
+        run: |
+          npm install --no-save playwright
+          google-chrome --version
+      - name: Allow GitHub Pages latest deployment to finish
+        run: sleep 65
+      - name: Verify the actually published Horizon site without provider billing
+        env:
+          HORIZON_TEST_URL: https://civilengineergreece.github.io/horizon/
+        run: |
+          node tests/release-smoke-browser.mjs
+          node tests/flight-ui-browser.mjs
+          node tests/hotel-ui-browser.mjs
+          node tests/hotel-map-real-leaflet-browser.mjs
+      - name: Screenshot on test failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: horizon-published-site-failure
+          path: artifacts/
