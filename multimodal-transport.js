@@ -116,13 +116,21 @@ function estimateMode(d,mode){
     return {mode,cost:budgetNo?0:Math.round(d.travel*t.ticket),rawCost:Math.round(d.travel*t.ticket),hours:null,roadKm:null,fuelCost:null,tolls:null,consumptionL100:cons,label:'Ενδεικτικό για ranking',note:'Δεν υπάρχει διαδρομή/απόσταση από την επιλεγμένη αφετηρία. Το ποσό είναι υπόθεση κατάταξης, ΟΧΙ καύσιμα ή διόδια πραγματικού δρομολογίου.'};
   }
   if(mode==='train'){
-    const x=TRAIN_PROFILES[d.name];if(!x)return null;const c=Math.round(x.adultRT*t.bus);return {mode,cost:budgetNo?0:c,rawCost:c,hours:x.hours,label:'Εκτίμηση',note:x.note};
+    const x=TRAIN_PROFILES[d.name];if(!x)return null;const c=Math.round(x.adultRT*t.bus);
+    return {mode,cost:budgetNo?0:c,rawCost:c,hours:isAthensOrigin(stateNow().origin)?x.hours:null,
+      label:isAthensOrigin(stateNow().origin)?'Εκτίμηση':'Μόνο για ranking',
+      note:isAthensOrigin(stateNow().origin)?x.note:'Χωρίς επαληθευμένη σιδηροδρομική διαδρομή ή ναύλο για τη συγκεκριμένη αφετηρία.'};
   }
   if(mode==='bus'){
-    if(!(d.transport||[]).includes('bus'))return null;const h=BUS_HOURS[d.name]||(p?p.hours*1.16:null);let adult=p?Math.max(24,Math.round(p.km*.16)):Math.max(35,Math.round(d.travel*.55));if(d.region==='Βαλκάνια')adult=Math.max(adult,55);const c=Math.round(adult*t.bus);return {mode,cost:budgetNo?0:c,rawCost:c,hours:h,label:'Εκτίμηση',note:'Ενδεικτικό εισιτήριο μετ’ επιστροφής για τους ταξιδιώτες.'};
+    if(!(d.transport||[]).includes('bus'))return null;const h=isAthensOrigin(stateNow().origin)?BUS_HOURS[d.name]||(p?p.hours*1.16:null):null;
+    let adult=p?Math.max(24,Math.round(p.km*.16)):Math.max(35,Math.round(d.travel*.55));if(d.region==='Βαλκάνια')adult=Math.max(adult,55);const c=Math.round(adult*t.bus);
+    return {mode,cost:budgetNo?0:c,rawCost:c,hours:h,label:'Εκτίμηση για ranking',
+      note:'Δεν υπάρχει συνδεδεμένο live ΚΤΕΛ ούτε επιβεβαιωμένη διαδρομή/ναύλος από τη συγκεκριμένη αφετηρία. Υπόθεση κατάταξης.'};
   }
   if(mode==='ferry'){
-    if(!(d.transport||[]).includes('ferry'))return null;const adult=Math.max(50,Number(d.travel)||70),c=Math.round(adult*t.ferry);return {mode,cost:budgetNo?0:c,rawCost:c,hours:FERRY_HOURS[d.name]||null,label:'Εκτίμηση',note:'Ενδεικτικό ακτοπλοϊκό κόστος χωρίς όχημα/καμπίνα.'};
+    if(!(d.transport||[]).includes('ferry'))return null;const adult=Math.max(50,Number(d.travel)||70),c=Math.round(adult*t.ferry);
+    return {mode,cost:budgetNo?0:c,rawCost:c,hours:isAthensOrigin(stateNow().origin)?FERRY_HOURS[d.name]||null:null,
+      label:'Εκτίμηση για ranking',note:'Ενδεικτικό μοντέλο χωρίς επιβεβαίωση λιμανιού, ώρας, ναύλου επιβατών, βρέφους, οχήματος ή καμπίνας.'};
   }
   if(mode==='plane'){
     if(!(d.transport||[]).includes('plane'))return null;const c=Math.round((Number(d.travel)||170)*t.ticket);return {mode,cost:budgetNo?0:c,rawCost:c,hours:null,label:'Μόνο για ranking',note:'Η πραγματική τιμή εμφανίζεται μόνο μετά τον έλεγχο Google Flights.'};
