@@ -47,8 +47,8 @@ test('ferry supplier starting fares do not become family, infant, cabin or vehic
  try{
   const path='/ferries?origin=Athens&destination=Syros&date=2026-12-04&returnDate=2026-12-06';
   const response=await worker.fetch(req(path),env,{});
-  assert.equal(response.status,200);
   const data=await response.json();
+  assert.equal(response.status,200,JSON.stringify(data));
   assert.equal(data.ok,true);
   assert.equal(data.provider,'Ferryhopper MCP');
   assert.equal(data.ferryPort,'Piraeus');
