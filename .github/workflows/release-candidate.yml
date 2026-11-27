@@ -85,7 +85,7 @@ jobs:
       - name: Check deployed Worker without spending API quota
         run: node worker/tests/production-health.mjs
 
-published-site-browser:
+  published-site-browser:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: [syntax-and-unit, greek-family-browser, nonbillable-production-health]
     runs-on: ubuntu-latest
