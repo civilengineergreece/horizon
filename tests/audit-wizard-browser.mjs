@@ -31,6 +31,17 @@ try {
    }
    await page.waitForFunction(()=>window.__HORIZON_TRAVELER_AGE_PATCH__===true,
      null,{timeout:30000});
+   const stale=await page.evaluate(()=>{
+     state={_step:9,origin:'Αθήνα',dates:{from:'2026-12-04',flex:0},
+       duration:99,budget:{amount:1500,transport:'all'},
+       travelers:{adults:2,children:0,infants:1},
+       style:'city',stay:'hotel',transport:'car',interests:['history'],special:''};
+     current=9;render();
+     document.getElementById('nextBtn').click();
+     return {current,reason:document.getElementById('error')?.textContent||''};
+   });
+   assert.equal(stale.current,2,'Restored step 10 cannot bypass invalid 99-day trip');
+   assert.match(stale.reason,/Έλεγξε ή συμπλήρωσε/);
    await page.evaluate(()=>{
      state={origin:'Αθήνα',dates:{from:'2026-12-04',flex:0},duration:'3'};
      current=2;render();
