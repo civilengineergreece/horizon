@@ -118,10 +118,15 @@ function patchPlaneAmounts(card,name){
     includeTransport=stateNow().budget?.transport!=='no';
   if(transportBox){
     const label=transportBox.querySelector('span'),value=transportBox.querySelector('b');
-    if(fare){if(label)label.textContent='Επιλεγμένη αεροπορική μεταφορά';if(value){value.textContent=euro(fare+extras);value.classList.add('hz-live-value');}}
+    if(fare){if(label)label.textContent=selection?.isUserReported?
+      'Αεροπορικό checkout (δηλωμένο · όχι κράτηση)':'Επιλεγμένη αεροπορική μεταφορά (προσφορά)';
+      if(value){value.textContent=euro(fare+extras);value.classList.add('hz-live-value');}}
     else{if(label)label.textContent='Μεταφορά';if(value){value.textContent='Live τιμή →';value.classList.add('hz-await-live');}}
     for(const note of [...transportBox.querySelectorAll('span')].slice(1))
-      note.textContent=fare?'Τιμή πηγής και δηλωμένα πρόσθετα · όχι κράτηση':'Επίλεξε live πτήση για όλους τους ταξιδιώτες';
+      note.textContent=fare?(selection?.isUserReported?
+        'Χειροκίνητα δηλωμένο checkout πωλητή + χωριστή επίγεια μεταφορά· όχι ανεξάρτητη επαλήθευση/κράτηση':
+        'Τιμή πηγής και υποθέσεις πρόσθετων · όχι τελικό checkout/κράτηση'):
+        'Επίλεξε live πτήση για όλους τους ταξιδιώτες';
   }
   if(fare){
     const liveTotal=Math.round((otherCostsWithStay+(includeTransport?fare+extras:0))*100)/100;
