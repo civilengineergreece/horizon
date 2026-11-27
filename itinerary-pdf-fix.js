@@ -36,7 +36,7 @@ function collect(editor){
   return {name,days,tripNotes:editor.querySelector('.hz-trip-notes')?.value||'',
     mapUrl:makeMapUrl(name,allRows),
     feasibility:review?{status:review.status,arrivalAt:review.arrivalAt,
-      departureAt:review.departureAt,conflicts:review.conflicts,
+      departureAt:review.departureAt,accessibility:review.accessibility,family:review.family,conflicts:review.conflicts,
       notes:review.notes,unknowns:review.unknowns}:null};
 }
 function prepareMultiline(field){field.enableMultiline();}
@@ -70,6 +70,7 @@ async function makePdf(data){
   const lines=status?[
     'ΑΦΙΞΗ: '+(status.arrivalAt||'άγνωστη')+'  |  ΑΝΑΧΩΡΗΣΗ: '+(status.departureAt||'άγνωστη'),
     'Χρονικές συγκρούσεις: '+status.conflicts.length,
+    'Ενδεικτικά περιθώρια: οικογένεια '+(status.family||0)+'′, προσβασιμότητα '+(status.accessibility||0)+'′',
     ...status.conflicts.slice(0,4).map(x=>'ΠΡΟΒΛΗΜΑ: '+x),
     ...status.unknowns.slice(0,3).map(x=>'ΕΚΚΡΕΜΕΙ: '+x)
   ]:['Δεν εκτελέστηκε έλεγχος εφικτότητας. Οι ώρες, οι μετακινήσεις και τα ωράρια απαιτούν επιβεβαίωση.'];
