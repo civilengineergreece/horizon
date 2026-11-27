@@ -50,7 +50,7 @@ function installPlannerPatch(){
     const s=(typeof steps!=='undefined'&&typeof current!=='undefined')?steps[current]:null;
     if(s?.type!=='travelers')return originalCapture();
     const a=document.getElementById('adults'),c=document.getElementById('children'),i=document.getElementById('infants');
-    const adults=Math.max(1,n(a?.value,1)),children=Math.max(0,n(c?.value,0)),infants=Math.max(0,n(i?.value,0));
+    const adults=Number(a?.value),children=Number(c?.value),infants=Number(i?.value);
     const previous=state[s.key]||{};
     const validAges=Array.isArray(previous.childrenAges)&&previous.childrenAges.length===children&&
       previous.childrenAges.every(age=>Number.isInteger(age)&&age>=2&&age<=11);
@@ -64,8 +64,8 @@ function installPlannerPatch(){
     validate=function(){
       const s=(typeof steps!=='undefined'&&typeof current!=='undefined')?steps[current]:null;
       if(s?.type!=='travelers')return originalValidate();
-      const t=travelers();
-      return t.adults>=1&&t.children>=0&&t.infants>=0;
+      const t=state?.travelers||{};
+      return [t.adults,t.children,t.infants].every(Number.isInteger)&&t.adults>=1&&t.adults<=30&&t.children>=0&&t.children<=30&&t.infants>=0&&t.infants<=30&&t.adults+t.children+t.infants<=30;
     };
   }
 

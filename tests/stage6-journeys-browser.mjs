@@ -41,6 +41,8 @@ try{
       await page.waitForTimeout(600);
       const release=await page.locator('meta[name="horizon-mvp-release"]').getAttribute('content');
       assert.equal(release,'2026-11-27-stage6','Published code must match Stage 6 tested release');
+      assert.equal(await page.locator('meta[name="horizon-audit-patch"]').getAttribute('content'),
+        '2026-11-27-audit1','Published code must include audited fixes, not a stale release');
 
       for(const scenario of scenarios){
         const outcome=await page.evaluate(s=>{
@@ -116,6 +118,8 @@ try{
         assert.equal(mapPage.status(),200,'Static map route must resolve in deployed release');
         const mapSource=await mapPage.text();
         assert.match(mapSource,/maplibre|MapLibre/i,'Map page must contain its renderer');
+        assert.match(mapSource,/ενδεικτικής οδικής διαδρομής/,
+          'Map must not imply independently verified foot/public-transit navigation');
 
         if(width===390){
           const bounds=await editor.boundingBox();

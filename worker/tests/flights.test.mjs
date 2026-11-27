@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/index-v6.js';
+// Provider normalization unit tests isolate legacy domain logic; search-guard.test.mjs
+// separately tests the deployed v6 Cloudflare authorization/rate-limit boundary.
+import worker from '../src/index.js';
 
 const origin='https://civilengineergreece.github.io';
 const base='https://example.workers.dev';

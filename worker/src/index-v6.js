@@ -6,6 +6,11 @@ import v5 from './index-v5.js';
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store',
   'x-content-type-options':'nosniff','referrer-policy':'no-referrer'};
 const CONSENT_VERSION='2026-11-27';
+const BILLABLE_SEARCH_PATHS=new Set([
+  '/flights','/flight-returns','/flight-booking-options','/stays','/hotel-details'
+]);
+const EDGE_IP=/^[0-9a-fA-F:.]{2,45}$/;
+
 
 function allowedOrigin(env){return env.ALLOWED_ORIGIN||'https://civilengineergreece.github.io';}
 function cors(request,env){
@@ -36,6 +41,34 @@ function validPdf(b64){
 function safeFileName(raw){
   const file=clean(raw,140).replace(/[\\/<>:"|?*\x00-\x1f\x7f]/g,'-');
   return /\.pdf$/i.test(file)?file:'Horizon-Planner.pdf';
+}
+// All potentially paid SerpApi lookups must pass a Cloudflare rate-limit
+// binding before legacy endpoint routing. An API key or browser CORS is
+// NOT a quota control. Missing protection fails CLOSED, including POST.
+async function limitPaidSearch(request,env,url){
+  if(!BILLABLE_SEARCH_PATHS.has(url.pathname)||
+     !['GET','POST'].includes(request.method))return null;
+  const origin=request.headers.get('Origin');
+  if(origin!==allowedOrigin(env))
+    return deny(request,env,403,'SEARCH_ORIGIN_DENIED',
+      'Η αναζήτηση είναι διαθέσιμη μόνο μέσα από το HORIZON.');
+  const ip=request.headers.get('CF-Connecting-IP')||'';
+  if(!EDGE_IP.test(ip))
+    return deny(request,env,403,'SEARCH_CLIENT_UNVERIFIED',
+      'Δεν επιβεβαιώθηκε η προέλευση της αναζήτησης.');
+  if(typeof env.TRAVEL_SEARCH_RATE_LIMIT?.limit!=='function')
+    return deny(request,env,503,'SEARCH_PROTECTION_UNAVAILABLE',
+      'Η ασφαλής αναζήτηση δεν είναι προσωρινά διαθέσιμη.');
+  try{
+    const result=await env.TRAVEL_SEARCH_RATE_LIMIT.limit({key:'search-ip:'+ip});
+    if(result?.success!==true)
+      return deny(request,env,429,'SEARCH_RATE_LIMIT',
+        'Πολλές αναζητήσεις σε μικρό διάστημα. Δοκίμασε αργότερα.');
+  }catch{
+    return deny(request,env,503,'SEARCH_PROTECTION_UNAVAILABLE',
+      'Η ασφαλής αναζήτηση δεν είναι προσωρινά διαθέσιμη.');
+  }
+  return null;
 }
 async function emailRecipientKey(email){
   const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(email.toLowerCase()));
@@ -117,6 +150,16 @@ export default {
       if(request.method!=='POST')return deny(request,env,405,'METHOD_NOT_ALLOWED','Χρησιμοποίησε POST.');
       return emailPdf(request,env);
     }
+    if(url.pathname==='/search-protection-capabilities'){
+      if(request.method!=='GET')return deny(request,env,405,'METHOD_NOT_ALLOWED','Χρησιμοποίησε GET.');
+      return reply(request,env,{ok:true,guarded:true,requiresExactOrigin:true,
+        requiresCloudflareSourceIp:true,failClosedIfLimitMissing:true,
+        rateLimitConfigured:typeof env.TRAVEL_SEARCH_RATE_LIMIT?.limit==='function',
+        perIpLimit:12,periodSeconds:60,
+        methods:['GET','POST'],endpoints:[...BILLABLE_SEARCH_PATHS]},200);
+    }
+    const denied=await limitPaidSearch(request,env,url);
+    if(denied)return denied;
     return v5.fetch(request,env,ctx);
   }
 };

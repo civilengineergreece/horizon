@@ -73,3 +73,16 @@ Unknown taxes, infant acceptance, cot availability and cot fees must remain
 unknown unless explicitly confirmed. Separate mandatory charges must be added
 once for all rooms and nights. Manual seller-checkout entry remains labeled as
 user-reported, even when all required fields are complete.
+
+
+## Paid-search abuse protection (independent audit, 27 Nov 2026)
+
+The deployed entrypoint `src/index-v6.js` **fails closed** for all billable SerpApi lookups (`/flights`, `/flight-returns`, `/flight-booking-options`, `/stays`, `/hotel-details`). A configured `SERPAPI_API_KEY` alone does not permit direct unrestricted calls.
+
+- Cloudflare Wrangler **must** deploy native `TRAVEL_SEARCH_RATE_LIMIT` from `worker/wrangler.jsonc` (12 requests / 60 seconds / edge source IP). Rate-limit key is the Cloudflare-supplied `CF-Connecting-IP`, never untrusted `X-Forwarded-For`. Only requests with the exact `ALLOWED_ORIGIN` may call paid endpoints; this is a browser abuse reduction, not authentication. Missing binding -> HTTP 503; exceeded -> HTTP 429; the supplier is not called.
+- **No-cost verification:** open `GET https://horizon-live-api.gnchristou.workers.dev/search-protection-capabilities`. Expect `ok:true`, `guarded:true`, `rateLimitConfigured:true`, `perIpLimit:12`, `periodSeconds:60`. A successful GitHub build without this deployed response is insufficient.
+- In GitHub Actions, the candidate PR is allowed to see the older Worker until merge; main production checks **wait for and require** the newly deployed binding without making paid searches.
+- **Limit:** Cloudflare native limiting is per-point-of-presence / approximate, not a global monthly spend cap. Configure **account-wide SerpApi spending/usage alerts and maximum monthly budget**, Cloudflare WAF bot rules and monitoring before public promotion. An attacker using distributed IPs may still consume quota. A provider search may also make additional airport-resolution calls.
+- Local development that calls the real Worker must use an explicitly configured origin in `ALLOWED_ORIGIN` on a separate development environment. The production site must not broaden origin checks to `*` or arbitrary localhost.
+
+**Security runbook:** `docs/FULL_INDEPENDENT_AUDIT_2026-11-27.md`. This remains a free, non-transactional travel search app; bookings and merchant payments are external.
