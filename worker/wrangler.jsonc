@@ -8,6 +8,13 @@
   "cache": {
     "enabled": true
   },
+  "ratelimits": [
+    {
+      "name": "EMAIL_PDF_RATE_LIMIT",
+      "namespace_id": "2202605",
+      "simple": {"limit": 3, "period": 60}
+    }
+  ],
   "secrets": {
     "required": ["SERPAPI_API_KEY"]
   },
