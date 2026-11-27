@@ -385,8 +385,11 @@ test('flight capability endpoint needs no paid provider call and confirms strict
     assert.equal(res.status,200);
     assert.equal(res.headers.get('cache-control'),'no-store');
     const caps=await res.json();
-    assert.equal(caps.schemaVersion,3);
+    assert.equal(caps.schemaVersion,4);
     assert.equal(caps.quoteCacheNoStore,true);
+    assert.equal(caps.providerBookingHandoff,true);
+    assert.equal(caps.signedGooglePostSupported,true);
+    assert.equal(caps.sellerCheckoutVerified,false);
     assert.equal(caps.validatesTravelerCounts,true);
   }finally{globalThis.fetch=original;}
 });
