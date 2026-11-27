@@ -103,7 +103,8 @@ function hotelCribAmenity(details){
 }
 function hotelOffer(item,seller,official,roomName,guestCount,fallbackLink,roomBeds){
   const quote=hotelPriceTotal(item?.total_rate||{});
-  const link=safeUrl(item?.link)||safeUrl(fallbackLink);
+  const directOfferLink=safeUrl(item?.link),inheritedSellerLink=safeUrl(fallbackLink);
+  const link=directOfferLink||inheritedSellerLink;
   return {
     seller:cleanText(seller||'Μη κατονομασμένος πωλητής',120),
     official:official===true,
@@ -113,6 +114,7 @@ function hotelOffer(item,seller,official,roomName,guestCount,fallbackLink,roomBe
     totalBeforeTaxesFees:quote.totalBeforeTaxesFees,
     totalAfterTaxesFees:quote.totalAfterTaxesFees,taxStatus:quote.taxStatus,
     bookingUrl:link,
+    bookingLinkScope:directOfferLink?'provider_rate_link':inheritedSellerLink?'inherited_seller_link':'not_supplied',
     freeCancellation:item?.free_cancellation===true?true:item?.free_cancellation===false?false:null,
     freeCancellationUntil:cleanText(item?.free_cancellation_until_date||'',80)||null,
     freeCancellationUntilTime:cleanText(item?.free_cancellation_until_time||'',40)||null,
