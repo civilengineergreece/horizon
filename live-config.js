@@ -97,8 +97,8 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('transport-cleanup-v1.js?v=20260823-3','data-horizon-transport-cleanup');
     loadScript('itinerary-editor.js?v=20261127-2','data-horizon-itinerary-editor');
     loadScript('planner-v2.js?v=20261127-1','data-horizon-planner-v2');
-    loadScript('itinerary-pdf-fix.js?v=20261127-2','data-horizon-itinerary-pdf-fix');
-    loadScript('itinerary-feasibility.js?v=20261127-1','data-horizon-itinerary-feasibility');
+    loadScript('itinerary-pdf-fix.js?v=20261127-3','data-horizon-itinerary-pdf-fix');
+    loadScript('itinerary-feasibility.js?v=20261127-2','data-horizon-itinerary-feasibility');
     loadScript('email-delivery-v2.js?v=20260825-1','data-horizon-email-v2');
   };
 

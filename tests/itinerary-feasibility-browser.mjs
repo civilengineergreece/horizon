@@ -91,6 +91,15 @@ try{
    assert.ok(manual.notes.some(x=>x.includes('δηλωμένου check-in')));
    assert.ok(manual.notes.some(x=>x.includes('δηλωμένο check-out')));
    console.log('PASS '+width+'px: manual time override, check-in/out and baggage/transfer reminders');
+   const accessibilityField=page.locator('[name="accessibilityExtra"][data-hz-feasibility-field]');
+   await accessibilityField.fill('35');
+   const accessible=await page.evaluate(()=>window.HORIZON_FEASIBILITY.recalc(document.querySelector('.hz-itinerary-editor')));
+   assert.equal(accessible.accessibility,35);
+   assert.equal(accessible.begin,manual.begin+35,'Accessibility allowance must postpone arrival-day availability');
+   assert.equal(accessible.end,manual.end-35,'Accessibility allowance must advance departure-day cutoff');
+   assert.ok((await page.locator('[data-hz-feas-windows]').innerText()).includes('35′'));
+   await accessibilityField.fill('0');
+   console.log('PASS '+width+'px: configurable accessibility buffer affects both travel windows');
 
    const mismatch=await page.evaluate(()=>{
      const ed=document.querySelector('.hz-itinerary-editor'),c=window.HORIZON_FEASIBILITY.context(ed);

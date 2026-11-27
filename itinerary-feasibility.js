@@ -26,11 +26,12 @@ function load(ed){try{const x=JSON.parse(localStorage.getItem(key(ed))||'{}');re
 function save(ed){const o={};for(const field of ed.querySelectorAll(SELECTOR+' [data-hz-feasibility-field]'))o[field.name]=field.value;try{localStorage.setItem(key(ed),JSON.stringify(o));}catch{}}
 function evaluate(c,o,days,f=null){
  const conflicts=[],notes=[],unknowns=[],family=c.infants>0?30:c.children>0?20:0;
+ const accessibility=n(o.accessibilityExtra,0,180);
  const arrival=wall(o.arrivalAt||f?.arrivalAt||''),departure=wall(o.departureAt||f?.departureAt||'');
  const arrivalGround=n(o.arrivalGround,60,600),departureGround=n(o.departureGround,60,600);
  const preboard=c.mode==='plane'||!!f?120:c.mode==='ferry'?60:['train','bus'].includes(c.mode)?30:0;
- const begin=arrival?arrival.minute+arrivalGround+family:null,end=departure?departure.minute-departureGround-preboard-family:null;
- const minGap=family?90:60,checkIn=clock(o.checkIn),checkOut=clock(o.checkOut);
+ const begin=arrival?arrival.minute+arrivalGround+family+accessibility:null,end=departure?departure.minute-departureGround-preboard-family-accessibility:null;
+ const minGap=(family?90:60)+accessibility,checkIn=clock(o.checkIn),checkOut=clock(o.checkOut);
  if(!arrival)unknowns.push('Άγνωστη ώρα άφιξης για το συγκεκριμένο ταξίδι.');
  if(!departure)unknowns.push('Άγνωστη ώρα αναχώρησης/επιστροφής για το συγκεκριμένο ταξίδι.');
  if(!c.from)unknowns.push('Δεν υπάρχει έγκυρη ημερομηνία έναρξης.');
@@ -61,7 +62,7 @@ function evaluate(c,o,days,f=null){
  }
  unknowns.push('Δεν έχουν επαληθευθεί ωράρια αξιοθέατων, αποστάσεις/διάρκειες ανά στάση, προσβασιμότητα και διαθεσιμότητα.');
  if(f&&Date.now()-f.at>30*60000)notes.push('Η επιλεγμένη αεροπορική προσφορά έχει ηλικία άνω των 30 λεπτών. Έλεγξε ξανά ωράρια και διαθεσιμότητα.');
- return {conflicts,notes,unknowns,family,preboard,begin,end,arrivalAt:arrival?arrival.date+'T'+arrival.time:'',departureAt:departure?departure.date+'T'+departure.time:'',status:conflicts.length?'conflict':'unverified'};
+ return {conflicts,notes,unknowns,family,accessibility,preboard,begin,end,arrivalAt:arrival?arrival.date+'T'+arrival.time:'',departureAt:departure?departure.date+'T'+departure.time:'',status:conflicts.length?'conflict':'unverified'};
 }
 function readOptions(ed){const result={};for(const x of ed.querySelectorAll(SELECTOR+' [data-hz-feasibility-field]'))result[x.name]=x.value;return result;}
 function readDays(ed){return [...ed.querySelectorAll('.hz-edit-day')].map(d=>({slots:[...d.querySelectorAll('.hz-edit-row')].map(r=>({time:r.querySelector('.hz-slot-time')?.value?.trim()||'',text:r.querySelector('.hz-slot-text')?.value?.trim()||''}))}));}
@@ -74,7 +75,7 @@ function recalc(ed){
  for(const x of messages.slice(0,18)){const li=document.createElement('li');li.textContent=x;el.appendChild(li);}
  if(messages.length>18){const li=document.createElement('li');li.textContent='Ακόμη '+(messages.length-18)+' σημειώσεις.';el.appendChild(li);}
  const pretty=x=>x?x.replace('T',' ')+' τοπική ώρα':'άγνωστη';
- p.querySelector('[data-hz-feas-windows]').textContent='Άφιξη: '+pretty(r.arrivalAt)+' · Αναχώρηση: '+pretty(r.departureAt)+'. Ενδεικτικά περιθώρια: μετακινήσεις '+n(o.arrivalGround,60)+'′/'+n(o.departureGround,60)+'′, οικογένεια '+r.family+'′, πριν την αναχώρηση '+r.preboard+'′. ΔΕΝ είναι πραγματικοί χρόνοι δρομολογίων.';
+ p.querySelector('[data-hz-feas-windows]').textContent='Άφιξη: '+pretty(r.arrivalAt)+' · Αναχώρηση: '+pretty(r.departureAt)+'. Ενδεικτικά περιθώρια: μετακινήσεις '+n(o.arrivalGround,60)+'′/'+n(o.departureGround,60)+'′, οικογένεια '+r.family+'′, πρόσθετο περιθώριο προσβασιμότητας '+r.accessibility+'′, πριν την αναχώρηση '+r.preboard+'′. ΔΕΝ είναι πραγματικοί χρόνοι δρομολογίων.';
  for(const x of ed.querySelectorAll('.hz-edit-row'))x.removeAttribute('data-hz-feas-conflict');
  for(const msg of r.conflicts){const m=/Ημέρα (\d+) · στάση (\d+)/.exec(msg);if(!m)continue;ed.querySelectorAll('.hz-edit-day')[Number(m[1])-1]?.querySelectorAll('.hz-edit-row')[Number(m[2])-1]?.setAttribute('data-hz-feas-conflict','1');}
  p.dataset.status=r.status;return r;
@@ -98,6 +99,7 @@ function augment(){
  '<label>Check-out καταλύματος (μόνο εφόσον επιβεβαιώθηκε)<input type="time" name="checkOut" data-hz-feasibility-field></label>',
  '<label>Περιθώριο μεταφοράς από άφιξη (λεπτά — υπόθεση)<input type="number" min="0" max="600" step="5" name="arrivalGround" value="60" data-hz-feasibility-field></label>',
  '<label>Περιθώριο μεταφοράς προς αναχώρηση (λεπτά — υπόθεση)<input type="number" min="0" max="600" step="5" name="departureGround" value="60" data-hz-feasibility-field></label>',
+ '<label>Πρόσθετο περιθώριο προσβασιμότητας / περιορισμένης κινητικότητας (λεπτά — δική σου εκτίμηση)<input type="number" min="0" max="180" step="5" name="accessibilityExtra" value="0" data-hz-feasibility-field></label>',
  '</div><div class="hz-feas-summary" data-hz-feas-summary role="status" aria-live="polite"></div>',
  '<div class="hz-feas-note" data-hz-feas-windows></div><ul class="hz-feas-items" data-hz-feas-items></ul>',
  '<div class="hz-feas-note">Ο έλεγχος εντοπίζει προφανείς συγκρούσεις, όχι επιβεβαιωμένη εφικτότητα. Οι τιμές/ώρες του καταλύματος και οι ώρες λειτουργίας αξιοθέατων απαιτούν ξεχωριστή επαλήθευση. Τα στοιχεία διατηρούνται μόνο στον browser.</div>'
