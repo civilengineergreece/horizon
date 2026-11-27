@@ -185,6 +185,15 @@ try{
   await audit.locator('[name="total"]').waitFor({timeout:15000});
   assert.ok((await audit.innerText()).includes('μόνο χειροκίνητα'));
   await audit.locator('[name="total"]').fill('440,50');
+  await audit.locator('[name="datesAndFlights"]').check();
+  await baggage.fill('41'); // changes record.editedAt asynchronously
+  await page.waitForTimeout(250);
+  assert.equal(await audit.locator('[name="total"]').inputValue(),'440,50',
+    'Editing bags must not reset half-completed seller checkout form');
+  assert.equal(await audit.locator('[name="datesAndFlights"]').isChecked(),true,
+    'EditedAt changes must not clear passenger and flight confirmations');
+  await baggage.fill('40'); // return to intended price model
+  await page.waitForTimeout(250);
   await audit.locator('[name="source"]').selectOption('search_result');
   await audit.locator('.hz-flight-checkout-save').click();
   assert.ok((await audit.locator('.hz-flight-checkout-status').innerText()).includes('Δεν ενημερώθηκε το budget'));
