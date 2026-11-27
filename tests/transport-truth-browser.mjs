@@ -9,7 +9,7 @@ const url=process.env.HORIZON_TEST_URL||'http://127.0.0.1:8765/';
 const api='https://horizon-live-api.gnchristou.workers.dev';
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
 async function open(page,name){
- const card=page.locator('.destination').filter({hasText:name});
+ const card=page.locator('#resultsCard .destination').filter({hasText:name});
  await card.waitFor({timeout:15000});
  await card.locator('.actions a').filter({hasText:/μεταφορ|σύγκρι/i}).first().click();
  await page.locator('.hd-tab[data-tab="transport"]').click().catch(()=>{});
@@ -22,13 +22,14 @@ async function close(page){
 async function search(page,name,transport){
  await page.evaluate(({name,transport})=>{
   state={origin:'Αθήνα',dates:{from:'2026-12-04',flex:0},duration:3,
-   budget:{amount:1500,transport:'all'},travelers:{adults:2,children:1,infants:1},
-   style:'city',stay:'hotel',transport,interests:['family'],special:''};
+   budget:{amount:5000,transport:'all'},travelers:{adults:2,children:1,infants:1},
+   style:'mixed',stay:'hotel',transport,interests:['history','family'],special:''};
   scored=[scoreDest(window.HORIZON_DESTINATIONS.find(d=>d.name===name))];
   document.getElementById('questionCard').classList.add('hidden');
   document.getElementById('resultsCard').classList.remove('hidden');
   document.querySelector('.progress-card')?.classList.add('hidden');
   window.renderResults('match','all');
+  document.getElementById('resultsCard').classList.remove('hidden');
  },{name,transport});
 }
 try{
@@ -78,8 +79,10 @@ try{
    await page.goto(url,{waitUntil:'domcontentloaded',timeout:45000});
    await page.waitForFunction(()=>Array.isArray(window.HORIZON_DESTINATIONS)&&
     window.HORIZON_DESTINATIONS.length>100&&window.__HZ_MM_SCORE_PATCH__===true&&
+    window.__HORIZON_RESULTS_TRUTH__===true&&
+    window.__HORIZON_FLIGHT_TIMES_CORE__===true&&
     typeof window.renderResults==='function',null,{timeout:30000});
-   await page.waitForTimeout(600);
+   await page.waitForTimeout(750);
    await page.evaluate(()=>{localStorage.clear();window.__ferryBudgetEvents=0;
     document.addEventListener('horizon:live-ferry-price',()=>window.__ferryBudgetEvents++);});
 
