@@ -91,7 +91,14 @@ function groundStatus(mode,target){
     ' Οι τιμές του βασικού πίνακα είναι εκτιμήσεις και δεν αποτελούν προσφορά κράτησης.</div>';
 }
 function patch(){
-  const ov=document.querySelector('.horizon-detail-overlay');if(!ov)return;const pane=ov.querySelector('[data-pane="transport"]');if(!pane||pane.querySelector('.hz-surface-live'))return;const name=destinationName();if(!name)return;
+  const ov=document.querySelector('.horizon-detail-overlay');if(!ov)return;
+  const pane=ov.querySelector('[data-pane="transport"]');if(!pane)return;
+  const existing=pane.querySelector('.hz-surface-live');
+  if(existing?.querySelector('[data-surface]'))return;
+  // A stale/empty shell can be produced while enhancement modules race to
+  // attach to a newly opened detail panel. Rebuild only this empty shell.
+  if(existing)existing.remove();
+  const name=destinationName();if(!name)return;
   const d=destData(name),modes=new Set(d.transport||[]),wrap=document.createElement('section');wrap.className='hz-surface-live';
   // The KTEL availability notice is useful even if an earlier module has not
   // yet augmented this mainland destination's list of possible travel modes.
