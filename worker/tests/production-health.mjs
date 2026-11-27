@@ -47,6 +47,37 @@ try {
   assert.ok(['EMAIL_DISABLED','INVALID_EMAIL','EMAIL_PROVIDER_NOT_CONFIGURED'].includes(emailInvalidBody.code),
     'No real email must be sent during readiness check');
   console.log('PASS: public email relay rejects invalid/disabled requests without any mail or billing');
+  // On PR builds production still runs the previously deployed Worker. On main
+  // production must prove the NEW search guard binding is live, not merely
+  // green syntax tests in an un-deployed branch. Poll briefly for Cloudflare
+  // Workers Builds to finish without making any billable supplier request.
+  const requireSearchGuard=process.env.HORIZON_REQUIRE_SEARCH_PROTECTION==='true';
+  let protectedAPI=null,lastStatus=null;
+  for(let n=0;n<(requireSearchGuard?22:1);n++){
+    const response=await fetch(base+'/search-protection-capabilities',{
+      headers:{Accept:'application/json',Origin:'https://civilengineergreece.github.io'},
+      signal:AbortSignal.timeout(20000)});
+    lastStatus=response.status;
+    if(response.ok){
+      const data=await response.json();
+      if(data?.ok===true&&data.guarded===true&&data.rateLimitConfigured===true&&
+         data.perIpLimit===12&&data.periodSeconds===60&&
+         ['/flights','/flight-returns','/flight-booking-options','/stays','/hotel-details']
+          .every(path=>data.endpoints?.includes(path))){
+        protectedAPI=data;break;
+      }
+    }
+    if(!requireSearchGuard)break;
+    await new Promise(resolve=>setTimeout(resolve,4000));
+  }
+  if(requireSearchGuard){
+    assert.ok(protectedAPI,'Deployed Worker MUST have Cloudflare paid-search rate-limit binding (last status '+lastStatus+')');
+    console.log('PASS: PRODUCTION search guard is live and bound: 12/min/IP on all five SerpApi endpoints, 0 billable calls');
+  }else if(protectedAPI){
+    console.log('PASS: existing production Search rate-limit protection is present (candidate run)');
+  }else{
+    console.log('INFO: pre-audit production Worker is awaiting approved patch deployment; no billable search attempted');
+  }
   console.log('PASS: production Worker up; Google Flights & Hotels configured; '+
     'capabilities and CORS verified, without any paid provider lookup');
 }catch(err) {
