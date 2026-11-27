@@ -106,8 +106,68 @@ test('booking options use selected booking token and return seller price and bag
     assert.equal(result.results[0].seller,'Example airline');
     assert.deepEqual(result.results[0].baggage.together,['1 free carry-on','Checked bag: 30']);
     assert.equal(result.results[0].bookingUrl,null,'POST booking actions must not be exposed as ordinary links');
+    assert.equal(result.results[0].bookingActions.length,1);
+    assert.deepEqual(result.results[0].bookingActions[0].handoff,{
+      method:'POST',url:'https://www.google.com/travel/clk/f',postData:'signed=token',
+      source:'google_flights_booking_request'
+    });
     assert.equal(result.infantBreakdownConfirmed,false,'No unsupported claim of infant fare breakdown');
   }finally{globalThis.fetch=originalFetch;}
+});
+
+test('seller booking handoffs are source-provided, URL-validated and never server-side followed',async()=>{
+ const original=globalThis.fetch,calls=[];
+ globalThis.fetch=async url=>{
+   calls.push(String(url));
+   return Response.json({booking_options:[
+    {together:{book_with:'Direct airline',price:222,booking_request:{url:'https://airline.example/booking?offer=pinned'}}},
+    {together:{book_with:'Signed Google',price:255,booking_request:{url:'https://www.google.com/travel/clk/f',post_data:'u=signed_mock_payload%2B01'}}},
+    {together:{book_with:'Unsafe scripted',price:280,booking_request:{url:'javascript:alert(1)'}}},
+    {together:{book_with:'Unsafe POST domain',price:290,booking_request:{url:'https://phishing.example/submit',post_data:'u=signed'}}},
+    {together:{book_with:'Local private host',price:300,booking_request:{url:'https://127.0.0.1/test'}}},
+    {together:{book_with:'Malformed signed token',price:310,booking_request:{url:'https://www.google.com/travel/clk/f',post_data:'u=signed\\nInjected:1'}}}
+   ]});
+ };
+ try{
+  const req=new Request(base+'/flight-booking-options',{method:'POST',
+    headers:{'content-type':'application/json'},body:JSON.stringify({
+      origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
+      adults:2,bookingToken:'mock-booking-token'
+    })});
+  const response=await worker.fetch(req,{SERPAPI_API_KEY:'fake-only'},{}),json=await response.json();
+  assert.equal(response.status,200);
+  assert.equal(calls.length,1,'Worker should ONLY call SerpApi, never post to merchant/Google');
+  assert.equal(new URL(calls[0]).hostname,'serpapi.com');
+  assert.equal(json.results[0].bookingActions[0].handoff.method,'GET');
+  assert.equal(json.results[0].bookingActions[0].handoff.url,'https://airline.example/booking?offer=pinned');
+  assert.equal(json.results[1].bookingActions[0].handoff.method,'POST');
+  assert.equal(json.results[1].bookingActions[0].handoff.postData,'u=signed_mock_payload%2B01');
+  for(const entry of json.results.slice(2))assert.equal(entry.bookingActions.length,0,entry.seller);
+ }finally{globalThis.fetch=original;}
+});
+
+test('roundtrip with two sellers exposes two separate provider handoffs, never one combined booking',async()=>{
+ const original=globalThis.fetch;
+ globalThis.fetch=async()=>Response.json({booking_options:[{
+  separate_tickets:true,
+  departing:{book_with:'Departure Seller',price:100,
+    booking_request:{url:'https://www.google.com/travel/clk/f',post_data:'u=outbound_signed'}},
+  returning:{book_with:'Return Seller',price:140,
+    booking_request:{url:'https://return.example/flight-offer'}}
+ }]});
+ try{
+  const req=new Request(base+'/flight-booking-options',{method:'POST',
+   headers:{'content-type':'application/json'},body:JSON.stringify({
+    origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
+    returnDate:'2026-12-06',adults:2,bookingToken:'mock-booking-token'
+   })});
+  const res=await worker.fetch(req,{SERPAPI_API_KEY:'fake-only'},{}),j=await res.json();
+  assert.equal(res.status,200);
+  assert.equal(j.results[0].price,240);
+  assert.deepEqual(j.results[0].bookingActions.map(a=>a.part),['departing','returning']);
+  assert.deepEqual(j.results[0].bookingActions.map(a=>a.handoff.method),['POST','GET']);
+  assert.equal(j.results[0].bookingUrl,null);
+ }finally{globalThis.fetch=original;}
 });
 
 test('booking endpoint rejects missing token and non-POST request',async()=>{
