@@ -126,3 +126,26 @@ test('public health/preflight never spends a billable rate limit',async()=>{
   assert.equal(options.status,204);
   assert.equal(n,0);
 });
+
+
+test('read-only public protection capability reports actual limiter binding without paid provider calls',async()=>{
+  let outside=0;const restore=stubFetch(()=>{outside++;throw Error('No external provider');});
+  try{
+    const configured=await worker.fetch(request('/search-protection-capabilities'),
+      env({limit:async()=>({success:true})}),{});
+    assert.equal(configured.status,200);
+    const yes=await configured.json();
+    assert.equal(yes.ok,true);
+    assert.equal(yes.guarded,true);
+    assert.equal(yes.rateLimitConfigured,true);
+    assert.equal(yes.perIpLimit,12);
+    assert.equal(yes.periodSeconds,60);
+    assert.deepEqual([...yes.endpoints].sort(),[
+      '/flights','/flight-returns','/flight-booking-options','/stays','/hotel-details'
+    ].sort());
+    const missing=await worker.fetch(request('/search-protection-capabilities'),env(),{});
+    assert.equal(missing.status,200);
+    assert.equal((await missing.json()).rateLimitConfigured,false);
+    assert.equal(outside,0);
+  }finally{restore();}
+});
