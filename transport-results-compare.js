@@ -53,9 +53,23 @@ function flightCache(name){
     const s=stateNow(),t=s.travelers||{},dt=dates(),
       key='hz-flight-selection-v2:hz-flights-v2:'+[s.origin||'Αθήνα',name,dt.from,dt.to,Math.max(1,Number(t.adults)||1),Math.max(0,Number(t.children)||0),Math.max(0,Number(t.infants)||0)].join('|');
     const v=JSON.parse(localStorage.getItem(key)||'null');
-    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||Date.now()-Number(v.at||0)>30*60*1000)return null;
+    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||
+       Number(v.at||0)>Date.now()+30000||Date.now()-Number(v.at||0)>30*60*1000)return null;
     if((dt.to&&v.scope!=='roundtrip')||(!dt.to&&v.scope!=='oneway'))return null;
-    return Number(v.fare)>0?{fare:Number(v.fare),extras:Math.max(0,Number(v.extras)||0)}:null;
+    if(v.origin!==(s.origin||'Αθήνα')||v.destination!==name||v.from!==dt.from||
+       (v.to||'')!==dt.to||Number(v.travelers?.adults)!==Math.max(1,Number(t.adults)||1)||
+       Number(v.travelers?.children)!==Math.max(0,Number(t.children)||0)||
+       Number(v.travelers?.infants)!==Math.max(0,Number(t.infants)||0))return null;
+    if(v.bookingStatus==='checkout_user_reported_not_booked'){
+      const at=Number(v.checkoutAt);
+      if(!Number.isFinite(at)||at<=0||at>Date.now()+30000||Date.now()-at>30*60*1000||
+         v.reviewEvidence!=='manual_flight_seller_checkout'||v.checkoutReviewValid!==true||
+         v.bookingFareStage!=='user_reported_seller_checkout'||
+         Number(v.fare)!==Number(v.sellerCheckoutTotal)||Number(v.baggage)!==0||
+         Number(v.extras)!==Number(v.ground))return null;
+    }else if(v.bookingStatus&&v.bookingStatus!=='quote_only_not_checked_out')return null;
+    return Number(v.fare)>0&&Number.isFinite(Number(v.extras))&&Number(v.extras)>=0?
+      {fare:Number(v.fare),extras:Number(v.extras),manual:v.bookingStatus==='checkout_user_reported_not_booked'}:null;
   }catch{return null;}
 }
 function carData(d){const origin=String(stateNow().origin||'').toLocaleLowerCase('el-GR')
@@ -63,7 +77,7 @@ function carData(d){const origin=String(stateNow().origin||'').toLocaleLowerCase
   if(!origin.includes('αθην')&&!origin.includes('athen'))return null;
   const p=window.HORIZON_CAR_ASSUMPTIONS?.roadProfiles?.[d.name];if(!p)return null;const t=stateNow().travelers||{},persons=Math.max(1,(Number(t.adults)||1)+(Number(t.children)||0)+(Number(t.infants)||0)),cars=Math.max(1,Math.ceil(persons/5)),cons=Number(stateNow().carConsumption?.value)||Number(window.HORIZON_CAR_ASSUMPTIONS?.consumptionL100)||7.5,fuelP=Number(window.HORIZON_CAR_ASSUMPTIONS?.fuelPricePerL)||2,km=p.km*2,fuel=Math.round(km*cons/100*fuelP*cars),tolls=Math.round((Number(p.toll)||0)*2*cars);return {hours:p.hours,cost:fuel+tolls,note:`Υπολογισμός υποθέσεων: ${Math.round(km)} km μετ’ επιστροφής · καύσιμα €${fuel} + διόδια €${tolls}. Η διαδρομή/τιμή καυσίμου/διόδια δεν ελέγχθηκαν live για την αφετηρία σου. Χωρίς parking, πλοίο, φθορές ή μίσθωση.`};}
 function modeData(d,m){
-  if(m==='plane'){const live=flightCache(d.name);return {time:PLANE_MIN[d.name]?formatH(PLANE_MIN[d.name]/60):'Δες live πτήσεις',cost:live?`€${(live.fare+live.extras).toLocaleString('el-GR')}`:'Έλεγχος τιμής',status:live?'Επιλεγμένη πτήση':'Αναζήτηση διαθέσιμη',cls:'hz-tr-status-live',note:live?'Αεροπορικό εισιτήριο Google Flights και χειροκίνητα πρόσθετα, όχι τελική τιμή κράτησης.':'Επίλεξε αναχώρηση και επιστροφή για συγκρίσιμη τιμή.'};}
+  if(m==='plane'){const live=flightCache(d.name);return {time:PLANE_MIN[d.name]?formatH(PLANE_MIN[d.name]/60):'Δες live πτήσεις',cost:live?`€${(live.fare+live.extras).toLocaleString('el-GR')}`:'Έλεγχος τιμής',status:live?'Επιλεγμένη πτήση':'Αναζήτηση διαθέσιμη',cls:'hz-tr-status-live',note:live?(live.manual?'Χειροκίνητα δηλωμένο checkout πωλητή, όχι ανεξάρτητη επαλήθευση/κράτηση. Η επίγεια μεταφορά παραμένει χωριστή.':'Αεροπορική προσφορά Google Flights + ενδεικτικά πρόσθετα, όχι τελική τιμή κράτησης.'):'Επίλεξε αναχώρηση και επιστροφή για συγκρίσιμη τιμή.'};}
   if(m==='car'){const x=carData(d);return x?{time:formatH(x.hours),cost:`~€${x.cost.toLocaleString('el-GR')}`,status:'Υπολογισμός',cls:'hz-tr-status-calc',note:x.note}:{time:'—',cost:'—',status:'Χωρίς στοιχεία',cls:'hz-tr-status-est',note:'Δεν υπάρχει αξιόπιστο οδικό προφίλ από τη συγκεκριμένη αφετηρία. Δεν προβάλλονται χιλιόμετρα ή διόδια άλλης διαδρομής.'};}
   const origin=String(stateNow().origin||'').toLocaleLowerCase('el-GR')
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
