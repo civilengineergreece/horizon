@@ -159,7 +159,7 @@ async function checkBookingOptions(panel){
         const actions=Array.isArray(x.bookingActions)?x.bookingActions:[];
         const actionButtons=actions.slice(0,2).map((action,j)=>{
           if(!['combined','departing','returning'].includes(action.part)||!action.handoff)return '';
-          const label=action.part==='combined'?'Κράτηση στον πωλητή':
+          const label=action.part==='combined'?'Συνέχεια στον πωλητή':
             action.part==='departing'?'Προς πωλητή αναχώρησης':'Προς πωλητή επιστροφής';
           return '<button type="button" class="hz-flight-handoff-btn" data-seller-open-index="'+i+
             '" data-booking-action-index="'+j+'">'+esc(label)+'</button>';
@@ -243,7 +243,17 @@ function selectSeller(panel,index){
   sess.selected.baggagePolicies=option.baggage;
   sess.selected.separateTickets=option.separateTickets===true;
   publish(panel,sess.selected);
-  bookingNotice(panel,'Επιλέχθηκε η προσφορά '+option.seller+'. Έλεγξε τελική χρέωση και βρεφικά τέλη στον πωλητή πριν την πληρωμή.');
+  // Keep the real seller handoff buttons available AFTER a quote is added
+  // to the budget. Replacing the result list with text would strand the user
+  // before they can open the same provider's checkout.
+  const box=panel.querySelector('.hz-flight-seller-results');
+  if(box){
+    const note=box.querySelector('.hz-flight-seller-selected-note')||document.createElement('div');
+    note.className='hz-flight-note hz-flight-seller-selected-note';
+    note.textContent='Επιλέχθηκε η προσφορά '+option.seller+
+      '. Το ποσό παραμένει προσφορά, όχι checkout. Άνοιξε τον πωλητή από την αντίστοιχη επιλογή για να επαληθεύσεις την τελική τιμή και τα βρεφικά τέλη.';
+    box.prepend(note);
+  }
 }
 async function getData(url,options={}){
   const res=await fetch(url,options),data=await res.json().catch(()=>({}));
