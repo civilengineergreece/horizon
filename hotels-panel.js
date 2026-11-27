@@ -251,7 +251,12 @@ function roomOfferHTML(offer,index){
     '<p>'+esc(breakfast+beds)+'</p>'+
     '<p>'+(offer.taxStatus==='provider_reports_after_taxes_fees'?'Η πηγή αναφέρει φόρους και τέλη.':'Φόροι/τέλη: άγνωστο αν περιλαμβάνονται.')+
     ' Η κούνια/διαμονή βρέφους δεν έχει επιβεβαιωθεί.</p>'+
-    (safeBooking?'<a href="'+esc(safeBooking)+'" target="_blank" rel="noopener noreferrer">Έλεγχος στην ιστοσελίδα πωλητή</a>':'<p>Δεν δόθηκε ασφαλής σύνδεσμος κράτησης.</p>')+
+    (safeBooking?'<a href="'+esc(safeBooking)+'" target="_blank" rel="noopener noreferrer">'+
+      (offer.bookingLinkScope==='provider_rate_link'?'Προς τιμή δωματίου στον πωλητή':'Προς σελίδα πωλητή για έλεγχο')+'</a>'+
+      '<p class="hz-hotel-price-warning">'+
+      (offer.bookingLinkScope==='provider_rate_link'?'Σύνδεσμος προσφοράς που επέστρεψε η πηγή · δεν εγγυάται διαθεσιμότητα, κούνια, τελικούς φόρους ή checkout.':
+       'Σύνδεσμος πωλητή χωρίς επιβεβαίωση ότι διατηρεί το συγκεκριμένο δωμάτιο/τιμή/ημερομηνίες.')+
+      '</p>':'<p>Δεν δόθηκε ασφαλής σύνδεσμος προς την προσφορά.</p>')+
     (valid?'<div><button type="button" class="hz-hotel-select" data-hotel-room-index="'+index+'">Προσθήκη συγκεκριμένης προσφοράς στο budget</button></div>':
       '<p>Δεν επιτρέπεται επιλογή χωρίς επιβεβαιωμένη χωρητικότητα για ενήλικες και παιδιά.</p>')+
     '</div>';
@@ -303,7 +308,8 @@ function selectRoom(panel,index){
     name:hotel.name,id:hotel.id,total:offer.total,currency:offer.currency,
     taxStatus:offer.taxStatus,priceSource:offer.seller,
     roomName:offer.roomName,seller:offer.seller,freeCancellation:offer.freeCancellation,
-    bookingUrl:offer.bookingUrl,bookingKind:offer.roomName?'named_room_offer':'seller_offer_room_not_supplied'
+    bookingUrl:offer.bookingUrl,bookingLinkScope:offer.bookingLinkScope||'not_supplied',
+    bookingKind:offer.roomName?'named_room_offer':'seller_offer_room_not_supplied'
   },detail.data.retrievedAt);
 }
 function saveStaySelection(panel,info,hotel,option,retrievedAt){
@@ -316,6 +322,7 @@ function saveStaySelection(panel,info,hotel,option,retrievedAt){
     priceSource:option.priceSource||'Google Hotels',source:'Google Hotels via SerpApi',
     retrievedAt,roomName:option.roomName||null,seller:option.seller||null,
     freeCancellation:option.freeCancellation??null,bookingUrl:safeUrl(option.bookingUrl)||null,
+    bookingLinkScope:option.bookingLinkScope||'not_supplied',
     bookingKind:option.bookingKind||'property_list_quote',
     possibleClimateFeeEUR:fee?.amountEUR??null,climateFeeIncluded:null,
     bookingStatus:'quote_only_not_checked_out'};

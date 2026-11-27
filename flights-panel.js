@@ -8,7 +8,7 @@ function installStyles(){if(document.getElementById(STYLE_ID))return;const s=doc
 .hz-flight-form{display:grid;grid-template-columns:1fr 1fr;gap:9px}.hz-flight-field label{display:block;color:#8fa3b2;font-size:.7rem;margin-bottom:5px}.hz-flight-field input{width:100%;border:1px solid rgba(255,255,255,.12);background:#0b1d2b;color:#fff;border-radius:9px;padding:9px}
 .hz-flight-summary{grid-column:1/-1;color:#b8c6cf;font-size:.76rem}.hz-flight-search{grid-column:1/-1;border:0;border-radius:10px;padding:11px 13px;background:linear-gradient(180deg,#ff8b29,#df5e08);color:#fff;font-weight:900;cursor:pointer}.hz-flight-search:disabled{opacity:.6;cursor:wait}
 .hz-flight-status{margin:10px 0 0;color:#aab8c2;font-size:.78rem}.hz-flight-results{display:grid;gap:9px;margin-top:12px}.hz-flight-card{border:1px solid rgba(255,255,255,.09);background:#102638;border-radius:13px;padding:12px}.hz-flight-card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.hz-flight-airline{font-weight:900}.hz-flight-price{font-size:1.05rem;font-weight:950;color:#fff;white-space:nowrap}.hz-flight-route{margin-top:7px;font-size:.83rem}.hz-flight-meta{margin-top:5px;color:#9fb0bd;font-size:.74rem}.hz-flight-source{margin-top:10px;color:#76d8a6;font-size:.7rem}
- .hz-flight-option{margin-top:11px;border:1px solid rgba(255,122,22,.6);background:#19364a;border-radius:9px;padding:10px;color:#fff;font-weight:800;cursor:pointer}.hz-flight-cost{margin:15px 0;padding:12px;border:1px solid rgba(101,211,154,.4);border-radius:10px}.hz-flight-note{margin-top:9px;color:#ffdfac;font-size:.74rem;line-height:1.5}.hz-flight-selected-leg{margin-top:9px;padding:10px 12px;border:1px solid rgba(150,205,255,.18);border-radius:9px;background:#0e2537}.hz-flight-selected-leg b{display:block;margin-bottom:5px;color:#fff}.hz-flight-seller-results{margin-top:12px;display:grid;gap:8px}.hz-flight-seller{padding:11px;border:1px solid rgba(101,211,154,.24);border-radius:10px;background:#102a30}.hz-flight-seller button{border:1px solid rgba(101,211,154,.7);background:#173b38;color:white;border-radius:8px;padding:8px 10px;margin-top:7px;cursor:pointer}.hz-flight-booking{margin:12px 0;border:1px solid rgba(101,211,154,.6);background:#113629;color:white;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}.hz-flight-change{margin:10px 0;border:1px solid rgba(255,255,255,.28);border-radius:9px;background:#183045;color:#fff;padding:9px 13px;cursor:pointer;font-weight:800}.hz-flight-extras{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
+ .hz-flight-option{margin-top:11px;border:1px solid rgba(255,122,22,.6);background:#19364a;border-radius:9px;padding:10px;color:#fff;font-weight:800;cursor:pointer}.hz-flight-cost{margin:15px 0;padding:12px;border:1px solid rgba(101,211,154,.4);border-radius:10px}.hz-flight-note{margin-top:9px;color:#ffdfac;font-size:.74rem;line-height:1.5}.hz-flight-selected-leg{margin-top:9px;padding:10px 12px;border:1px solid rgba(150,205,255,.18);border-radius:9px;background:#0e2537}.hz-flight-selected-leg b{display:block;margin-bottom:5px;color:#fff}.hz-flight-seller-results{margin-top:12px;display:grid;gap:8px}.hz-flight-seller{padding:11px;border:1px solid rgba(101,211,154,.24);border-radius:10px;background:#102a30}.hz-flight-seller button{border:1px solid rgba(101,211,154,.7);background:#173b38;color:white;border-radius:8px;padding:8px 10px;margin:7px 7px 0 0;cursor:pointer}.hz-flight-seller .hz-flight-handoff-btn{background:#263b61;border-color:#7da9ef}.hz-flight-seller .hz-flight-handoff-note{color:#ffd2ad;font-size:.73rem;line-height:1.55;margin-top:7px}.hz-flight-booking{margin:12px 0;border:1px solid rgba(101,211,154,.6);background:#113629;color:white;border-radius:10px;padding:10px 12px;font-weight:800;cursor:pointer}.hz-flight-change{margin:10px 0;border:1px solid rgba(255,255,255,.28);border-radius:9px;background:#183045;color:#fff;padding:9px 13px;cursor:pointer;font-weight:800}.hz-flight-extras{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:14px 0}
 @media(max-width:620px){.hz-flight-form,.hz-flight-extras{grid-template-columns:1fr}.hz-flight-summary,.hz-flight-search{grid-column:1}}
 `;document.head.appendChild(s);}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
@@ -156,13 +156,80 @@ async function checkBookingOptions(panel){
       choices.slice(0,10).map((x,i)=>{
         const policies=[...(x.baggage?.together||[]),...(x.baggage?.departing||[]),...(x.baggage?.returning||[])];
         const description=policies.length?policies.map(esc).join(' · '):'Δεν δόθηκε πολιτική αποσκευών';
+        const actions=Array.isArray(x.bookingActions)?x.bookingActions:[];
+        const actionButtons=actions.slice(0,2).map((action,j)=>{
+          if(!['combined','departing','returning'].includes(action.part)||!action.handoff)return '';
+          const label=action.part==='combined'?'Κράτηση στον πωλητή':
+            action.part==='departing'?'Προς πωλητή αναχώρησης':'Προς πωλητή επιστροφής';
+          return '<button type="button" class="hz-flight-handoff-btn" data-seller-open-index="'+i+
+            '" data-booking-action-index="'+j+'">'+esc(label)+'</button>';
+        }).join('');
+        const providerNote=actions.length?
+          (x.separateTickets&&actions.every(x=>x.part!=='combined')?
+           '<div class="hz-flight-handoff-note">Ξεχωριστά εισιτήρια: χρειάζονται δύο ανεξάρτητες διαδικασίες αγοράς. Καμία δεν θεωρείται ολοκληρωμένη από το HORIZON.</div>':
+           '<div class="hz-flight-handoff-note">Πραγματική παραπομπή Google Flights προς τον πωλητή. Δεν είναι προ-επιβεβαιωμένο checkout. Επαλήθευσε επιβάτες, βρέφος, φόρους και τιμή στον προορισμό.</div>'):
+          '<div class="hz-flight-handoff-note">Ο πάροχος δεν έδωσε σύνδεσμο προς το συγκεκριμένο checkout. Διατίθεται μόνο η προσφορά σύγκρισης.</div>';
         return '<div class="hz-flight-seller"><b>'+esc(x.seller)+'</b> · '+euro(x.price)+
           (x.separateTickets?'<div class="hz-flight-note">Πιθανώς ξεχωριστά εισιτήρια</div>':'')+
           '<div class="hz-flight-meta">Αποσκευές: '+description+'</div>'+
-          '<button type="button" data-seller-index="'+i+'">Χρήση προσφοράς στο budget</button></div>';
+          '<button type="button" data-seller-index="'+i+'">Χρήση προσφοράς στο budget</button>'+
+          actionButtons+providerNote+'</div>';
       }).join('');
   }catch(e){if(sessions.get(panel)===sess&&sess.selected===requestedSelection)bookingNotice(panel,'Δεν ολοκληρώθηκε ο έλεγχος πωλητών: '+String(e.message||e));}
   finally{if(btn&&sessions.get(panel)===sess&&sess.selected===requestedSelection)btn.disabled=false;}
+}
+function handoffAllowed(raw){
+  if(!raw||!['GET','POST'].includes(raw.method))return null;
+  let u;
+  try{u=new URL(raw.url);}catch{return null;}
+  if(u.protocol!=='https:'||u.username||u.password||u.port||
+    ['localhost','127.0.0.1','0.0.0.0','::1'].includes(u.hostname.toLowerCase()))return null;
+  if(raw.method==='POST'){
+    if(!['www.google.com','google.com'].includes(u.hostname.toLowerCase())||
+      u.pathname!=='/travel/clk/f'||u.search||
+      typeof raw.postData!=='string'||raw.postData.length>32768||
+      !/^[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+/\-=]+(?:&[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+/\-=]+)*$/.test(raw.postData))return null;
+    const params=new URLSearchParams(raw.postData);
+    if(![...params].length||[...params].length>5)return null;
+    return {method:'POST',url:u.toString(),params};
+  }
+  return {method:'GET',url:u.toString()};
+}
+function openSellerHandoff(panel,optionIndex,actionIndex){
+  const sess=sessions.get(panel),choice=sess?.bookingOptions?.results?.[optionIndex],
+    action=choice?.bookingActions?.[actionIndex],handoff=handoffAllowed(action?.handoff);
+  if(!sess?.selected||!choice||!action||!handoff)return;
+  const now=Date.now(),retrievedAt=Date.parse(sess.bookingOptions?.retrievedAt||''),
+    current=defaultDates(),t=travelers(),s=stateNow();
+  if(!Number.isFinite(retrievedAt)||retrievedAt>now+30000||now-retrievedAt>CACHE_TTL||
+    (s.origin||'Αθήνα')!==sess.origin||current.from!==sess.from||current.to!==sess.to||
+    t.adults!==sess.travelers.adults||t.children!==sess.travelers.children||
+    t.infants!==sess.travelers.infants||!['confirmed','not_provided'].includes(sess.bookingOptions.itineraryMatch||'not_provided')){
+    const msg=panel.querySelector('.hz-flight-status');if(msg)msg.textContent=
+      'Άλλαξε το ταξίδι ή έληξε η προσφορά πωλητή. Χρειάζεται νέα αναζήτηση πριν τη μετάβαση.';
+    return;
+  }
+  const msg=panel.querySelector('.hz-flight-status');
+  if(msg)msg.textContent='Ανοίγει η διαδικασία Google Flights προς '+(action.seller||choice.seller)+
+    '. Η τιμή/διαθεσιμότητα δεν είναι εγγυημένη. Ο έλεγχος και η τυχόν πληρωμή γίνονται εκτός HORIZON.';
+  if(handoff.method==='GET'){
+    // Browser-native navigation. Never collect seller checkout details in HORIZON.
+    window.open(handoff.url,'_blank','noopener,noreferrer');
+  }else{
+    // Google Flights' signed booking_request is documented as an HTTP POST.
+    // Forward exactly its opaque form field values via native browser form.
+    // NEVER substitute a GET or proxy/payment endpoint.
+    const form=document.createElement('form');
+    form.method='POST';form.action=handoff.url;form.target='_blank';
+    form.rel='noopener noreferrer';form.enctype='application/x-www-form-urlencoded';
+    form.style.display='none';
+    for(const [name,value] of handoff.params){
+      const input=document.createElement('input');input.type='hidden';input.name=name;
+      input.value=value;form.appendChild(input);
+    }
+    document.body.appendChild(form);
+    try{form.submit();}finally{form.remove();}
+  }
 }
 function selectSeller(panel,index){
   const sess=sessions.get(panel),option=sess?.bookingOptions?.results?.[index];
@@ -276,7 +343,12 @@ function enhanceOverlay(overlay){
   if(!overlay||overlay.querySelector('.hz-flights-panel'))return;const name=overlay.querySelector('.hd-head h3')?.textContent?.trim();if(!name||!supportsPlane(name))return;const pane=overlay.querySelector('[data-pane="transport"]');if(!pane)return;
   const dates=defaultDates(),t=travelers(),box=document.createElement('section');box.className='hz-flights-panel';
   box.innerHTML=`<div class="hz-flights-title">Live πτήσεις μέσα στο Horizon</div><div class="hz-flights-copy">Οι τιμές αρχικής αναζήτησης αφορούν την αναχώρηση. Για συνολική τιμή μετ’ επιστροφής επιλέγεις πρώτα αναχώρηση, μετά επιστροφή. Οι επιβαρύνσεις αποσκευών και η τελική διαθεσιμότητα ελέγχονται πριν την κράτηση.</div><div class="hz-flight-form"><div class="hz-flight-field"><label>Αναχώρηση</label><input class="hz-flight-from" type="date" value="${esc(dates.from)}"></div><div class="hz-flight-field"><label>Επιστροφή</label><input class="hz-flight-to" type="date" value="${esc(dates.to)}"></div><div class="hz-flight-summary">${esc(stateNow().origin||'Αθήνα')} → ${esc(name)} · ${t.adults} ενήλικες${t.children?` · ${t.children} παιδιά`:''}${t.infants?` · ${t.infants} βρέφη`:''}</div><button type="button" class="hz-flight-search">Αναζήτηση live πτήσεων</button></div><div class="hz-flight-status" role="status" aria-live="polite"></div><div class="hz-flight-results"></div><button type="button" class="hz-flight-change" hidden>Αλλαγή αναχώρησης</button><div class="hz-flight-extras"><div class="hz-flight-field"><label>Αποσκευές / λοιπές χρεώσεις (€)<input type="number" min="0" step="1" value="0" data-flight-baggage></label></div><div class="hz-flight-field"><label>Μετακινήσεις αεροδρομίων (€)<input type="number" min="0" step="1" value="0" data-flight-ground></label></div><div class="hz-flight-field"><label>Χρόνος επίγειων μεταφορών ανά σκέλος (λεπτά)<input type="number" min="0" step="5" value="0" data-flight-ground-mins></label></div></div><div class="hz-flight-ground-info hz-flight-note" aria-live="polite">Οι μετακινήσεις αεροδρομίων θα εκτιμηθούν μόλις επιλέξεις πτήσεις, όπου διαθέτουμε τεκμηριωμένα κόμιστρα.</div><div class="hz-flight-cost" aria-live="polite"></div><button class="hz-flight-booking" type="button">Έλεγχος τιμών πωλητών & αποσκευών</button><div class="hz-flight-seller-results" aria-live="polite"></div>`;
-  pane.appendChild(box);box.querySelectorAll('[data-flight-ground],[data-flight-ground-mins]').forEach(input=>input.addEventListener('input',()=>{box.dataset.groundManuallyEdited='1';const x=sessions.get(box);if(x){x.groundEstimate=null;if(x.selected)applyAirportGround(box,x.selected);}}));box.querySelector('.hz-flight-booking').addEventListener('click',()=>checkBookingOptions(box));box.querySelector('.hz-flight-seller-results').addEventListener('click',e=>{const b=e.target.closest?.('[data-seller-index]');if(b)selectSeller(box,Number(b.dataset.sellerIndex));});box.querySelector('.hz-flight-search').addEventListener('click',()=>search(box,name));box.querySelector('.hz-flight-results').addEventListener('click',e=>{const b=e.target.closest?.('[data-flight-step]');if(b)selectFlight(box,b.dataset.flightStep,Number(b.dataset.flightIndex));});box.querySelector('.hz-flight-extras').addEventListener('input',()=>{const x=sessions.get(box);if(x?.selected)publish(box,x.selected);});box.querySelector('.hz-flight-change').addEventListener('click',()=>{const x=sessions.get(box);if(!x?.outboundData)return;x.selected=null;x.outbound=null;x.returnData=null;x.bookingOptions=null;box.querySelector('.hz-flight-booking').disabled=false;resetManualFlightExtras(box);clearSelection(x.key);box.querySelector('.hz-flight-seller-results').textContent='';box.querySelector('.hz-flight-cost').textContent='';renderResults(box,x.outboundData,'outbound',true);document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:x.name,price:0,selected:false}}));});
+  pane.appendChild(box);box.querySelectorAll('[data-flight-ground],[data-flight-ground-mins]').forEach(input=>input.addEventListener('input',()=>{box.dataset.groundManuallyEdited='1';const x=sessions.get(box);if(x){x.groundEstimate=null;if(x.selected)applyAirportGround(box,x.selected);}}));box.querySelector('.hz-flight-booking').addEventListener('click',()=>checkBookingOptions(box));box.querySelector('.hz-flight-seller-results').addEventListener('click',e=>{
+    const handoff=e.target.closest?.('[data-seller-open-index]');
+    if(handoff){openSellerHandoff(box,Number(handoff.dataset.sellerOpenIndex),
+      Number(handoff.dataset.bookingActionIndex));return;}
+    const b=e.target.closest?.('[data-seller-index]');if(b)selectSeller(box,Number(b.dataset.sellerIndex));
+  });box.querySelector('.hz-flight-search').addEventListener('click',()=>search(box,name));box.querySelector('.hz-flight-results').addEventListener('click',e=>{const b=e.target.closest?.('[data-flight-step]');if(b)selectFlight(box,b.dataset.flightStep,Number(b.dataset.flightIndex));});box.querySelector('.hz-flight-extras').addEventListener('input',()=>{const x=sessions.get(box);if(x?.selected)publish(box,x.selected);});box.querySelector('.hz-flight-change').addEventListener('click',()=>{const x=sessions.get(box);if(!x?.outboundData)return;x.selected=null;x.outbound=null;x.returnData=null;x.bookingOptions=null;box.querySelector('.hz-flight-booking').disabled=false;resetManualFlightExtras(box);clearSelection(x.key);box.querySelector('.hz-flight-seller-results').textContent='';box.querySelector('.hz-flight-cost').textContent='';renderResults(box,x.outboundData,'outbound',true);document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:x.name,price:0,selected:false}}));});
   box.querySelector('.hz-flight-form').addEventListener('change',e=>{if(!e.target.matches?.('.hz-flight-from,.hz-flight-to'))return;const x=sessions.get(box),from=box.querySelector('.hz-flight-from').value,to=box.querySelector('.hz-flight-to').value;clearRouteSelections(stateNow().origin||'Αθήνα',name);resetManualFlightExtras(box);if(x){document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:x.name,price:0,selected:false}}));}sessions.delete(box);const searchBtn=box.querySelector('.hz-flight-search');searchBtn.disabled=false;searchBtn.textContent='Αναζήτηση live πτήσεων';box.querySelector('.hz-flight-booking').disabled=false;box.querySelector('.hz-flight-results').textContent='';box.querySelector('.hz-flight-cost').textContent='';box.querySelector('.hz-flight-seller-results').textContent='';box.querySelector('.hz-flight-change').hidden=true;const valid=!!from&&(!to||to>=from);if(valid)syncPlannerDates(from,to);box.querySelector('.hz-flight-status').textContent=!valid?'Η επιστροφή πρέπει να είναι ίδια ή μεταγενέστερη της αναχώρησης.':'Οι ημερομηνίες και η διάρκεια ενημερώθηκαν στο Planner και στο συνολικό budget. Απαιτείται νέα αναζήτηση πτήσεων.';});
 }
 function enhanceAll(){document.querySelectorAll('.horizon-detail-overlay').forEach(enhanceOverlay);}
