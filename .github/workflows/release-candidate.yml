@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'privacy.html'
+      - 'terms.html'
       - '*.js'
       - 'tests/**'
       - 'worker/src/**'
@@ -13,6 +15,8 @@ on:
     branches: ['main']
     paths:
       - 'index.html'
+      - 'privacy.html'
+      - 'terms.html'
       - '*.js'
       - 'tests/**'
       - 'worker/src/**'
