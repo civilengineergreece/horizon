@@ -47,7 +47,14 @@ try{
     await route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},
       body:JSON.stringify({ok:true,provider:'Google Flights via SerpApi',retrievedAt:new Date().toISOString(),
         results:[{seller:'Test Seller',price:355,currency:'EUR',separateTickets:false,
-          baggage:{together:['1 cabin bag included','1st checked bag: €30'],departing:[],returning:[]}}]})});
+          bookingActions:[{part:'combined',seller:'Test Seller',
+            handoff:{method:'POST',url:'https://www.google.com/travel/clk/f',
+              postData:'u=signed_mock_payload%2B01',source:'google_flights_booking_request'}}],
+          baggage:{together:['1 cabin bag included','1st checked bag: €30'],departing:[],returning:[]}},
+          {seller:'Direct Seller',price:385,currency:'EUR',separateTickets:false,
+            bookingActions:[{part:'combined',seller:'Direct Seller',
+              handoff:{method:'GET',url:'https://seller.example/booking?offer=pinned',source:'google_flights_booking_request'}}],
+            baggage:{together:[],departing:[],returning:[]}}]})});
   });
   await page.goto(site,{waitUntil:'domcontentloaded',timeout:45000});
   await page.waitForFunction(()=>
@@ -116,6 +123,39 @@ try{
   const sellerContents=await page.locator('.hz-flight-seller-results').innerText();
   assert.ok(sellerContents.includes('Test Seller'));
   assert.ok(sellerContents.includes('1 cabin bag included'));
+  assert.equal(await page.locator('.hz-flight-handoff-btn').count(),2,
+    'Only provider-supplied booking handoffs may be offered');
+  await page.evaluate(()=>{
+    window.__handoffForms=[];window.__handoffGet=[];
+    HTMLFormElement.prototype.submit=function(){
+      window.__handoffForms.push({method:this.method,action:this.action,target:this.target,
+        fields:[...this.querySelectorAll('input')].map(x=>({name:x.name,value:x.value}))});
+    };
+    window.open=(url,target,features)=>{
+      window.__handoffGet.push({url,target,features});return null;
+    };
+  });
+  await page.locator('[data-seller-open-index="0"]').click();
+  const post=await page.evaluate(()=>window.__handoffForms);
+  assert.equal(post.length,1,'Real provider POST must occur only upon user click');
+  assert.equal(post[0].method,'post');
+  assert.equal(post[0].action,'https://www.google.com/travel/clk/f');
+  assert.equal(post[0].target,'_blank');
+  assert.deepEqual(post[0].fields,[{name:'u',value:'signed_mock_payload+01'}],
+    'Opaque provider token transmitted as original native form field');
+  await page.locator('[data-seller-open-index="1"]').click();
+  const get=await page.evaluate(()=>window.__handoffGet);
+  assert.equal(get.length,1);
+  assert.equal(get[0].url,'https://seller.example/booking?offer=pinned');
+  assert.equal(get[0].target,'_blank');
+  assert.ok(get[0].features.includes('noopener'));
+  console.log('PASS provider checkout handoff: signed native POST and exact GET link, no HORIZON payment');
+
+  await page.evaluate(()=>{state.dates.from='2026-12-10';});
+  await page.locator('[data-seller-open-index="0"]').click();
+  assert.equal(await page.evaluate(()=>window.__handoffForms.length),1,
+    'Changed itinerary must block stale provider redirects');
+  await page.evaluate(()=>{state.dates.from='2026-12-04';});
   await page.locator('[data-seller-index="0"]').click();
   const sellerRecord=await page.evaluate(()=>{
     const k=Object.keys(localStorage).find(k=>k.startsWith('hz-flight-selection-v2:'));
