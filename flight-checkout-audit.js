@@ -93,7 +93,10 @@ function render(panel){
  if(r.bookingFareStage!=='seller_quote'){
   root?.remove();return;
  }
- const stamp=[r.at,r.editedAt,r.fare,r.bookingSeller].join('|');
+ // Only supplier offer identity can reset a partly completed review.
+ // Manually editing baggage/airport transfer updates editedAt, but MUST NOT
+ // erase all checkboxes while the user is filling the final-screen audit.
+ const stamp=[r.at,r.fare,r.bookingSeller,r.bookingFareStage,r.scope].join('|');
  if(root?.dataset.stamp===stamp)return;
  if(!root){root=document.createElement('section');root.className='hz-flight-checkout-review';panel.querySelector('.hz-flight-seller-results')?.after(root);}
  root.dataset.stamp=stamp;root.dataset.selectionKey=ctx.key;
@@ -132,7 +135,8 @@ function save(root){
  const panel=root.closest('.hz-flights-panel');if(!panel)return;
  const ctx=trip(panel),r=read(ctx),out=assess(capture(root,ctx,r));
  const msg=root.querySelector('.hz-flight-checkout-status');
- if(root.dataset.selectionKey!==ctx.key||root.dataset.stamp!==[r?.at,r?.editedAt,r?.fare,r?.bookingSeller].join('|')){
+ if(root.dataset.selectionKey!==ctx.key||
+    root.dataset.stamp!==[r?.at,r?.fare,r?.bookingSeller,r?.bookingFareStage,r?.scope].join('|')){
   if(msg)msg.textContent='Η προσφορά άλλαξε — επανάλαβε τον έλεγχο.';return;
  }
  if(!out.complete){if(msg)msg.textContent='Δεν ενημερώθηκε το budget: '+out.problems.join(' ');return;}
