@@ -110,7 +110,8 @@ function publish(panel,selected){
   const mins=amount(panel.querySelector('[data-flight-ground-mins]'));
   const groundAuto=panel.dataset.groundManuallyEdited!=='1'&&!!sess.groundEstimate;
   const quoteAt=Number(selected.quoteRetrievedAtMs)||Date.now();
-  const record={at:quoteAt,editedAt:Date.now(),fare,extras:baggage+ground,estimatedTotal:Math.round((fare+baggage+ground)*100)/100,scope:selected.scope,groundCostOrigin:groundAuto?'public_bus_fare_benchmark':panel.dataset.groundManuallyEdited==='1'?'user_input':'not_verified',groundEstimate:groundAuto?sess.groundEstimate:null,airportBufferMinutes:120*(selected.scope==='roundtrip'?2:1),bookingSeller:selected.bookingSeller||null,bookingCheckedAt:selected.bookingCheckedAt||null,bookingFareStage:selected.bookingFareStage||'search_offer',bookingMatchStatus:selected.bookingMatchStatus||'not_provided',baggagePolicies:selected.baggagePolicies||null,infantFareVerified:false,infantFareRules:window.HORIZON_INFANT_FARE_RULES?.policies?.(selected,sess.travelers.infants)||[],origin:sess.origin,destination:sess.name,from:sess.from,to:sess.to,travelers:sess.travelers,baggage,ground,groundMinutesEachWay:mins,source:'Google Flights via SerpApi',outbound:selected.outbound,returnFlight:selected.returnFlight||null};
+  const record={at:quoteAt,editedAt:Date.now(),fare,extras:baggage+ground,estimatedTotal:Math.round((fare+baggage+ground)*100)/100,scope:selected.scope,groundCostOrigin:groundAuto?'public_bus_fare_benchmark':panel.dataset.groundManuallyEdited==='1'?'user_input':'not_verified',groundEstimate:groundAuto?sess.groundEstimate:null,airportBufferMinutes:120*(selected.scope==='roundtrip'?2:1),bookingSeller:selected.bookingSeller||null,bookingCheckedAt:selected.bookingCheckedAt||null,bookingFareStage:selected.bookingFareStage||'search_offer',bookingMatchStatus:selected.bookingMatchStatus||'not_provided',baggagePolicies:selected.baggagePolicies||null,
+    separateTickets:selected.separateTickets===true,bookingStatus:'quote_only_not_checked_out',infantFareVerified:false,infantFareRules:window.HORIZON_INFANT_FARE_RULES?.policies?.(selected,sess.travelers.infants)||[],origin:sess.origin,destination:sess.name,from:sess.from,to:sess.to,travelers:sess.travelers,baggage,ground,groundMinutesEachWay:mins,source:'Google Flights via SerpApi',outbound:selected.outbound,returnFlight:selected.returnFlight||null};
   try{localStorage.setItem(selectionKey(sess.key),JSON.stringify(record));}catch{}
   panel.querySelector('.hz-flight-cost').innerHTML='<b>Επιλεγμένη τιμή '+(selected.scope==='roundtrip'?'μετ’ επιστροφής':'απλής μετάβασης')+': '+euro(fare)+'</b>'+
     selectedLegHTML('Αναχώρηση',selected.outbound)+selectedLegHTML('Επιστροφή',selected.returnFlight)+
@@ -173,6 +174,7 @@ function selectSeller(panel,index){
   sess.selected.bookingFareStage='seller_quote';
   sess.selected.bookingMatchStatus=sess.bookingOptions.itineraryMatch||'not_provided';
   sess.selected.baggagePolicies=option.baggage;
+  sess.selected.separateTickets=option.separateTickets===true;
   publish(panel,sess.selected);
   bookingNotice(panel,'Επιλέχθηκε η προσφορά '+option.seller+'. Έλεγξε τελική χρέωση και βρεφικά τέλη στον πωλητή πριν την πληρωμή.');
 }
