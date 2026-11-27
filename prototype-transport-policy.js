@@ -54,14 +54,9 @@ function patchCompare(){
   });
 }
 function patchSurface(){
-  document.querySelectorAll('.horizon-detail-overlay .hz-surface-live').forEach(box=>{
-    box.querySelectorAll('[data-surface="bus"]').forEach(b=>b.remove());
-    const copy=box.querySelector('.hz-surface-copy');
-    if(copy)copy.textContent='Χρησιμοποιούνται αυτόματα η αφετηρία, ο προορισμός και οι ημερομηνίες του Planner. Τα τρένα αναζητούνται live μέσω Transitous/MOTIS και τα πλοία μέσω Ferryhopper. Για ΚΤΕΛ κρατάμε καθαρή εκτίμηση στη δοκιμαστική έκδοση· στην επαγγελματική έκδοση θα χρησιμοποιηθεί Omio.';
-    const actions=box.querySelector('.hz-surface-actions');
-    if(actions&&!actions.querySelector('button'))box.style.display='none';
-    else box.style.display='';
-  });
+  // The provider panel owns its buttons, warnings and visibility. Do not
+  // delete the KTEL "not connected" notice or overwrite Ferryhopper fare
+  // disclosures; the transport cleanup module handles selection filters.
 }
 function patchCards(){
   document.querySelectorAll('#resultsCard .destination').forEach(card=>{
