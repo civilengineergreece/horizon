@@ -150,6 +150,14 @@ export default {
       if(request.method!=='POST')return deny(request,env,405,'METHOD_NOT_ALLOWED','Χρησιμοποίησε POST.');
       return emailPdf(request,env);
     }
+    if(url.pathname==='/search-protection-capabilities'){
+      if(request.method!=='GET')return deny(request,env,405,'METHOD_NOT_ALLOWED','Χρησιμοποίησε GET.');
+      return reply(request,env,{ok:true,guarded:true,requiresExactOrigin:true,
+        requiresCloudflareSourceIp:true,failClosedIfLimitMissing:true,
+        rateLimitConfigured:typeof env.TRAVEL_SEARCH_RATE_LIMIT?.limit==='function',
+        perIpLimit:12,periodSeconds:60,
+        methods:['GET','POST'],endpoints:[...BILLABLE_SEARCH_PATHS]},200);
+    }
     const denied=await limitPaidSearch(request,env,url);
     if(denied)return denied;
     return v5.fetch(request,env,ctx);
