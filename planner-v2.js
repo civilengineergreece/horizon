@@ -5,7 +5,16 @@ function editor(){return document.querySelector('.hz-itinerary-editor');}
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
 function num(v,f=0){const n=Number(v);return Number.isFinite(n)?n:f;}
 function parseCost(text){const m=String(text||'').match(/(\d+)\s*[–-]\s*€?(\d+)/);return m?{low:Number(m[1]),high:Number(m[2])}:{low:50,high:80};}
-function key(ed){return `horizon-planner-v2:${ed?.dataset?.destination||'trip'}:${location.search||''}`;}
+function key(ed){
+  const s=typeof state!=='undefined'&&state?state:{},t=s.travelers||{};
+  return 'horizon-planner-v2:'+JSON.stringify({
+    destination:ed?.dataset?.destination||'trip',origin:s.origin||'',
+    dates:s.dates||s.dateRange||s.calendar||{},
+    duration:Number(s.duration?.value??s.duration)||1,
+    adults:Number(t.adults)||0,children:Number(t.children)||0,
+    infants:Number(t.infants)||0,childrenAges:t.childrenAges||s.childrenAges||[]
+  });
+}
 function load(ed){try{return JSON.parse(localStorage.getItem(key(ed))||'{}')||{};}catch{return {};}}
 function save(ed){
   const data={days:[...ed.querySelectorAll('.hz-edit-day')].map((d,i)=>({day:i+1,low:num(d.querySelector('[data-hz-budget-low]')?.value),high:num(d.querySelector('[data-hz-budget-high]')?.value)}))};
@@ -36,7 +45,15 @@ function augment(){
   });syncSummary(ed);
 }
 function burst(){[0,100,280,700,1400].forEach(ms=>setTimeout(augment,ms));}
-document.addEventListener('click',e=>{const ed=editor();if(!ed){burst();return;}const dayBtn=e.target.closest?.('[data-v2-map-day]');if(dayBtn){e.preventDefault();window.open(mapUrl(ed,dayBtn.closest('.hz-edit-day')),'_blank','noopener');return;}if(e.target.closest?.('[data-v2-map-all]')){e.preventDefault();window.open(mapUrl(ed),'_blank','noopener');return;}burst();},true);
+document.addEventListener('click',e=>{
+  // Reset the companion daily budget when resetting the itinerary.
+  // The main editor recreates the DOM in its capture listener, so retain
+  // the original clicked editor to target its existing trip key.
+  const sourceEditor=e.target.closest?.('.hz-itinerary-editor');
+  if(sourceEditor&&e.target.closest?.('[data-reset-itinerary]')){
+    try{localStorage.removeItem(key(sourceEditor));}catch{}
+  }
+  const ed=editor();if(!ed){burst();return;}const dayBtn=e.target.closest?.('[data-v2-map-day]');if(dayBtn){e.preventDefault();window.open(mapUrl(ed,dayBtn.closest('.hz-edit-day')),'_blank','noopener');return;}if(e.target.closest?.('[data-v2-map-all]')){e.preventDefault();window.open(mapUrl(ed),'_blank','noopener');return;}burst();},true);
 document.addEventListener('input',e=>{const ed=e.target.closest?.('.hz-itinerary-editor');if(!ed)return;if(e.target.matches?.('[data-hz-budget-low],[data-hz-budget-high]')){const day=e.target.closest('.hz-edit-day'),lo=Math.max(0,num(day.querySelector('[data-hz-budget-low]')?.value)),hi=Math.max(lo,num(day.querySelector('[data-hz-budget-high]')?.value));day.querySelector('[data-hz-budget-low]').value=lo;day.querySelector('[data-hz-budget-high]').value=hi;const cost=day.querySelector('.hz-edit-cost');if(cost)cost.textContent=`€${lo}–€${hi}`;save(ed);syncSummary(ed);}},true);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',burst,{once:true});else burst();
 })();
