@@ -262,6 +262,16 @@ try{
   assert.ok((await page.locator('#resultsCard').innerText()).includes('6 ημέρες'),'New duration should appear in rendered results');
   log('Date/budget sync','Flight dates 10–15 Dec synchronized to six-day Planner duration; old fare invalidated');
 
+  // The earlier flight editor accepted trips up to 365 days while the PDF
+  // silently rendered only the first 14 days. Both surfaces must agree.
+  await page.locator('.hz-flight-to').fill('2026-12-29');
+  const oversize=await page.evaluate(()=>({duration:state.duration,from:state.dates?.from}));
+  assert.equal(oversize.duration,6,'An unsupported 20-day flight range must not overwrite planner duration');
+  assert.match(await page.locator('.hz-flight-status').innerText(),/1 έως 14/);
+  await page.locator('.hz-flight-to').fill('2026-12-15');
+  assert.equal(await page.evaluate(()=>state.duration),6);
+  log('Date length guard','Flight edits longer than 14 days rejected consistently with Planner/PDF');
+
   // A one-way trip has no return date; the old Planner implementation silently
   // required round-trip fares and omitted genuine one-way prices from the budget.
   await page.locator('.hz-flight-to').fill('');
