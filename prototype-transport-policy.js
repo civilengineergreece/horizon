@@ -44,7 +44,7 @@ function patchCompare(){
   const pane=document.querySelector('.horizon-detail-overlay [data-pane="transport"]');
   if(!pane)return;
   const copy=pane.querySelector('.hz-tr-compare .hz-tr-copy');
-  if(copy)copy.textContent='Σύγκριση διαθέσιμων τρόπων για τις επιλογές σου. Οι πτήσεις ενημερώνονται με πραγματικές τιμές, τα τρένα με live/realtime δρομολόγια Transitous και, όπου λειτουργεί, τα πλοία με Ferryhopper. Αν το train feed δεν δώσει fare, εμφανίζεται στενή εκτίμηση τιμής. Τα ΚΤΕΛ παραμένουν εκτίμηση και το ΙΧ είναι υπολογισμός καυσίμων και διοδίων.';
+  if(copy)copy.textContent='Σύγκριση πιθανών τρόπων για τις επιλογές σου. Οι πτήσεις δίνουν προσφορές προς επιβεβαίωση, τα τρένα δρομολόγια Transitous και τα πλοία Ferryhopper με τιμές έναρξης ανά επιλογή, όχι οικογενειακό checkout. Αν το train feed δεν δώσει fare, εμφανίζεται στενή εκτίμηση τιμής. Τα ΚΤΕΛ παραμένουν εκτίμηση και το ΙΧ είναι υπολογισμός καυσίμων και διοδίων.';
   pane.querySelectorAll('.hz-tr-table tbody tr').forEach(row=>{
     const mode=rowMode(row);
     if(mode==='bus'||mode==='train'||mode==='ferry')markEstimate(row,mode);
