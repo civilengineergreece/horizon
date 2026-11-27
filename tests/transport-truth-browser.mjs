@@ -132,6 +132,23 @@ try{
    assert.ok((await page.locator('.hz-surface-results').innerText()).includes('Δεν έχει συνδεθεί πάροχος'));
    assert.equal(counts.ground,0,'KTEL status must not call phantom provider or claim availability');
    console.log('PASS '+width+'px KTEL: no live provider invented or bookings performed');
+   const road=await page.evaluate(()=>{
+     const previousOrigin=state.origin,previousTransport=state.transport;
+     state.origin='Θεσσαλονίκη';state.transport='car';
+     try{
+       const d=window.HORIZON_DESTINATIONS.find(x=>x.name==='Ναύπλιο');
+       const r=scoreDest(d);
+       return {mode:r.transportMode,roadKm:r.transportDetails?.roadKm,
+         fuelCost:r.transportDetails?.fuelCost,tolls:r.transportDetails?.tolls,
+         label:r.transportDetails?.label,note:r.transportDetails?.note};
+     }finally{state.origin=previousOrigin;state.transport=previousTransport;}
+   });
+   assert.equal(road.mode,'car');
+   assert.equal(road.roadKm,null,'Athens road distance must not apply from Thessaloniki');
+   assert.equal(road.fuelCost,null);
+   assert.equal(road.tolls,null);
+   assert.ok(road.note.includes('ΟΧΙ καύσιμα'));
+   console.log('PASS '+width+'px car: Athens-only road assumptions not applied from another origin');
 
   }catch(e){
    mkdirSync('artifacts',{recursive:true});
