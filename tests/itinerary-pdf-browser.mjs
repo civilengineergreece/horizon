@@ -80,10 +80,10 @@ try{
     const api=window.HORIZON_PLANNER_V2_PDF;
     const data=api.collect(editor);
     const bytes=await api.makePdf(data);
-    const document=await window.PDFLib.PDFDocument.load(bytes);
-    const form=document.getForm();
+    const pdfDoc=await window.PDFLib.PDFDocument.load(bytes);
+    const form=pdfDoc.getForm();
     return {
-      bytes:bytes.length,pages:document.getPageCount(),
+      bytes:bytes.length,pages:pdfDoc.getPageCount(),
       names:form.getFields().map(f=>f.getName()),
       title:form.getTextField('day_1_title').getText(),
       plan:form.getTextField('day_1_plan').getText(),
