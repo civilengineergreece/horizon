@@ -48,7 +48,7 @@ jobs:
 
   greek-family-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -71,6 +71,8 @@ jobs:
           node tests/hotel-map-browser.mjs
           node tests/hotel-map-real-leaflet-browser.mjs
           node tests/release-smoke-browser.mjs
+          node tests/stage6-journeys-browser.mjs
+          node tests/stage6-provider-outage-browser.mjs
           node tests/itinerary-pdf-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
@@ -113,6 +115,8 @@ jobs:
           HORIZON_TEST_URL: https://civilengineergreece.github.io/horizon/
         run: |
           node tests/release-smoke-browser.mjs
+          node tests/stage6-journeys-browser.mjs
+          node tests/stage6-provider-outage-browser.mjs
           node tests/itinerary-pdf-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
