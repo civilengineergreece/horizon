@@ -92,8 +92,11 @@ function groundStatus(mode,target){
 }
 function patch(){
   const ov=document.querySelector('.horizon-detail-overlay');if(!ov)return;const pane=ov.querySelector('[data-pane="transport"]');if(!pane||pane.querySelector('.hz-surface-live'))return;const name=destinationName();if(!name)return;
-  const d=destData(name),modes=d.transport||[],wrap=document.createElement('section');wrap.className='hz-surface-live';
-  const buttons=[];if(modes.includes('ferry'))buttons.push('<button type="button" class="hz-surface-btn live" data-surface="ferry">⛴ Πραγματικά πλοία</button>');if(modes.includes('train'))buttons.push('<button type="button" class="hz-surface-btn" data-surface="train">🚆 Live τρένα</button>');if(modes.includes('bus'))buttons.push('<button type="button" class="hz-surface-btn" data-surface="bus">🚌 ΚΤΕΛ · χωρίς live σύνδεση</button>');if(!buttons.length)return;
+  const d=destData(name),modes=new Set(d.transport||[]),wrap=document.createElement('section');wrap.className='hz-surface-live';
+  // The KTEL availability notice is useful even if an earlier module has not
+  // yet augmented this mainland destination's list of possible travel modes.
+  if(d.region==='Ελλάδα'&&d.type!=='island')modes.add('bus');
+  const buttons=[];if(modes.has('ferry'))buttons.push('<button type="button" class="hz-surface-btn live" data-surface="ferry">⛴ Πραγματικά πλοία</button>');if(modes.has('train'))buttons.push('<button type="button" class="hz-surface-btn" data-surface="train">🚆 Live τρένα</button>');if(modes.has('bus'))buttons.push('<button type="button" class="hz-surface-btn" data-surface="bus">🚌 ΚΤΕΛ · χωρίς live σύνδεση</button>');if(!buttons.length)return;
   wrap.innerHTML=`<div class="hz-surface-head">Πραγματικά δρομολόγια</div><div class="hz-surface-copy">Χρησιμοποιούνται αυτόματα η αφετηρία, ο προορισμός και οι ημερομηνίες που έδωσες στο Planner. Οι ώρες προέρχονται από διαθέσιμες πηγές, ενώ οι τιμές εισιτηρίων εκτός ολοκληρωμένου checkout παραμένουν ενδείξεις. Πλοία Ferryhopper (τιμές έναρξης ανά επιλογή), τρένα Transitous (feed), ΚΤΕΛ χωρίς συνδεδεμένο live provider.</div><div class="hz-surface-actions">${buttons.join('')}</div><div class="hz-surface-results"></div>`;
   const compare=pane.querySelector('.hz-tr-compare');(compare||pane.firstElementChild)?.after(wrap);const target=wrap.querySelector('.hz-surface-results');wrap.querySelectorAll('[data-surface]').forEach(b=>b.onclick=()=>{const m=b.dataset.surface;if(m==='ferry')loadFerries(b,target);else groundStatus(m,target);});
 }
