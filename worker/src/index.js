@@ -414,7 +414,7 @@ function bookingHandoff(raw){
     if(!['www.google.com','google.com'].includes(u.hostname.toLowerCase())||
        u.pathname!=='/travel/clk/f'||u.search||
        typeof raw.post_data!=='string'||raw.post_data.length>32768||
-       !/^[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+\-=]+(?:&[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+\-=]+)*$/.test(raw.post_data))return null;
+       !/^[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+/\-=]+(?:&[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+/\-=]+)*$/.test(raw.post_data))return null;
     const params=new URLSearchParams(raw.post_data);
     if(![...params].length||[...params].length>5)return null;
     return {method:'POST',url,postData:raw.post_data,source:'google_flights_booking_request'};
@@ -559,7 +559,8 @@ export default {
       if(url.pathname==='/health')return reply(request,env,{ok:true,service:'Horizon Live API',providers:{googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},googleFlights:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},liveCards:!!env.SERPAPI_API_KEY},cache:{enabled:true,layer:'cloudflare-workers-cache',ttlHours:WORKER_CACHE_TTL/3600}},200,{'cache-control':'no-store'});
       if(url.pathname==='/flight-capabilities'){
         return reply(request,env,{ok:true,service:'Horizon Flight Price Integrity',
-          schemaVersion:3,quoteCacheNoStore:true,
+          schemaVersion:4,quoteCacheNoStore:true,
+          providerBookingHandoff:true,signedGooglePostSupported:true,sellerCheckoutVerified:false,
           validatesRealCalendarDates:true,validatesTravelerCounts:true,
           validatesRouteAndReturn:true,validatesPinnedFlightIdentity:true
         },200,{'cache-control':'no-store'});
