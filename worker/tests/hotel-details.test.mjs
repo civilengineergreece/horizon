@@ -56,6 +56,11 @@ test('room lookup sends actual family composition and returns named room quotes 
     assert.equal(refundable.beds[0].type,'Queen');
     assert.equal(refundable.taxStatus,'provider_reports_after_taxes_fees');
     assert.equal(refundable.totalBeforeTaxesFees,234);
+    assert.equal(refundable.bookingLinkScope,'provider_rate_link');
+    assert.equal(refundable.bookingUrl,'https://example.com/book');
+    const inherited=d.offers.find(x=>x.total===150);
+    assert.equal(inherited.bookingLinkScope,'inherited_seller_link');
+    assert.equal(inherited.bookingUrl,'https://example.com/direct');
     const cheap=d.offers.find(x=>x.total===150);
     assert.equal(cheap.capacityStatus,'insufficient');
     const unknown=d.offers.find(x=>x.total===200);
