@@ -116,14 +116,18 @@ function collect(editor,name){
 }
 function setStatus(editor,text,ok=false){const x=editor.querySelector('.hz-edit-status');if(x){x.textContent=text;x.style.color=ok?'#8ae5b5':'#91a4b2';}}
 
-function render(){
+function render(force=false){
   ensureStyles();
   const pane=document.querySelector('.horizon-detail-overlay [data-pane="things"]');if(!pane)return;
   const name=destinationName();if(!name)return;
+  const tripKey=storageKey(name),existing=pane.querySelector('.'+EDITOR_CLASS);
+  // Several async enhancement hooks may request rendering the same panel.
+  // Never destroy a live editor (and its unsaved text inputs) for the same trip.
+  if(!force&&existing?.dataset.tripKey===tripKey)return;
   pane.classList.add('hz-things-v2');
   pane.querySelectorAll(`.${EDITOR_CLASS}`).forEach(x=>x.remove());
   const data=loadPlan(name,destination(name));
-  const editor=document.createElement('div');editor.className=EDITOR_CLASS;editor.dataset.destination=name;
+  const editor=document.createElement('div');editor.className=EDITOR_CLASS;editor.dataset.destination=name;editor.dataset.tripKey=tripKey;
   editor.innerHTML=`
     <span class="hz-free-pill">✓ ΠΛΗΡΕΣ ITINERARY · ΔΩΡΕΑΝ ΣΤΗ ΔΟΚΙΜΑΣΤΙΚΗ ΕΚΔΟΣΗ</span>
     <div class="hz-edit-intro"><b>Το πρόγραμμά σου είναι πλήρως επεξεργάσιμο.</b> Άλλαξε ώρες, δραστηριότητες και σημειώσεις πριν το αποθηκεύσεις ή το μετατρέψεις σε διαδραστικό PDF.</div>
@@ -171,7 +175,7 @@ function handleClick(e){
   if(e.target.closest('[data-add-row]')){const day=e.target.closest('.hz-edit-day'),rows=day.querySelector('.hz-day-rows'),wrap=document.createElement('div');wrap.innerHTML=rowHtml({time:'',text:''},rows.children.length);rows.appendChild(wrap.firstElementChild);autoSave(editor);return;}
   if(e.target.closest('[data-remove-row]')){e.target.closest('.hz-edit-row')?.remove();autoSave(editor);return;}
   if(e.target.closest('[data-save-itinerary]')){savePlan(name,collect(editor,name));setStatus(editor,'Οι αλλαγές αποθηκεύτηκαν.',true);return;}
-  if(e.target.closest('[data-reset-itinerary]')){try{localStorage.removeItem(storageKey(name));}catch{}render();return;}
+  if(e.target.closest('[data-reset-itinerary]')){try{localStorage.removeItem(storageKey(name));}catch{}render(true);return;}
   if(e.target.closest('[data-download-pdf]')){(async()=>{try{setStatus(editor,'Δημιουργία διαδραστικού PDF…');const data=collect(editor,name);savePlan(name,data);const bytes=await buildPdf(name,data);downloadBytes(bytes,name);setStatus(editor,'Το διαδραστικό PDF δημιουργήθηκε και κατέβηκε.',true);}catch(err){console.error(err);setStatus(editor,'Δεν μπόρεσε να δημιουργηθεί το PDF. Δοκίμασε ξανά σε λίγα δευτερόλεπτα.');}})();return;}
   if(e.target.closest('[data-email-pdf]')){const email=editor.querySelector('[data-email]')?.value?.trim();if(!/^\S+@\S+\.\S+$/.test(email||'')){setStatus(editor,'Γράψε πρώτα ένα έγκυρο email.');return;}(async()=>{try{setStatus(editor,'Προετοιμασία PDF για email…');await emailPdf(editor,email);}catch(err){console.error(err);setStatus(editor,'Η αποστολή email απέτυχε. Μπορείς να κατεβάσεις το PDF άμεσα.');}})();}
 }
