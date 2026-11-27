@@ -22,7 +22,7 @@ async function open(page,name){
    const p=document.querySelector('.hz-surface-live');
    return {name,selectedTransport:state.transport,destination:{region:d?.region,type:d?.type,transport:d?.transport},
     buttons:[...(p?.querySelectorAll('[data-surface]')||[])].map(b=>({mode:b.dataset.surface,hidden:b.classList.contains('hz-live-hidden')})),
-    boxClasses:p?.className};
+    boxClasses:p?.className,html:p?.outerHTML.slice(0,950)};
   });
   throw Error('Transport panel hidden: '+JSON.stringify(info));
  }
