@@ -188,7 +188,7 @@ function handoffAllowed(raw){
     if(!['www.google.com','google.com'].includes(u.hostname.toLowerCase())||
       u.pathname!=='/travel/clk/f'||u.search||
       typeof raw.postData!=='string'||raw.postData.length>32768||
-      !/^[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+\-=]+(?:&[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+\-=]+)*$/.test(raw.postData))return null;
+      !/^[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+/\-=]+(?:&[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+/\-=]+)*$/.test(raw.postData))return null;
     const params=new URLSearchParams(raw.postData);
     if(![...params].length||[...params].length>5)return null;
     return {method:'POST',url:u.toString(),params};
