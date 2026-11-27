@@ -108,14 +108,14 @@ function enhanceDurationStep(){
   const wrap=document.createElement('div');
   wrap.className='hz-duration-wrap';
   const presets=[1,2,3,4,5,7,10,14];
-  wrap.innerHTML=`<div class="hz-duration-grid">${presets.map(n=>`<button type="button" class="hz-duration-btn" data-duration="${n}"><strong>${n}</strong><span>${n===1?'μονοήμερη':'ημέρες'}</span></button>`).join('')}</div><div class="hz-duration-custom"><label for="hzDurationCustom">Άλλη διάρκεια</label><input class="control" id="hzDurationCustom" type="number" min="1" value="${input.value||''}" placeholder="1 ή περισσότερες ημέρες"></div><div class="hz-duration-summary"></div>`;
+  wrap.innerHTML=`<div class="hz-duration-grid">${presets.map(n=>`<button type="button" class="hz-duration-btn" data-duration="${n}"><strong>${n}</strong><span>${n===1?'μονοήμερη':'ημέρες'}</span></button>`).join('')}</div><div class="hz-duration-custom"><label for="hzDurationCustom">Άλλη διάρκεια</label><input class="control" id="hzDurationCustom" type="number" min="1" max="14" step="1" value="${input.value||''}" placeholder="1 ή περισσότερες ημέρες"></div><div class="hz-duration-summary"></div>`;
   const error=card.querySelector('#error');
   card.insertBefore(wrap,error);
   const custom=wrap.querySelector('#hzDurationCustom'),summary=wrap.querySelector('.hz-duration-summary');
 
   function update(v){
     const n=Number(v);
-    if(Number.isFinite(n)&&n>=1){input.value=String(Math.floor(n));custom.value=String(Math.floor(n));}
+    if(Number.isInteger(n)&&n>=1&&n<=14){input.value=String(n);custom.value=String(n);}
     wrap.querySelectorAll('[data-duration]').forEach(b=>b.classList.toggle('active',Number(b.dataset.duration)===n));
     const dep=localDateFromISO(state?.dates?.from);
     if(dep&&n>=1){
@@ -128,7 +128,7 @@ function enhanceDurationStep(){
   wrap.querySelectorAll('[data-duration]').forEach(btn=>btn.onclick=()=>update(Number(btn.dataset.duration)));
   custom.addEventListener('input',()=>{const n=Number(custom.value);input.value=custom.value;wrap.querySelectorAll('[data-duration]').forEach(b=>b.classList.toggle('active',Number(b.dataset.duration)===n));update(n);});
   const nextBtn=card.querySelector('#nextBtn');
-  if(nextBtn)nextBtn.addEventListener('click',e=>{const n=Number(input.value);if(!Number.isFinite(n)||n<1||!Number.isInteger(n)){e.preventDefault();e.stopImmediatePropagation();const err=card.querySelector('#error');if(err)err.textContent='Η διάρκεια πρέπει να είναι ακέραιος αριθμός από 1 ημέρα και πάνω.';custom.focus();}},true);
+  if(nextBtn)nextBtn.addEventListener('click',e=>{const n=Number(input.value);if(!Number.isFinite(n)||n<1||n>14||!Number.isInteger(n)){e.preventDefault();e.stopImmediatePropagation();const err=card.querySelector('#error');if(err)err.textContent='Η διάρκεια πρέπει να είναι ακέραιος αριθμός από 1 ημέρα και πάνω.';custom.focus();}},true);
   update(Number(input.value)||0);
 }
 
