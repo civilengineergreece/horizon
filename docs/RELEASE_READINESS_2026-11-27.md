@@ -1,4 +1,6 @@
 # HORIZON — 27/11/2026 MVP Release Readiness
+> **Release status update (27/11/2026):** This baseline readiness assessment has been superseded by [the verified Stage 6 release notes](MVP_RELEASE_NOTES_2026-11-27.md), [rollback runbook](ROLLBACK_RUNBOOK_2026-11-27.md) and [four green published-site QA gates #46002319947](https://github.com/civilengineergreece/horizon/actions/runs/46002319947) on source release `19250335aa746db55a647650473da8fa97c6b76d`. Prior unchecked historical items in this document were prerequisites at its original creation, not the current release status; the *explicitly unresolved merchant checkout, email activation and legal risks* still apply.
+
 
 **Target:** 30/11/2026. **Current branch baseline:** main commit 176b222f (20/11/2026).
 This is an evidence-led readiness assessment, not a declaration of final release.
