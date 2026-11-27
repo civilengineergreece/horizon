@@ -64,7 +64,9 @@ function normalizeTrip(x){
   const currency=clean((priceRaw&&typeof priceRaw==='object'&&(priceRaw.currency||priceRaw.currencyCode))||x.currency||x.currencyCode||'EUR',8);
   const bookingUrl=safeUrl(pick(x,['bookingUrl','booking_url','redirectUrl','redirect_url','deeplink','url']));
   const duration=num(pick(x,['durationMinutes','duration_minutes','duration']));
-  if(!dep&&!arr&&!operator&&!vessel&&price===null&&!bookingUrl)return null;
+  // Recursive MCP objects may contain price-only fields unrelated to trips.
+  // Never turn those into a phantom ferry departure.
+  if(!dep||!arr)return null;
   return {operator:clean(typeof operator==='object'?(operator.name||operator.label):operator,100)||null,vessel:clean(typeof vessel==='object'?(vessel.name||vessel.label):vessel,100)||null,departure:clean(typeof dep==='object'?(dep.dateTime||dep.time||dep.value):dep,100)||null,arrival:clean(typeof arr==='object'?(arr.dateTime||arr.time||arr.value):arr,100)||null,durationMinutes:duration,price,currency,bookingUrl,source:'Ferryhopper',priceBasis:price===null?'not_returned':'starting_fare_per_option_unverified_passengers',
     includesPassengerParty:false,includesVehicle:false,includesCabin:false,includesInfantFare:false,booked:false};
 }
@@ -92,7 +94,13 @@ function ports(origin,destination){
 }
 async function oneDirection(origin,destination,date){
   const raw=structured(await searchTrips(origin,destination,date));
-  return collect(raw);
+  return collect(raw).filter(t=>{
+    // A provider time-only string has not independently proved its date,
+    // but an explicit source timestamp on a different day is invalid.
+    const dep=String(t.departure||'');
+    const m=/^(\d{4}-\d{2}-\d{2})[T ]/.exec(dep);
+    return !m||m[1]===date;
+  });
 }
 async function ferries(request,env,url){
   const origin=clean(url.searchParams.get('origin'),100),destination=clean(url.searchParams.get('destination'),100),date=iso(url.searchParams.get('date')),returnDate=iso(url.searchParams.get('returnDate'));
