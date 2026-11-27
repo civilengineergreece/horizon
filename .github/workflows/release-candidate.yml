@@ -69,6 +69,7 @@ jobs:
           node tests/release-smoke-browser.mjs
           node tests/itinerary-pdf-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
+          node tests/transport-truth-browser.mjs
       - name: Screenshot on test failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -110,6 +111,7 @@ jobs:
           node tests/release-smoke-browser.mjs
           node tests/itinerary-pdf-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
+          node tests/transport-truth-browser.mjs
           node tests/flight-ui-browser.mjs
           node tests/hotel-ui-browser.mjs
           node tests/hotel-map-real-leaflet-browser.mjs
