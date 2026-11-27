@@ -128,7 +128,7 @@ function enhanceDurationStep(){
   wrap.querySelectorAll('[data-duration]').forEach(btn=>btn.onclick=()=>update(Number(btn.dataset.duration)));
   custom.addEventListener('input',()=>{const n=Number(custom.value);input.value=custom.value;wrap.querySelectorAll('[data-duration]').forEach(b=>b.classList.toggle('active',Number(b.dataset.duration)===n));update(n);});
   const nextBtn=card.querySelector('#nextBtn');
-  if(nextBtn)nextBtn.addEventListener('click',e=>{const n=Number(input.value);if(!Number.isFinite(n)||n<1||n>14||!Number.isInteger(n)){e.preventDefault();e.stopImmediatePropagation();const err=card.querySelector('#error');if(err)err.textContent='Η διάρκεια πρέπει να είναι ακέραιος αριθμός από 1 ημέρα και πάνω.';custom.focus();}},true);
+  if(nextBtn)nextBtn.addEventListener('click',e=>{const n=Number(input.value);if(!Number.isFinite(n)||n<1||n>14||!Number.isInteger(n)){e.preventDefault();e.stopImmediatePropagation();const err=card.querySelector('#error');if(err)err.textContent='Η διάρκεια πρέπει να είναι ακέραιος αριθμός από 1 έως 14 ημέρες.';custom.focus();}},true);
   update(Number(input.value)||0);
 }
 
