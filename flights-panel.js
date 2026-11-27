@@ -159,7 +159,7 @@ async function checkBookingOptions(panel){
         const actions=Array.isArray(x.bookingActions)?x.bookingActions:[];
         const actionButtons=actions.slice(0,2).map((action,j)=>{
           if(!['combined','departing','returning'].includes(action.part)||!action.handoff)return '';
-          const label=action.part==='combined'?'Κράτηση στον πωλητή':
+          const label=action.part==='combined'?'Συνέχεια στον πωλητή':
             action.part==='departing'?'Προς πωλητή αναχώρησης':'Προς πωλητή επιστροφής';
           return '<button type="button" class="hz-flight-handoff-btn" data-seller-open-index="'+i+
             '" data-booking-action-index="'+j+'">'+esc(label)+'</button>';
