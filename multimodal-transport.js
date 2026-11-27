@@ -107,8 +107,8 @@ function estimateMode(d,mode){
   if(mode==='car'){
     if(!(d.transport||[]).includes('car'))return null;
     const cars=Math.max(1,Math.ceil(t.total/5)),cons=carConsumption(),fuelPrice=Number(window.HORIZON_CAR_ASSUMPTIONS?.fuelPricePerL)||2;
-    if(p){const km=p.km*2,fuel=Math.round(km*cons/100*fuelPrice*cars),tolls=Math.round((p.toll||0)*2*cars);return {mode,cost:budgetNo?0:fuel+tolls,rawCost:fuel+tolls,hours:p.hours,label:'Υπολογισμός',note:`${Math.round(km)} km μετ’ επιστροφής · καύσιμα €${fuel} + διόδια/τέλη €${tolls}`};}
-    return {mode,cost:budgetNo?0:Math.round(d.travel*t.ticket),rawCost:Math.round(d.travel*t.ticket),hours:null,label:'Εκτίμηση',note:'Δεν υπάρχουν ακόμη αναλυτικά οδικά στοιχεία για αυτή τη διαδρομή.'};
+    if(p){const km=p.km*2,fuel=Math.round(km*cons/100*fuelPrice*cars),tolls=Math.round((p.toll||0)*2*cars);return {mode,cost:budgetNo?0:fuel+tolls,rawCost:fuel+tolls,hours:p.hours,roadKm:Math.round(km),fuelCost:fuel,tolls,consumptionL100:cons,label:'Υπολογισμός',note:`${Math.round(km)} km μετ’ επιστροφής · καύσιμα €${fuel} + διόδια/τέλη €${tolls}`};}
+    return {mode,cost:budgetNo?0:Math.round(d.travel*t.ticket),rawCost:Math.round(d.travel*t.ticket),hours:null,roadKm:null,fuelCost:null,tolls:null,consumptionL100:cons,label:'Εκτίμηση',note:'Δεν υπάρχουν ακόμη αναλυτικά οδικά στοιχεία για αυτή τη διαδρομή.'};
   }
   if(mode==='train'){
     const x=TRAIN_PROFILES[d.name];if(!x)return null;const c=Math.round(x.adultRT*t.bus);return {mode,cost:budgetNo?0:c,rawCost:c,hours:x.hours,label:'Εκτίμηση',note:x.note};
@@ -130,7 +130,7 @@ function calcMultimodal(d){
   const accommodation=Math.round(d.daily*nights*weighted*.52*stayFactor),foodLocal=Math.round(d.daily*days*(t.adults+t.children*.55+t.infants*.08)*.34),activities=Math.round(d.activity*days*(t.adults+t.children*.55+t.infants*.05));
   const modes=selectedFor(d),limit=maxHours();let candidates=modes.map(m=>estimateMode(d,m)).filter(Boolean);if(limit)candidates=candidates.filter(x=>!x.hours||x.hours<=limit);
   if(!candidates.length)return {accommodation,foodLocal,activities,transport:99999,total:accommodation+foodLocal+activities+99999,transportMode:null,transportDetails:null,travelHours:Infinity};
-  const chosen=[...candidates].sort((a,b)=>a.cost-b.cost)[0];return {accommodation,foodLocal,activities,transport:chosen.cost,total:accommodation+foodLocal+activities+chosen.cost,transportMode:chosen.mode,transportDetails:chosen,travelHours:chosen.hours??Infinity,multimodalCandidates:candidates};
+  const chosen=[...candidates].sort((a,b)=>a.cost-b.cost)[0];return {accommodation,foodLocal,activities,transport:chosen.cost,total:accommodation+foodLocal+activities+chosen.cost,transportMode:chosen.mode,transportDetails:chosen,travelHours:chosen.hours??Infinity,consumptionL100:chosen.mode==='car'?chosen.consumptionL100:null,fuelCost:chosen.mode==='car'?chosen.fuelCost:null,tolls:chosen.mode==='car'?chosen.tolls:null,roadKm:chosen.mode==='car'?chosen.roadKm:null,multimodalCandidates:candidates};
 }
 function patchScoring(){
   if(window.__HZ_MM_SCORE_PATCH__||typeof window.scoreDest!=='function')return false;window.__HZ_MM_SCORE_PATCH__=true;
