@@ -176,7 +176,10 @@ try{
   await page.evaluate(()=>{
     const key='hz-flight-selection-v2:hz-flights-v2:'+
       ['Αθήνα','Θεσσαλονίκη','2026-12-04','2026-12-06',2,0,1].join('|');
-    localStorage.setItem(key,JSON.stringify({at:Date.now(),editedAt:Date.now(),fare:305.38,extras:30,scope:'roundtrip'}));
+    localStorage.setItem(key,JSON.stringify({at:Date.now(),editedAt:Date.now(),
+      origin:'Αθήνα',destination:'Θεσσαλονίκη',from:'2026-12-04',to:'2026-12-06',
+      travelers:{adults:2,children:0,infants:1},
+      fare:305.38,extras:30,scope:'roundtrip',bookingStatus:'quote_only_not_checked_out'}));
     document.dispatchEvent(new CustomEvent('horizon:live-flight-price',{detail:{destination:'Θεσσαλονίκη',selected:true}}));
   });
   await page.waitForTimeout(100);

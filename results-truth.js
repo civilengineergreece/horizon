@@ -15,10 +15,24 @@ function flightCacheKey(name){const s=stateNow(),t=travelers(),d=flightDates(),o
 function cachedLiveFare(name){
   try{
     const key='hz-flight-selection-v2:'+flightCacheKey(name),v=JSON.parse(localStorage.getItem(key)||'null');
-    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL)return null;
-    const expectedReturn=flightDates().to;
+    if(!v||!Number.isFinite(Number(v.editedAt))||Number(v.editedAt)<=0||
+       Number(v.at||0)>Date.now()+30000||Date.now()-Number(v.at||0)>FLIGHT_CACHE_TTL)return null;
+    const d=flightDates(),s=stateNow(),t=travelers(),expectedReturn=d.to;
     if((expectedReturn&&v.scope!=='roundtrip')||(!expectedReturn&&v.scope!=='oneway'))return null;
-    return Number(v.fare)>0?{fare:Number(v.fare),extras:Math.max(0,Number(v.extras)||0),scope:v.scope}:null;
+    if(v.origin!==(s.origin||'Αθήνα')||v.destination!==name||v.from!==d.from||
+       (v.to||'')!==d.to||Number(v.travelers?.adults)!==t.adults||
+       Number(v.travelers?.children)!==t.children||Number(v.travelers?.infants)!==t.infants)return null;
+    const reported=v.bookingStatus==='checkout_user_reported_not_booked';
+    if(reported){
+      const checked=Number(v.checkoutAt);
+      if(!Number.isFinite(checked)||checked<=0||checked>Date.now()+30000||
+         Date.now()-checked>FLIGHT_CACHE_TTL||v.reviewEvidence!=='manual_flight_seller_checkout'||
+         v.checkoutReviewValid!==true||v.bookingFareStage!=='user_reported_seller_checkout'||
+         !Number.isFinite(Number(v.sellerCheckoutTotal))||Number(v.fare)!==Number(v.sellerCheckoutTotal)||
+         Number(v.baggage)!==0||Number(v.extras)!==Number(v.ground))return null;
+    }else if(v.bookingStatus&&v.bookingStatus!=='quote_only_not_checked_out')return null;
+    return Number(v.fare)>0&&Number.isFinite(Number(v.extras))&&Number(v.extras)>=0?
+      {fare:Number(v.fare),extras:Number(v.extras),scope:v.scope,isUserReported:reported}:null;
   }catch{return null;}
 }
 function cachedSelectedStay(name){
@@ -104,10 +118,15 @@ function patchPlaneAmounts(card,name){
     includeTransport=stateNow().budget?.transport!=='no';
   if(transportBox){
     const label=transportBox.querySelector('span'),value=transportBox.querySelector('b');
-    if(fare){if(label)label.textContent='Επιλεγμένη αεροπορική μεταφορά';if(value){value.textContent=euro(fare+extras);value.classList.add('hz-live-value');}}
+    if(fare){if(label)label.textContent=selection?.isUserReported?
+      'Αεροπορικό checkout (δηλωμένο · όχι κράτηση)':'Επιλεγμένη αεροπορική μεταφορά (προσφορά)';
+      if(value){value.textContent=euro(fare+extras);value.classList.add('hz-live-value');}}
     else{if(label)label.textContent='Μεταφορά';if(value){value.textContent='Live τιμή →';value.classList.add('hz-await-live');}}
     for(const note of [...transportBox.querySelectorAll('span')].slice(1))
-      note.textContent=fare?'Τιμή πηγής και δηλωμένα πρόσθετα · όχι κράτηση':'Επίλεξε live πτήση για όλους τους ταξιδιώτες';
+      note.textContent=fare?(selection?.isUserReported?
+        'Χειροκίνητα δηλωμένο checkout πωλητή + χωριστή επίγεια μεταφορά· όχι ανεξάρτητη επαλήθευση/κράτηση':
+        'Τιμή πηγής και υποθέσεις πρόσθετων · όχι τελικό checkout/κράτηση'):
+        'Επίλεξε live πτήση για όλους τους ταξιδιώτες';
   }
   if(fare){
     const liveTotal=Math.round((otherCostsWithStay+(includeTransport?fare+extras:0))*100)/100;
