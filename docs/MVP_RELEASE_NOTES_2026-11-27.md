@@ -36,4 +36,4 @@
 
 See [rollback runbook](ROLLBACK_RUNBOOK_2026-11-27.md): last good pre-Stage 6 main `348565e99caa6adfb30fda1c5089523cf0cdb7c2`, which is a public/worker safety baseline. Rollback the website by **reviewed revert commit on main**, not a force push; Worker versions are independently managed in Cloudflare. Do not equate prior Pages publication with reverting an independently faulty Worker.
 
-**Status:** Release candidate; final production SHA, pages run, public QA and issue #15 record populated after successful merge/public verification.
+**Status:** ✅ Released as guarded FREE MVP — source code `19250335aa746db55a647650473da8fa97c6b76d`, [Pages deployment #46002319238](https://github.com/civilengineergreece/horizon/actions/runs/46002319238) **success**, [public production QA #46002319947](https://github.com/civilengineergreece/horizon/actions/runs/46002319947) **4/4 success**. Both the exact code candidate and published Pages passed desktop/mobile five-case fillable-PDF/map/budget and provider-outage Chrome tests. No paid provider request or booking was attempted. This release marker is `2026-11-27-stage6`.
