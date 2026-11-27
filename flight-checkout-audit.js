@@ -125,7 +125,7 @@ function capture(root,ctx,r){
   datesAndFlights:b('datesAndFlights'),passengers:b('passengers'),children:b('children'),
   infants:b('infants'),infantPolicy:b('infantPolicy'),baggageAndSeats:b('baggageAndSeats'),
   mandatoryCharges:b('mandatoryCharges'),cancellation:b('cancellation'),
-  availability:b('availability'),separateTickets:r.separateTickets===true,
+  availability:b('availability'),separateTickets:r?.separateTickets===true,
   separateTicketsReviewed:b('separateTicketsReviewed')};
 }
 function save(root){
