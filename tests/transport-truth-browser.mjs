@@ -38,7 +38,7 @@ try{
   try{
    const counts={ferries:0,trains:0,ground:0};
    await page.route(api+'/**',async route=>{
-    const u=new URL(route.request().url);
+    const u=new URL(route.request().url());
     if(u.pathname==='/ferries'){
      counts.ferries++;
      const name=u.searchParams.get('destination');
