@@ -16,6 +16,7 @@ const scenarios=[
   {destination:'Ρόδος',transport:'plane',adults:2,children:1,infants:1,stay:'hotel'}
 ];
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox']});
+const expectedTotals=new Map();
 try {
   for(const viewport of [{width:1280,height:900},{width:390,height:844}]) {
     const page=await browser.newPage({viewport});
@@ -25,8 +26,13 @@ try {
         Array.isArray(window.HORIZON_DESTINATIONS)&&
         window.HORIZON_DESTINATIONS.length>=100&&
         typeof window.scoreDest==='function'&&
-        typeof window.renderResults==='function',
+        typeof window.renderResults==='function'&&
+        window.__HZ_MM_SCORE_PATCH__===true&&
+        window.__HORIZON_RESULTS_TRUTH__===true&&
+        window.__HORIZON_FLIGHT_TIMES_CORE__===true,
         null,{timeout:25000});
+      // Allow follow-up wrappers/render hooks to finish before fixing the test input.
+      await page.waitForTimeout(650);
       for(const scenario of scenarios) {
         const outcome=await page.evaluate(s=>{
           localStorage.clear();
@@ -58,6 +64,10 @@ try {
         assert.equal(outcome.cardExists,true,scenario.destination+' result card missing');
         assert.ok(Number.isFinite(outcome.total)&&outcome.total>=0,
           scenario.destination+' total budget must be finite');
+        if(expectedTotals.has(scenario.destination))
+          assert.equal(outcome.total,expectedTotals.get(scenario.destination),
+            scenario.destination+' must have identical budget on mobile and desktop for the same travelers and dates');
+        else expectedTotals.set(scenario.destination,outcome.total);
         assert.ok(outcome.price.includes('€'),scenario.destination+' must show EUR');
         assert.equal(outcome.hasBreakdown,true,scenario.destination+' cost breakdown missing');
         if(viewport.width===390) {
