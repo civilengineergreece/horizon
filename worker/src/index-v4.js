@@ -67,7 +67,7 @@ function normalizeTrip(x){
   // Recursive MCP objects may contain price-only fields unrelated to trips.
   // Never turn those into a phantom ferry departure.
   if(!dep||!arr)return null;
-  return {operator:clean(typeof operator==='object'?(operator.name||operator.label):operator,100)||null,vessel:clean(typeof vessel==='object'?(vessel.name||vessel.label):vessel,100)||null,departure:clean(typeof dep==='object'?(dep.dateTime||dep.time||dep.value):dep,100)||null,arrival:clean(typeof arr==='object'?(arr.dateTime||arr.time||arr.value):arr,100)||null,durationMinutes:duration,price,currency,bookingUrl,source:'Ferryhopper',priceBasis:price===null?'not_returned':'starting_fare_per_option_unverified_passengers',
+  return {operator:clean(operator&&typeof operator==='object'?(operator.name||operator.label):operator,100)||null,vessel:clean(vessel&&typeof vessel==='object'?(vessel.name||vessel.label):vessel,100)||null,departure:clean(typeof dep==='object'?(dep.dateTime||dep.time||dep.value):dep,100)||null,arrival:clean(typeof arr==='object'?(arr.dateTime||arr.time||arr.value):arr,100)||null,durationMinutes:duration,price,currency,bookingUrl,source:'Ferryhopper',priceBasis:price===null?'not_returned':'starting_fare_per_option_unverified_passengers',
     includesPassengerParty:false,includesVehicle:false,includesCabin:false,includesInfantFare:false,booked:false};
 }
 function collect(root){
