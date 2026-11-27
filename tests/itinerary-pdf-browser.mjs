@@ -46,6 +46,30 @@ try{
   });
   await openItinerary();
   assert.equal(await page.locator('.hz-itinerary-editor .hz-edit-day').count(),3);
+  const consent=page.locator('.hz-itinerary-editor [data-email-consent]');
+  await consent.waitFor({timeout:15000});
+  assert.equal(await consent.isChecked(),false,'Email consent must start unchecked');
+  const emailButton=page.locator('.hz-itinerary-editor [data-email-pdf-v2]');
+  await emailButton.waitFor({timeout:15000});
+  await page.locator('.hz-itinerary-editor [data-email]').fill('user@example.test');
+  await emailButton.click();
+  assert.match(await page.locator('.hz-edit-status').textContent(),/συγκατάθεση|διαβίβαση/);
+  await consent.check();
+  await emailButton.click();
+  assert.match(await page.locator('.hz-edit-status').textContent(),/δεν έχει ενεργοποιηθεί/);
+  const challengeLoaded=await page.evaluate(()=>[...document.scripts].some(x=>
+    x.src.includes('challenges.cloudflare.com/turnstile/')));
+  assert.equal(challengeLoaded,false,'No third-party challenge loaded before email is configured');
+  for(const path of ['privacy.html','terms.html']){
+    const response=await page.request.get(new URL(path,url).toString());
+    assert.equal(response.status(),200,path+' should be published and accessible');
+    const body=await response.text();
+    assert.match(body,/HORIZON/);
+    assert.ok(body.includes('δοκιμαστικ')||body.includes('Δοκιμαστικ'));
+  }
+  assert.equal(await page.locator('footer a[href="./privacy.html"]').count(),1);
+  assert.equal(await page.locator('footer a[href="./terms.html"]').count(),1);
+  console.log('PASS: Stage 5 privacy/terms, non-prechecked email consent and inactive provider fail closed');
   const title=page.locator('.hz-itinerary-editor .hz-day-title').first();
   const activity=page.locator('.hz-itinerary-editor .hz-slot-text').first();
   const low=page.locator('.hz-itinerary-editor [data-hz-budget-low]').first();
