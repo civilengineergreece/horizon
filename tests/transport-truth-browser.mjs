@@ -13,7 +13,19 @@ async function open(page,name){
  await card.waitFor({timeout:15000});
  await card.locator('.actions a').filter({hasText:/μεταφορ|σύγκρι/i}).first().click();
  await page.locator('.hd-tab[data-tab="transport"]').click().catch(()=>{});
- await page.locator('.hz-surface-live').waitFor({timeout:16000});
+ await page.locator('.hz-surface-live').waitFor({state:'attached',timeout:16000});
+ await page.waitForTimeout(350);
+ if(!(await page.locator('.hz-surface-live').isVisible())){
+  const info=await page.evaluate(()=>{
+   const name=document.querySelector('.horizon-detail-overlay .hd-head h3')?.textContent?.trim();
+   const d=(window.HORIZON_DESTINATIONS||[]).find(x=>x.name===name);
+   const p=document.querySelector('.hz-surface-live');
+   return {name,selectedTransport:state.transport,destination:{region:d?.region,type:d?.type,transport:d?.transport},
+    buttons:[...(p?.querySelectorAll('[data-surface]')||[])].map(b=>({mode:b.dataset.surface,hidden:b.classList.contains('hz-live-hidden')})),
+    boxClasses:p?.className};
+  });
+  throw Error('Transport panel hidden: '+JSON.stringify(info));
+ }
 }
 async function close(page){
  await page.locator('.hd-close').click();
