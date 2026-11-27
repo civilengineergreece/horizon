@@ -10,6 +10,7 @@ on:
       - 'tests/**'
       - 'worker/src/**'
       - 'worker/tests/**'
+      - 'worker/wrangler.jsonc'
       - '.github/workflows/release-candidate.yml'
   push:
     branches: ['main']
@@ -21,6 +22,7 @@ on:
       - 'tests/**'
       - 'worker/src/**'
       - 'worker/tests/**'
+      - 'worker/wrangler.jsonc'
       - '.github/workflows/release-candidate.yml'
   workflow_dispatch:
 
@@ -73,6 +75,7 @@ jobs:
           node tests/release-smoke-browser.mjs
           node tests/stage6-journeys-browser.mjs
           node tests/stage6-provider-outage-browser.mjs
+          node tests/audit-wizard-browser.mjs
           node tests/itinerary-pdf-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
@@ -117,6 +120,7 @@ jobs:
           node tests/release-smoke-browser.mjs
           node tests/stage6-journeys-browser.mjs
           node tests/stage6-provider-outage-browser.mjs
+          node tests/audit-wizard-browser.mjs
           node tests/itinerary-pdf-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
