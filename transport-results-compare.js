@@ -65,6 +65,11 @@ function carData(d){const origin=String(stateNow().origin||'').toLocaleLowerCase
 function modeData(d,m){
   if(m==='plane'){const live=flightCache(d.name);return {time:PLANE_MIN[d.name]?formatH(PLANE_MIN[d.name]/60):'Δες live πτήσεις',cost:live?`€${(live.fare+live.extras).toLocaleString('el-GR')}`:'Έλεγχος τιμής',status:live?'Επιλεγμένη πτήση':'Αναζήτηση διαθέσιμη',cls:'hz-tr-status-live',note:live?'Αεροπορικό εισιτήριο Google Flights και χειροκίνητα πρόσθετα, όχι τελική τιμή κράτησης.':'Επίλεξε αναχώρηση και επιστροφή για συγκρίσιμη τιμή.'};}
   if(m==='car'){const x=carData(d);return x?{time:formatH(x.hours),cost:`~€${x.cost.toLocaleString('el-GR')}`,status:'Υπολογισμός',cls:'hz-tr-status-calc',note:x.note}:{time:'—',cost:'—',status:'Χωρίς στοιχεία',cls:'hz-tr-status-est',note:'Δεν υπάρχει αξιόπιστο οδικό προφίλ από τη συγκεκριμένη αφετηρία. Δεν προβάλλονται χιλιόμετρα ή διόδια άλλης διαδρομής.'};}
+  const origin=String(stateNow().origin||'').toLocaleLowerCase('el-GR')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(!origin.includes('αθην')&&!origin.includes('athen'))
+    return {time:'—',cost:'—',status:'Μη επαληθευμένο',cls:'hz-tr-status-est',
+      note:'Το συγκριτικό μοντέλο αυτής της διαδρομής ισχύει μόνο με αφετηρία την Αθήνα. Δες αποτελέσματα παρόχου για τη δική σου διαδρομή.'};
   const src=m==='train'?TRAIN[d.name]:m==='bus'?BUS[d.name]:FERRY[d.name];if(!src)return {time:'—',cost:'—',status:'Μη διαθέσιμη εκτίμηση',cls:'hz-tr-status-est',note:'Χρειάζεται επιβεβαίωση δρομολογίου.'};
   const w=peopleWeight(m),cost=Math.round(src.adultRT*w);return {time:formatH(src.hours),cost:`~€${cost.toLocaleString('el-GR')}`,status:'Εκτίμηση',cls:'hz-tr-status-est',note:'Μοντέλο κόστους για την ομάδα με ενδεικτικούς συντελεστές παιδιών/βρεφών. Δεν έχουν ελεγχθεί πραγματικός ναύλος, διαθεσιμότητα, εκπτώσεις, όχημα ή καμπίνα — όχι live τιμή.'};
 }
