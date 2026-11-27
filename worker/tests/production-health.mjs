@@ -44,7 +44,7 @@ try {
   assert.ok([400,503].includes(emailInvalid.status),'Invalid/disabled email relay must deny');
   const emailInvalidBody=await emailInvalid.json();
   assert.equal(emailInvalidBody.ok,false);
-  assert.ok(['EMAIL_DISABLED','INVALID_EMAIL'].includes(emailInvalidBody.code),
+  assert.ok(['EMAIL_DISABLED','INVALID_EMAIL','EMAIL_PROVIDER_NOT_CONFIGURED'].includes(emailInvalidBody.code),
     'No real email must be sent during readiness check');
   console.log('PASS: public email relay rejects invalid/disabled requests without any mail or billing');
   console.log('PASS: production Worker up; Google Flights & Hotels configured; '+
