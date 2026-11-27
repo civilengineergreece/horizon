@@ -27,9 +27,12 @@ try {
   assert.equal(hotels.requiresAgesForOtherChildren,true);
   assert.equal(hotels.multiRoomSearch,false,'Multi-room prices must not be invented');
   const flights=await get('/flight-capabilities');
-  assert.ok(flights.schemaVersion>=3,'Flight integrity schema >= 3 required');
+  assert.ok(flights.schemaVersion>=4,'Production Worker must have seller handoff API schema >= 4');
   assert.equal(flights.quoteCacheNoStore,true);
   assert.equal(flights.validatesTravelerCounts,true);
+  assert.equal(flights.providerBookingHandoff,true,'Published Worker must support supplier-provided seller handoff');
+  assert.equal(flights.signedGooglePostSupported,true,'Published Worker must support signed Google Flights POST');
+  assert.equal(flights.sellerCheckoutVerified,false,'Do not misrepresent real checkout or transaction verification');
   console.log('PASS: production Worker up; Google Flights & Hotels configured; '+
     'capabilities and CORS verified, without any paid provider lookup');
 }catch(err) {
