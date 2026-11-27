@@ -95,6 +95,8 @@ jobs:
         with:
           node-version: '22'
       - name: Check deployed Worker without spending API quota
+        env:
+          HORIZON_REQUIRE_SEARCH_PROTECTION: ${{ github.event_name != 'pull_request' }}
         run: node worker/tests/production-health.mjs
 
   published-site-browser:
