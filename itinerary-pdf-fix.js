@@ -31,7 +31,13 @@ function collect(editor){
     return {day:i+1,title:safe(day.querySelector('.hz-day-title')?.value)||`Ημέρα ${i+1}`,rows,notes:day.querySelector('.hz-edit-notes')?.value||'',budget:{low,high},mapUrl:makeMapUrl(name,rows)};
   });
   if(!days.length)throw new Error('Δεν υπάρχει ημέρα ταξιδιού για εξαγωγή.');
-  const allRows=days.flatMap(d=>d.rows);return {name,days,tripNotes:editor.querySelector('.hz-trip-notes')?.value||'',mapUrl:makeMapUrl(name,allRows)};
+  const allRows=days.flatMap(d=>d.rows);
+  const review=window.HORIZON_FEASIBILITY?.recalc?.(editor)||null;
+  return {name,days,tripNotes:editor.querySelector('.hz-trip-notes')?.value||'',
+    mapUrl:makeMapUrl(name,allRows),
+    feasibility:review?{status:review.status,arrivalAt:review.arrivalAt,
+      departureAt:review.departureAt,conflicts:review.conflicts,
+      notes:review.notes,unknowns:review.unknowns}:null};
 }
 function prepareMultiline(field){field.enableMultiline();}
 function finishField(field,font,size){try{field.setFontSize(size);}catch{}field.updateAppearances(font);}
@@ -59,6 +65,17 @@ async function makePdf(data){
   summary.drawText('Γενικές σημειώσεις ταξιδιού',{x:38,y:575,size:10,font,color:ink});
   const trip=form.createTextField('trip_notes');prepareMultiline(trip);trip.setText(data.tripNotes||'');trip.addToPage(summary,fieldOpts({x:38,y:245,width:350,height:310}));finishField(trip,font,10);
   summary.drawText('Το PDF είναι επεξεργάσιμο. Τα budget πεδία, οι τίτλοι, το πρόγραμμα και οι σημειώσεις μπορούν να αλλάξουν και να αποθηκευτούν ξανά.',{x:38,y:205,size:8.5,font,color:muted,maxWidth:515,lineHeight:12});
+  summary.drawText('Έλεγχος χρονικής εφικτότητας · ΜΗ ΕΠΑΛΗΘΕΥΜΕΝΗ',{x:38,y:181,size:9.3,font,color:ink});
+  const status=data.feasibility;
+  const lines=status?[
+    'ΑΦΙΞΗ: '+(status.arrivalAt||'άγνωστη')+'  |  ΑΝΑΧΩΡΗΣΗ: '+(status.departureAt||'άγνωστη'),
+    'Χρονικές συγκρούσεις: '+status.conflicts.length,
+    ...status.conflicts.slice(0,4).map(x=>'ΠΡΟΒΛΗΜΑ: '+x),
+    ...status.unknowns.slice(0,3).map(x=>'ΕΚΚΡΕΜΕΙ: '+x)
+  ]:['Δεν εκτελέστηκε έλεγχος εφικτότητας. Οι ώρες, οι μετακινήσεις και τα ωράρια απαιτούν επιβεβαίωση.'];
+  const feasibility=form.createTextField('trip_feasibility');prepareMultiline(feasibility);
+  feasibility.setText(lines.join('\n'));feasibility.addToPage(summary,fieldOpts({x:38,y:35,width:519,height:131}));
+  finishField(feasibility,font,8);
   for(const day of data.days){
     const page=pdf.addPage(A4);addHeader(page,`Ημέρα ${day.day}`,data.name);
     page.drawText('Τίτλος ημέρας',{x:38,y:720,size:8.5,font,color:ink});const title=form.createTextField(`day_${day.day}_title`);title.setText(day.title);title.addToPage(page,fieldOpts({x:38,y:680,width:390,height:30}));finishField(title,font,11);

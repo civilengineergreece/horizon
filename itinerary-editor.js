@@ -53,10 +53,21 @@ function defaultDays(name,d){
   for(let i=0;i<count;i++){
     const last=i===count-1&&count>1,offset=(i*4)%Math.max(1,ideas.length);
     const a=ideas[offset%ideas.length],b=ideas[(offset+1)%ideas.length],c=ideas[(offset+2)%ideas.length],e=ideas[(offset+3)%ideas.length];
-    const slots=last?[
-      {time:'09:00',text:'Πρωινό & check-out / οργάνωση αποσκευών'},
-      {time:'10:30',text:a},{time:'12:30',text:'Τελευταία βόλτα ή αγορές'},
-      {time:'14:00',text:b},{time:'16:00',text:'Μετάβαση προς σταθμό / λιμάνι / αεροδρόμιο με περιθώριο χρόνου'}
+    // Never invent an arrival or departure time from a generic destination.
+    // The feasibility module uses a matching selected flight or user-supplied
+    // timestamps and flags conflicts without silently erasing activities.
+    const slots=count===1?[
+      {time:'',text:'Άφιξη / μεταφορά προς τον προορισμό — ώρα προς επιβεβαίωση'},
+      {time:'',text:'Ελεύθερος χρόνος ή σύντομη βόλτα, εφόσον το επιτρέπουν τα δρομολόγια'},
+      {time:'',text:'Μετάβαση για επιστροφή — έλεγξε ώρα και περιθώρια επιβίβασης'}
+    ]:last?[
+      {time:'',text:'Πρωινό / check-out — επιβεβαίωσε ώρα καταλύματος'},
+      {time:'',text:'Σύντομη βόλτα μόνο εφόσον υπάρχει επαρκές περιθώριο'},
+      {time:'',text:'Μετάβαση προς σταθμό / λιμάνι / αεροδρόμιο — ώρα προς επιβεβαίωση'}
+    ]:i===0?[
+      {time:'',text:'Άφιξη / μεταφορά / αποσκευές — ώρα προς επιβεβαίωση'},
+      {time:'',text:'Check-in, εφόσον το επιτρέπει το κατάλυμα'},
+      {time:'',text:a},{time:'',text:'Γεύμα / ξεκούραση, ιδίως με παιδιά ή βρέφος'}
     ]:[
       {time:'09:30',text:a},{time:'11:30',text:b},{time:'13:30',text:'Γεύμα με τοπικές γεύσεις'},
       {time:'16:30',text:c},{time:'20:30',text:e}
