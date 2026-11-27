@@ -67,6 +67,7 @@ jobs:
           node tests/hotel-map-browser.mjs
           node tests/hotel-map-real-leaflet-browser.mjs
           node tests/release-smoke-browser.mjs
+          node tests/itinerary-pdf-browser.mjs
       - name: Screenshot on test failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -106,6 +107,7 @@ jobs:
           HORIZON_TEST_URL: https://civilengineergreece.github.io/horizon/
         run: |
           node tests/release-smoke-browser.mjs
+          node tests/itinerary-pdf-browser.mjs
           node tests/flight-ui-browser.mjs
           node tests/hotel-ui-browser.mjs
           node tests/hotel-map-real-leaflet-browser.mjs
