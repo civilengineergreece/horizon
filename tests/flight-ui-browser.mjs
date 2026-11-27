@@ -168,6 +168,13 @@ try{
   assert.equal(manuallyAudited.infantFareVerified,false,'Manual checklist is not independent infant-fare verification');
   assert.ok((await audit.innerText()).includes('όχι κράτηση'));
   log('Airline seller final-screen audit','Manually checked €440.50 all-in airline + €30 ground, no double baggage, never marked booked');
+  await page.setViewportSize({width:390,height:844});
+  const mobileReview=await audit.boundingBox();
+  assert.ok(mobileReview&&mobileReview.x>=-5&&mobileReview.x+mobileReview.width<=395,
+    'The seller checkout review must fit a 390px mobile viewport');
+  assert.ok((await audit.innerText()).includes('Χειροκίνητα δηλωμένο checkout'));
+  await page.setViewportSize({width:1280,height:960});
+  log('Mobile airline checkout','Manually audited all-in airline amount remains legible at 390px');
   await baggage.fill('41');
   const afterBaggageEdit=await page.evaluate(()=>{
     const key=Object.keys(localStorage).find(x=>x.startsWith('hz-flight-selection-v2:'));
