@@ -157,6 +157,11 @@ try{
     'Changed itinerary must block stale provider redirects');
   await page.evaluate(()=>{state.dates.from='2026-12-04';});
   await page.locator('[data-seller-index="0"]').click();
+  assert.equal(await page.locator('.hz-flight-handoff-btn').count(),2,
+    'Selecting the quote for budget must never erase the actual seller redirect');
+  await page.locator('[data-seller-open-index="0"]').click();
+  assert.equal(await page.evaluate(()=>window.__handoffForms.length),2,
+    'The same selected seller handoff must still work after budget selection');
   const sellerRecord=await page.evaluate(()=>{
     const k=Object.keys(localStorage).find(k=>k.startsWith('hz-flight-selection-v2:'));
     return k?JSON.parse(localStorage.getItem(k)):null;
