@@ -395,9 +395,34 @@ async function flightReturns(request,env,input){
 
 
 /**
+ * Google Flights booking_request is a genuine provider handoff, NOT seller
+ * checkout confirmation. POST data is opaque and must not be changed to GET,
+ * server-side fetched, rewritten, or submitted to non-Google hosts.
+ */
+function bookingHandoff(raw){
+  if(!raw||typeof raw!=='object')return null;
+  const url=safeUrl(raw.url);
+  if(!url)return null;
+  let u;
+  try{u=new URL(url);}catch{return null;}
+  if(u.username||u.password||u.port||
+    ['localhost','127.0.0.1','0.0.0.0','::1'].includes(u.hostname.toLowerCase())||
+    /^(?:10|127|169\.254|172\.(?:1[6-9]|2\d|3[01])|192\.168)\./.test(u.hostname))return null;
+  if(raw.post_data!==undefined&&raw.post_data!==null&&raw.post_data!==''){
+    if(!['www.google.com','google.com'].includes(u.hostname.toLowerCase())||
+       u.pathname!=='/travel/clk/f'||u.search||
+       typeof raw.post_data!=='string'||raw.post_data.length>32768||
+       !/^[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+\-=]+(?:&[A-Za-z0-9_~-]+=[A-Za-z0-9_.~%+\-=]+)*$/.test(raw.post_data))return null;
+    const params=new URLSearchParams(raw.post_data);
+    if(![...params].length||[...params].length>5)return null;
+    return {method:'POST',url,postData:raw.post_data,source:'google_flights_booking_request'};
+  }
+  return {method:'GET',url,source:'google_flights_booking_request'};
+}
+/**
  * Seller quotes for a selected itinerary. Google Flights can return booking
  * options and baggage policies for a booking_token. Quotes are NOT checkout
- * guarantees; we never follow booking_request POST URLs server-side.
+ * guarantees; booking handoff only occurs after explicit browser interaction.
  */
 function normalizeBookingOptions(data){
   const textList=v=>Array.isArray(v)?v.filter(x=>typeof x==='string').map(x=>cleanText(x,240)).slice(0,12):[];
@@ -408,6 +433,16 @@ function normalizeBookingOptions(data){
     const total=money(together?.price) ?? (departing&&returning&&money(departing?.price)!==null&&money(returning?.price)!==null?
       Math.round((money(departing.price)+money(returning.price))*100)/100:null);
     const source=together||departing||{};
+    const combined=bookingHandoff(together?.booking_request);
+    const departingHandoff=bookingHandoff(departing?.booking_request);
+    const returningHandoff=bookingHandoff(returning?.booking_request);
+    const bookingActions=combined?[{part:'combined',seller:cleanText(together?.book_with||source.book_with,140),
+      handoff:combined}]:option?.separate_tickets===true?
+      [{part:'departing',seller:cleanText(departing?.book_with,140),handoff:departingHandoff},
+       {part:'returning',seller:cleanText(returning?.book_with,140),handoff:returningHandoff}]
+        .filter(x=>x.handoff):departingHandoff?[{part:'combined',seller:cleanText(source.book_with,140),
+      handoff:departingHandoff}]:[];
+    const firstHandoff=bookingActions[0]?.handoff||null;
     return {id:index,seller:cleanText(source.book_with||'Μη κατονομασμένος πωλητής',140),
       separateTickets:option?.separate_tickets===true,
       departingSeller:cleanText(departing?.book_with||'',140)||null,returningSeller:cleanText(returning?.book_with||'',140)||null,
@@ -415,9 +450,9 @@ function normalizeBookingOptions(data){
       baggage:{together:textList(together?.baggage_prices).length?textList(together.baggage_prices):baggage.together,
         departing:textList(departing?.baggage_prices).length?textList(departing.baggage_prices):baggage.departing,
         returning:textList(returning?.baggage_prices).length?textList(returning.baggage_prices):baggage.returning},
-      bookingMethod:source.booking_request?.post_data?'provider_post_required':
-        safeUrl(source.booking_request?.url)?'provider_direct_link':'not_supplied',
-      bookingUrl:source.booking_request?.post_data?null:safeUrl(source.booking_request?.url),
+      bookingActions,
+      bookingMethod:firstHandoff?firstHandoff.method==='POST'?'provider_post_required':'provider_direct_link':'not_supplied',
+      bookingUrl:firstHandoff?.method==='GET'&&bookingActions.length===1?firstHandoff.url:null,
       infantFareBreakdown:null,
       note:'Τιμή πωλητή κατά την αναζήτηση, όχι εγγυημένη τελική χρέωση.'
     };
