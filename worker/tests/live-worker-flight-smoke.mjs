@@ -4,6 +4,12 @@
  * The two live flight searches consume external provider quota only after verifying the new route.
  */
 import assert from 'node:assert/strict';
+if(process.env.HORIZON_ALLOW_BILLABLE!=='true'){
+  console.error('Live audit blocked: explicit HORIZON_ALLOW_BILLABLE=true authorization is required.');
+  process.exit(2);
+}
+const originHeader='https://civilengineergreece.github.io';
+const day=(offset)=>new Date(Date.now()+offset*86400000).toISOString().slice(0,10);
 import {appendFileSync} from 'node:fs';
 
 const base='https://horizon-live-api.gnchristou.workers.dev';
@@ -16,7 +22,7 @@ function finish(){
   }
 }
 async function request(path,options={}){
-  const response=await fetch(base+path,{...options,signal:AbortSignal.timeout(25000)});
+  const response=await fetch(base+path,{...options,headers:{Origin:originHeader,...options.headers},signal:AbortSignal.timeout(25000)});
   const data=await response.json().catch(()=>({}));
   return {status:response.status,data};
 }
@@ -26,15 +32,15 @@ try{
   assert.equal(health.status,200,'Public Worker /health must respond with HTTP 200');
   assert.equal(health.data.ok,true);
   record('Flights provider configured',String(!!health.data?.providers?.googleFlights?.enabled));
-  if(process.env.GITHUB_EVENT_NAME==='push'){
+  {
     let schema=null;
     for(let n=0;n<16;n++){
       const r=await request('/flight-capabilities');
-      if(r.status===200&&r.data.schemaVersion===3){schema=r.data;break;}
+      if(r.status===200&&r.data.schemaVersion>=4){schema=r.data;break;}
       if(n<15)await new Promise(resolve=>setTimeout(resolve,10000));
     }
     record('Flight production schema',String(schema?.schemaVersion||'NOT READY'));
-    assert.equal(schema?.schemaVersion,3,'Cloudflare is not running the strict flight price audit version');
+    assert.ok(schema?.schemaVersion>=4,'Cloudflare is not running the strict flight price audit version');
   }
 
   // Current Worker version exposes POST /flight-returns. GET must return 405.
@@ -46,7 +52,7 @@ try{
   // A single live round-trip query; do not log departure_token or provider credentials.
   const fields=new URLSearchParams({
     origin:'Athens',destination:'Thessaloniki',
-    outboundDate:'2026-12-04',returnDate:'2026-12-06',
+    outboundDate:day(14),returnDate:day(16),
     adults:'1',children:'0',infants:'0'
   });
   const departure=await request('/flights?'+fields.toString());
@@ -61,7 +67,7 @@ try{
     method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({
       origin:'Athens',destination:'Thessaloniki',
-      outboundDate:'2026-12-04',returnDate:'2026-12-06',
+      outboundDate:day(14),returnDate:day(16),
       adults:1,children:0,infants:0,departureToken:selectable.departureToken
     })
   });
@@ -87,8 +93,8 @@ try{
     const details=await request('/flight-booking-options',{
       method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({
-        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
-        returnDate:'2026-12-06',adults:1,children:0,infants:0,
+        origin:'Athens',destination:'Thessaloniki',outboundDate:day(14),
+        returnDate:day(16),adults:1,children:0,infants:0,
         bookingToken:bookable.bookingToken||'',
         outboundSegments:selectable.segments||[],returnSegments:bookable.segments||[]
       })
@@ -104,8 +110,8 @@ try{
     // Independent family request: verify the actual provider receives two adults
     // and an infant-on-lap (NOT a guarantee that checkout itemizes infant fees).
     const familyFields=new URLSearchParams({
-      origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
-      returnDate:'2026-12-06',adults:'2',children:'0',infants:'1'
+      origin:'Athens',destination:'Thessaloniki',outboundDate:day(14),
+      returnDate:day(16),adults:'2',children:'0',infants:'1'
     });
     const familyOutbound=await request('/flights?'+familyFields);
     record('Family outbound search (2 adults + 1 infant)','HTTP '+familyOutbound.status+'; '+(familyOutbound.data?.results?.length||0)+' options');
@@ -118,8 +124,8 @@ try{
     const familyReturn=await request('/flight-returns',{
       method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({
-        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
-        returnDate:'2026-12-06',adults:2,children:0,infants:1,
+        origin:'Athens',destination:'Thessaloniki',outboundDate:day(14),
+        returnDate:day(16),adults:2,children:0,infants:1,
         departureToken:familyChoice.departureToken
       })
     });
@@ -132,8 +138,8 @@ try{
     const familySellers=await request('/flight-booking-options',{
       method:'POST',headers:{'content-type':'application/json'},
       body:JSON.stringify({
-        origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',
-        returnDate:'2026-12-06',adults:2,children:0,infants:1,
+        origin:'Athens',destination:'Thessaloniki',outboundDate:day(14),
+        returnDate:day(16),adults:2,children:0,infants:1,
         bookingToken:familyInbound.bookingToken||'',
         outboundSegments:familyChoice.segments||[],returnSegments:familyInbound.segments||[]
       })

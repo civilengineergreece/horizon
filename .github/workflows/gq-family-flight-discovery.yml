@@ -1,17 +1,20 @@
 name: HORIZON exact family flight discovery
 
 on:
-  push:
-    branches: ['main']
-    paths:
-      - 'worker/tests/live-gq-family-discovery.mjs'
   workflow_dispatch:
+    inputs:
+      authorize_billable:
+        description: 'I authorize real provider quota use for this one live audit'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   exact-family-discovery:
+    if: inputs.authorize_billable == true
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
@@ -22,4 +25,6 @@ jobs:
       - name: Syntax check
         run: node --check worker/tests/live-gq-family-discovery.mjs
       - name: Verify exact GQ380 then GQ389 using real Google Flights API
+        env:
+          HORIZON_ALLOW_BILLABLE: 'true'
         run: node worker/tests/live-gq-family-discovery.mjs

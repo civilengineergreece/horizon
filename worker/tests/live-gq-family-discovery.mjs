@@ -1,17 +1,23 @@
 import assert from 'node:assert/strict';
+if(process.env.HORIZON_ALLOW_BILLABLE!=='true'){
+  console.error('Live audit blocked: explicit HORIZON_ALLOW_BILLABLE=true authorization is required.');
+  process.exit(2);
+}
+const originHeader='https://civilengineergreece.github.io';
 import {appendFileSync} from 'node:fs';
 const base='https://horizon-live-api.gnchristou.workers.dev';
 const msgs=[],push=(label,value)=>{const l=label+': '+value;console.log(l);msgs.push(l)};
 const expected={origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-12-04',returnDate:'2026-12-06',adults:2,children:0,infants:1};
 async function call(path,opts={}){
-  const r=await fetch(base+path,{...opts,signal:AbortSignal.timeout(30000)});
+  const r=await fetch(base+path,{...opts,headers:{Origin:originHeader,...opts.headers},signal:AbortSignal.timeout(30000)});
   return {status:r.status,data:await r.json().catch(()=>({}))};
 }
 function numbers(item){return (item?.segments||[]).map(x=>String(x.flightNumber||'').replace(/\s+/g,'').toUpperCase());}
 try{
+  assert.ok(expected.outboundDate>=new Date().toISOString().slice(0,10),'Historical itinerary has departed; do not spend quota on expired dates');
   const caps=await call('/flight-capabilities');
-  assert.equal(caps.data.schemaVersion,3,'Strict flight Worker version not deployed');
-  push('Strict Worker version','3');
+  assert.ok(caps.data.schemaVersion>=4,'Strict flight Worker version not deployed');
+  push('Strict Worker version',String(caps.data.schemaVersion));
 
   const params=new URLSearchParams(expected);
   const outbound=await call('/flights?'+params);

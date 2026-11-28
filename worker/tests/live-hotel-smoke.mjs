@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
+if(process.env.HORIZON_ALLOW_BILLABLE!=='true'){
+  console.error('Live audit blocked: explicit HORIZON_ALLOW_BILLABLE=true authorization is required.');
+  process.exit(2);
+}
+const originHeader='https://civilengineergreece.github.io';
+const day=(offset)=>new Date(Date.now()+offset*86400000).toISOString().slice(0,10);
 import {appendFileSync} from 'node:fs';
 
 const base='https://horizon-live-api.gnchristou.workers.dev';
 const results=[];
 function mark(k,v){const msg=k+': '+v;results.push(msg);console.log(msg);}
 async function get(url){
-  const r=await fetch(base+url,{signal:AbortSignal.timeout(26000)});
+  const r=await fetch(base+url,{headers:{Origin:originHeader},signal:AbortSignal.timeout(26000)});
   const body=await r.json().catch(()=>({}));
   return {status:r.status,body};
 }
@@ -17,15 +23,15 @@ try{
   let capabilities;
   for(let attempt=0;attempt<16;attempt++){
     capabilities=await get('/hotel-capabilities');
-    if(capabilities.status===200&&capabilities.body.schemaVersion===5)break;
+    if(capabilities.status===200&&capabilities.body.schemaVersion>=5)break;
     if(attempt<15)await new Promise(resolve=>setTimeout(resolve,10000));
   }
   mark('Hotel API production version','HTTP '+capabilities.status+'; schema '+String(capabilities.body.schemaVersion||'not published'));
   assert.equal(capabilities.status,200,'New hotel Worker not deployed');
-  assert.equal(capabilities.body.schemaVersion,5,'New hotel pricing schema not deployed');
+  assert.ok(capabilities.body.schemaVersion>=5,'New hotel pricing schema not deployed');
   const params=new URLSearchParams({
-    destination:'Thessaloniki',checkInDate:'2026-12-04',
-    checkOutDate:'2026-12-06',adults:'2',children:'0',infants:'1'
+    destination:'Thessaloniki',checkInDate:day(14),
+    checkOutDate:day(16),adults:'2',children:'0',infants:'1'
   });
   const live=await get('/stays?'+params);
   mark('Family hotel search','HTTP '+live.status+'; '+(live.body?.results?.length||0)+' hotels');
@@ -100,8 +106,8 @@ try{
   // booking links, or any personally identifying guest data.
   const hotel=live.body.results.find(x=>/^[A-Za-z0-9_-]{10,220}$/.test(String(x.propertyToken||'')));
   assert.ok(hotel,'No Google Hotels listing exposed a usable property token');
-  const detailResponse=await fetch(base+'/hotel-details',{method:'POST',headers:{'content-type':'application/json'},
-    body:JSON.stringify({propertyToken:hotel.propertyToken,checkInDate:'2026-12-04',checkOutDate:'2026-12-06',
+  const detailResponse=await fetch(base+'/hotel-details',{method:'POST',headers:{Origin:originHeader,'content-type':'application/json'},
+    body:JSON.stringify({propertyToken:hotel.propertyToken,checkInDate:day(14),checkOutDate:day(16),
       adults:2,children:0,infants:1}),signal:AbortSignal.timeout(26000)});
   const details=await detailResponse.json().catch(()=>({}));
   mark('Real family property details','HTTP '+detailResponse.status+'; '+(details.offers?.length||0)+' seller/room offers');

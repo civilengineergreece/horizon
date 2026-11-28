@@ -4,6 +4,11 @@
  * Does NOT book or pay, and never assumes today's prices equal the screenshot.
  */
 import assert from 'node:assert/strict';
+if(process.env.HORIZON_ALLOW_BILLABLE!=='true'){
+  console.error('Live audit blocked: explicit HORIZON_ALLOW_BILLABLE=true authorization is required.');
+  process.exit(2);
+}
+const originHeader='https://civilengineergreece.github.io';
 import {appendFileSync} from 'node:fs';
 const root='https://horizon-live-api.gnchristou.workers.dev';
 const log=[];
@@ -15,20 +20,21 @@ const requested={origin:'Athens',destination:'Thessaloniki',outboundDate:'2026-1
   returnSegments:[{flightNumber:'GQ389',departure:{airport:'SKG',time:'2026-12-06 22:00'},arrival:{airport:'ATH',time:'2026-12-06 23:00'}}]
 };
 try{
-  const health=await fetch(root+'/health',{signal:AbortSignal.timeout(15000)});
+  assert.ok(requested.outboundDate>=new Date().toISOString().slice(0,10),'Historical itinerary has departed; do not spend quota on expired dates');
+  const health=await fetch(root+'/health',{headers:{Origin:originHeader},signal:AbortSignal.timeout(15000)});
   assert.equal(health.status,200);
   say('Worker','HTTP 200');
   let schema=null;
   for(let n=0;n<16;n++){
-    const r=await fetch(root+'/flight-capabilities',{signal:AbortSignal.timeout(12000)});
+    const r=await fetch(root+'/flight-capabilities',{headers:{Origin:originHeader},signal:AbortSignal.timeout(12000)});
     schema=r.ok?await r.json().catch(()=>null):null;
-    if(schema?.schemaVersion===3)break;
+    if(schema?.schemaVersion>=4)break;
     if(n<15)await new Promise(resolve=>setTimeout(resolve,10000));
   }
   say('Published strict flight schema',String(schema?.schemaVersion||'NOT READY'));
-  assert.equal(schema?.schemaVersion,3,'Worker deployment missing flight-price audit guards');
+  assert.ok(schema?.schemaVersion>=4,'Worker deployment missing flight-price audit guards');
   const res=await fetch(root+'/flight-booking-options',{
-    method:'POST',headers:{'content-type':'application/json'},
+    method:'POST',headers:{Origin:originHeader,'content-type':'application/json'},
     body:JSON.stringify(requested),signal:AbortSignal.timeout(30000)
   });
   const data=await res.json().catch(()=>({}));

@@ -56,7 +56,7 @@ node --test tests/*.test.mjs worker/tests/*.test.mjs
 Run the explicit production matrix when live checks are needed:
 
 ```sh
-node worker/tests/live-hotel-matrix.mjs
+HORIZON_ALLOW_BILLABLE=true node worker/tests/live-hotel-matrix.mjs
 ```
 
 This consumes provider quota for four valid searches. It uses dates 14–16 days
@@ -90,3 +90,5 @@ The deployed entrypoint `src/index-v6.js` **fails closed** for all billable Serp
 ## 28 Nov audit follow-up
 
 The shared rate guard covers GET `/ferries` and `/trains` as well. The production capability response must include `surfaceEndpoints`. The hotel/ferry Worker does not promise an edge cache; hotel browser results are cached temporarily and users can request a new API call. Provider cache behavior is separate. The trip map uses overlapping segments of up to ten stops to keep each road leg available; it does not invent a route when a stop is missing. The external geocoder remains best-effort.
+
+All production workflows that consume supplier quota are manual only. The operator must explicitly select `authorize_billable` in GitHub Actions. Local live scripts also require `HORIZON_ALLOW_BILLABLE=true`. Production readiness CI checks capabilities without billable searches. Never remove the exact Origin or source-IP guard to make old smoke scripts pass.
