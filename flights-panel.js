@@ -22,7 +22,8 @@ function travelers(){const t=stateNow().travelers||{};return {adults:Math.max(1,
 function fmtDuration(mins){const n=Number(mins)||0;if(!n)return '—';const h=Math.floor(n/60),m=n%60;return h?(m?`${h}ω ${m}λ`:`${h}ω`):`${m}λ`;}
 function timeOnly(v){const s=String(v||'');const m=s.match(/(\d{2}:\d{2})$/);return m?m[1]:s;}
 function cacheKey(origin,dest,from,to,t){return `${CACHE_PREFIX}${[origin,dest,from,to,t.adults,t.children,t.infants].join('|')}`;}
-function readCache(key){try{const v=JSON.parse(localStorage.getItem(key)||'null');if(v&&Date.now()-v.at<CACHE_TTL)return v.data;}catch{}return null;}
+function quoteFresh(stamp){const at=Date.parse(stamp||'');return Number.isFinite(at)&&at<=Date.now()+30000&&Date.now()-at<CACHE_TTL;}
+function readCache(key){try{const v=JSON.parse(localStorage.getItem(key)||'null');if(v&&Date.now()-v.at<CACHE_TTL&&quoteFresh(v.data?.retrievedAt))return v.data;}catch{}return null;}
 function writeCache(key,data){try{localStorage.setItem(key,JSON.stringify({at:Date.now(),data}));}catch{}}
 function euro(n){return '€'+Number(n).toLocaleString('el-GR',{maximumFractionDigits:2});}
 function amount(el){const n=Number(el?.value);return Number.isFinite(n)?Math.max(0,n):0;}
@@ -321,6 +322,7 @@ async function selectFlight(panel,step,index){
   const sess=sessions.get(panel);if(!sess)return;
   const status=panel.querySelector('.hz-flight-status'),button=panel.querySelector('[data-flight-step="'+step+'"][data-flight-index="'+index+'"]');
   if(step==='outbound'){
+    if(!quoteFresh(sess.outboundData?.retrievedAt)){status.textContent='Η προσφορά έληξε. Κάνε νέα αναζήτηση πτήσεων.';return;}
     const item=sess.outboundData?.results?.[index];if(!item||!(Number(item.price)>0))return;
     sess.outbound=item;sess.returnData=null;
     sess.selected=null;sess.bookingOptions=null;clearSelection(sess.key);panel.querySelector('.hz-flight-cost').textContent='';panel.querySelector('.hz-flight-seller-results').textContent='';
@@ -337,6 +339,7 @@ async function selectFlight(panel,step,index){
     }catch(e){if(sessions.get(panel)===sess&&sess.outbound===item)status.textContent='Αποτυχία αναζήτησης επιστροφής: '+(e.message||e);}
     finally{if(button&&sessions.get(panel)===sess&&sess.outbound===item)button.disabled=false;}
   }else if(step==='return'){
+    if(!quoteFresh(sess.returnData?.retrievedAt)||!quoteFresh(sess.outboundData?.retrievedAt)){status.textContent='Η προσφορά έληξε. Κάνε νέα αναζήτηση πτήσεων.';return;}
     const item=sess.returnData?.results?.[index];
     if(!item||!(Number(item.price)>0)||!sess.outbound)return;
     if(sess.selected)resetManualFlightExtras(panel);

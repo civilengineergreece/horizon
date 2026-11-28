@@ -289,7 +289,7 @@ async function stays(request,env,input){
     pagination:{hasMore:!!following,nextPageToken:following,currentFrom:number(page.current_from,0)||null,currentTo:number(page.current_to,0)||null},
     disclaimer:'Τιμές Google Hotels για επιλεγμένες ημερομηνίες και ηλικίες. Έξοδα διαμονής, κλιματικής ανθεκτικότητας, τοπικοί φόροι και πολιτικές βρεφικής κούνιας χρειάζονται έλεγχο στο κατάλυμα πριν την κράτηση.',
     meta:{total:number(data?.search_information?.total_results,results.length),returned:results.length},
-    cache:{enabled:true,layer:'cloudflare-workers-cache',ttlSeconds:WORKER_CACHE_TTL}},200,cacheHeaders());
+    cache:{enabled:false,layer:'none',ttlSeconds:0}},200,{'cache-control':'no-store','x-horizon-cache':'BYPASS'});
 }
 
 const FLIGHT_IDS={
@@ -569,7 +569,7 @@ export default {
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors(request,env)});
     const url=new URL(request.url);
     try{
-      if(url.pathname==='/health')return reply(request,env,{ok:true,service:'Horizon Live API',providers:{googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},googleFlights:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},liveCards:!!env.SERPAPI_API_KEY},cache:{enabled:true,layer:'cloudflare-workers-cache',ttlHours:WORKER_CACHE_TTL/3600}},200,{'cache-control':'no-store'});
+      if(url.pathname==='/health')return reply(request,env,{ok:true,service:'Horizon Live API',providers:{googleHotels:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},googleFlights:{enabled:!!env.SERPAPI_API_KEY,via:'SerpApi'},liveCards:!!env.SERPAPI_API_KEY},cache:{enabled:false,layer:'no guaranteed hotel edge cache',ttlHours:0}},200,{'cache-control':'no-store'});
       if(url.pathname==='/flight-capabilities'){
         return reply(request,env,{ok:true,service:'Horizon Flight Price Integrity',
           schemaVersion:4,quoteCacheNoStore:true,
