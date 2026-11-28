@@ -29,7 +29,7 @@ function save(ed){
 function mapUrl(ed,day=null){
   const d=ed?.dataset?.destination||'';let rows=[];
   if(day)rows=[...day.querySelectorAll('.hz-edit-row')];else rows=[...ed.querySelectorAll('.hz-edit-row')];
-  const stops=rows.map(r=>String(r.querySelector('.hz-slot-text')?.value||'').trim()).filter(Boolean).filter(x=>!/^(Γεύμα|Πρωινό|Check|Μετάβαση|Ελεύθερος χρόνος)/i.test(x)).slice(0,10);
+  const stops=rows.map(r=>String(r.querySelector('.hz-slot-text')?.value||'').trim()).filter(Boolean).filter(x=>!/^(Γεύμα|Πρωινό|Check|Μετάβαση|Ελεύθερος χρόνος)/i.test(x)).filter(x=>x.length>0);
   const u=new URL('map.html',location.href);u.searchParams.set('d',d);u.searchParams.set('stops',stops.join('|'));return u.toString();
 }
 function ensureStyles(){
@@ -43,7 +43,7 @@ function syncSummary(ed){
 }
 function augment(){
   ensureStyles();const ed=editor();if(!ed||ed.dataset.hzPlannerV2==='1')return;ed.dataset.hzPlannerV2='1';const saved=load(ed),intro=ed.querySelector('.hz-edit-intro');
-  const summary=document.createElement('div');summary.className='hz-v2-summary';summary.innerHTML=`<div class="hz-v2-summary-title">Horizon Planner v2 · Budget & 3D χάρτης</div><div class="hz-v2-summary-grid"><div class="hz-v2-kpi"><b data-v2-days>—</b><span>ημέρες ταξιδιού</span></div><div class="hz-v2-kpi"><b data-v2-total>—</b><span>ενδεικτικό συνολικό ημερήσιο budget</span></div><div class="hz-v2-kpi"><b data-v2-average>—</b><span>μέσο budget / ημέρα</span></div></div><button type="button" class="hz-v2-map-all" data-v2-map-all>🗺️ Άνοιξε 3D χάρτη όλου του ταξιδιού</button><div class="hz-v2-beta">Ο 3D χάρτης είναι prototype χωρίς API key, με OpenStreetMap/OpenFreeMap. Η αυτόματη γεωκωδικοποίηση μπορεί να χρειαστεί λίγα δευτερόλεπτα.</div>`;intro?.after(summary);
+  const summary=document.createElement('div');summary.className='hz-v2-summary';summary.innerHTML=`<div class="hz-v2-summary-title">Horizon Planner v2 · Budget & 3D χάρτης</div><div class="hz-v2-summary-grid"><div class="hz-v2-kpi"><b data-v2-days>—</b><span>ημέρες ταξιδιού</span></div><div class="hz-v2-kpi"><b data-v2-total>—</b><span>ενδεικτικό συνολικό ημερήσιο budget</span></div><div class="hz-v2-kpi"><b data-v2-average>—</b><span>μέσο budget / ημέρα</span></div></div><button type="button" class="hz-v2-map-all" data-v2-map-all>🗺️ Άνοιξε 3D χάρτη ταξιδιού (ανά 10 στάσεις)</button><div class="hz-v2-beta">Ο 3D χάρτης είναι prototype χωρίς API key, με OpenStreetMap/OpenFreeMap. Οι στάσεις εμφανίζονται σε τμήματα έως 10, χωρίς ενιαίο υπολογισμό διαδρομής μεταξύ τμημάτων. Η αυτόματη γεωκωδικοποίηση μπορεί να χρειαστεί λίγα δευτερόλεπτα.</div>`;intro?.after(summary);
   [...ed.querySelectorAll('.hz-edit-day')].forEach((day,i)=>{
     const base=parseCost(day.querySelector('.hz-edit-cost')?.textContent),sv=saved.days?.find(x=>x.day===i+1)||{};const low=num(sv.low,base.low),high=Math.max(low,num(sv.high,base.high));
     const tools=document.createElement('div');tools.className='hz-v2-tools';tools.innerHTML=`<label>Budget από € <input type="number" min="0" step="5" value="${low}" data-hz-budget-low></label><label>έως € <input type="number" min="0" step="5" value="${high}" data-hz-budget-high></label><button type="button" class="hz-v2-map" data-v2-map-day>🧭 3D χάρτης ημέρας</button>`;day.querySelector('.hz-edit-head')?.after(tools);
