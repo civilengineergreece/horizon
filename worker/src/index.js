@@ -28,8 +28,20 @@ function norm(v){return String(v||'').trim().toLocaleLowerCase('el-GR').normaliz
 async function body(request){
   const type=request.headers.get('content-type')||'';
   if(!type.includes('application/json'))throw new Error('Απαιτείται JSON request.');
-  const text=await request.text();
-  if(text.length>12000)throw new Error('Το request είναι πολύ μεγάλο.');
+  const reader=request.body?.getReader();
+  if(!reader)return {};
+  const decoder=new TextDecoder('utf-8',{fatal:true});
+  let text='',bytes=0;
+  try{
+    while(true){
+      const {done,value}=await reader.read();
+      if(done)break;
+      bytes+=value.byteLength;
+      if(bytes>12000){await reader.cancel();throw new Error('Το request είναι πολύ μεγάλο.');}
+      text+=decoder.decode(value,{stream:true});
+    }
+    text+=decoder.decode();
+  }finally{reader.releaseLock();}
   return JSON.parse(text||'{}');
 }
 async function fetchJson(url,options={}){
@@ -335,6 +347,7 @@ async function flights(request,env,input){
   const origin=cleanText(input.origin,100),destination=cleanText(input.destination,100),outbound=isoDate(input.outboundDate),ret=isoDate(input.returnDate);
   if(origin.length<2||destination.length<2)return fail(request,env,400,'Χρειάζονται αφετηρία και προορισμός.');
   if(!outbound)return fail(request,env,400,'Χρειάζεται έγκυρη ημερομηνία αναχώρησης.');
+  if(input.returnDate!==undefined&&input.returnDate!==null&&input.returnDate!==''&&!ret)return fail(request,env,400,'Μη έγκυρη ημερομηνία επιστροφής.',null,{code:'INVALID_RETURN_DATE'});
   if(ret&&ret<outbound)return fail(request,env,400,'Η επιστροφή πρέπει να είναι μετά την αναχώρηση.');
   const pax=flightPassengers(input);if(!pax)return fail(request,env,422,'Μη έγκυρος αριθμός ταξιδιωτών: έως 9 συνολικά, και κάθε βρέφος αγκαλιάς χρειάζεται έναν ενήλικα.',null,{code:'INVALID_PASSENGERS'});
   const {adults,children,infants}=pax;

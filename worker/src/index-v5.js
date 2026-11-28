@@ -33,7 +33,7 @@ function timeForDate(date){
   // The trip is planned using the Greek station's local day, not 00:00 UTC
   // (which would incorrectly omit the first 2–3 hours of Greek service).
   const zone=new Intl.DateTimeFormat('en',{timeZone:'Europe/Athens',timeZoneName:'shortOffset'})
-    .formatToParts(new Date(date+'T12:00:00Z')).find(p=>p.type==='timeZoneName')?.value||'GMT+2';
+    .formatToParts(new Date(new Date(date+'T00:00:00Z').getTime()-4*60*60*1000)).find(p=>p.type==='timeZoneName')?.value||'GMT+2';
   const m=/GMT([+-])(\d{1,2})/.exec(zone),offset=m?m[1]+m[2].padStart(2,'0')+':00':'+02:00';
   return date+'T00:00:00'+offset;
 }

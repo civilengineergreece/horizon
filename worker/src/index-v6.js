@@ -9,6 +9,7 @@ const CONSENT_VERSION='2026-11-27';
 const BILLABLE_SEARCH_PATHS=new Set([
   '/flights','/flight-returns','/flight-booking-options','/stays','/hotel-details'
 ]);
+const SURFACE_SEARCH_PATHS=new Set(['/ferries','/trains']);
 const EDGE_IP=/^[0-9a-fA-F:.]{2,45}$/;
 
 
@@ -46,8 +47,8 @@ function safeFileName(raw){
 // binding before legacy endpoint routing. An API key or browser CORS is
 // NOT a quota control. Missing protection fails CLOSED, including POST.
 async function limitPaidSearch(request,env,url){
-  if(!BILLABLE_SEARCH_PATHS.has(url.pathname)||
-     !['GET','POST'].includes(request.method))return null;
+  if(!(BILLABLE_SEARCH_PATHS.has(url.pathname)&&['GET','POST'].includes(request.method))&&
+     !(SURFACE_SEARCH_PATHS.has(url.pathname)&&request.method==='GET'))return null;
   const origin=request.headers.get('Origin');
   if(origin!==allowedOrigin(env))
     return deny(request,env,403,'SEARCH_ORIGIN_DENIED',
@@ -98,8 +99,20 @@ async function emailPdf(request,env){
   if(size>9_000_000)return deny(request,env,413,'PAYLOAD_TOO_LARGE','Το PDF είναι πολύ μεγάλο.');
   let input;
   try{
-    const raw=await request.text();
-    if(raw.length>9_000_000)return deny(request,env,413,'PAYLOAD_TOO_LARGE','Το PDF είναι πολύ μεγάλο.');
+    const reader=request.body?.getReader();
+    if(!reader)return deny(request,env,400,'INVALID_JSON','Μη έγκυρο αίτημα.');
+    const decoder=new TextDecoder('utf-8',{fatal:true});
+    let raw='',bytes=0;
+    try{
+      while(true){
+        const {done,value}=await reader.read();
+        if(done)break;
+        bytes+=value.byteLength;
+        if(bytes>9_000_000){await reader.cancel();return deny(request,env,413,'PAYLOAD_TOO_LARGE','Το PDF είναι πολύ μεγάλο.');}
+        raw+=decoder.decode(value,{stream:true});
+      }
+      raw+=decoder.decode();
+    }finally{reader.releaseLock();}
     input=JSON.parse(raw);
   }catch{return deny(request,env,400,'INVALID_JSON','Μη έγκυρο αίτημα.');}
   const email=clean(input?.email,254),filename=safeFileName(input?.filename);
@@ -156,7 +169,7 @@ export default {
         requiresCloudflareSourceIp:true,failClosedIfLimitMissing:true,
         rateLimitConfigured:typeof env.TRAVEL_SEARCH_RATE_LIMIT?.limit==='function',
         perIpLimit:12,periodSeconds:60,
-        methods:['GET','POST'],endpoints:[...BILLABLE_SEARCH_PATHS]},200);
+        methods:['GET','POST'],endpoints:[...BILLABLE_SEARCH_PATHS],surfaceEndpoints:[...SURFACE_SEARCH_PATHS]},200);
     }
     const denied=await limitPaidSearch(request,env,url);
     if(denied)return denied;
