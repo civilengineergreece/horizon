@@ -5,7 +5,10 @@ const STYLE_ID='horizon-itinerary-editor-style';
 const EDITOR_CLASS='hz-itinerary-editor';
 const PDF_LIB='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 const FONTKIT='https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';
-const PDF_FONT='https://cdn.jsdelivr.net/npm/notosans@5.0.0/NotoSans-Regular.woff2';
+const PDF_FONT='https://pdf-lib.js.org/assets/ubuntu/Ubuntu-R.ttf';
+const PDF_INTEGRITY={ [PDF_LIB]:'sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI', [FONTKIT]:'sha384-2p6U+1mmqF10USehFeRiyG2ESG9FwIqN+jxULn5w9jjQIihSn9Pt13dVCn/Hawjn' };
+const FONT_INTEGRITY='sha384-Kaa1DR9RrWRmy77vZ4Y+EtGcndRNQ2I+Xf3+fpAxpEzWYF6Ch9ybkd7NPMjV+xEt';
+
 const FUTURE_PRICE='19,90€';
 
 const SPECIAL={
@@ -156,13 +159,13 @@ function render(force=false){
 let saveTimer=null;
 function autoSave(editor){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{const name=editor.dataset.destination;savePlan(name,collect(editor,name));setStatus(editor,'Οι αλλαγές αποθηκεύτηκαν τοπικά.',true);},350);}
 
-function loadExternal(src,globalName){return new Promise((resolve,reject)=>{if(globalName&&window[globalName])return resolve();const old=document.querySelector(`script[data-hz-src="${src}"]`);if(old){old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return;}const s=document.createElement('script');s.src=src;s.async=true;s.dataset.hzSrc=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}
+function loadExternal(src,globalName){return new Promise((resolve,reject)=>{if(globalName&&window[globalName])return resolve();const old=document.querySelector(`script[data-hz-src="${src}"]`);if(old){old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return;}const s=document.createElement('script');s.src=src;s.async=true;s.integrity=PDF_INTEGRITY[src];s.crossOrigin='anonymous';s.onerror=()=>{s.remove();reject(new Error('PDF library failed integrity or network check'));};s.dataset.hzSrc=src;s.onload=resolve;document.head.appendChild(s);});}
 async function ensurePdfLib(){await loadExternal(PDF_LIB,'PDFLib');await loadExternal(FONTKIT,'fontkit');if(!window.PDFLib||!window.fontkit)throw new Error('PDF library unavailable');}
 function safeFileName(name){return String(name||'trip').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'')||'trip';}
 async function buildPdf(name,data){
   await ensurePdfLib();
   const {PDFDocument,rgb}=window.PDFLib,pdf=await PDFDocument.create();pdf.registerFontkit(window.fontkit);
-  const fontBytes=await fetch(PDF_FONT).then(r=>{if(!r.ok)throw new Error('Font download failed');return r.arrayBuffer();});
+  const fontBytes=await fetch(PDF_FONT,{mode:'cors',integrity:FONT_INTEGRITY}).then(r=>{if(!r.ok)throw new Error('Font download failed');return r.arrayBuffer();});
   const font=await pdf.embedFont(fontBytes,{subset:true});const form=pdf.getForm();const A4=[595.28,841.89];
   const header=(page,title,sub)=>{page.drawRectangle({x:0,y:775,width:A4[0],height:67,color:rgb(.035,.10,.15)});page.drawText('HORIZON',{x:38,y:808,size:17,font,color:rgb(1,.48,.09)});page.drawText(title,{x:38,y:786,size:13,font,color:rgb(.96,.98,1)});if(sub)page.drawText(sub,{x:38,y:762,size:8.5,font,color:rgb(.38,.48,.55)});};
   const summary=pdf.addPage(A4);header(summary,`${name} · Προσωπικό itinerary`,`${data.days.length} ημέρες · ${travelers()} ταξιδιώτες`);summary.drawText('Το αρχείο είναι διαδραστικό: μπορείς να αλλάξεις τα πεδία και να το αποθηκεύσεις ξανά.',{x:38,y:720,size:9,font,color:rgb(.2,.27,.32),maxWidth:515});

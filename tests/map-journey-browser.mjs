@@ -16,7 +16,7 @@ try {
   await page.route('https://**/*',async r=>{
     const u=new URL(r.request().url());
     if(u.hostname==='civilengineergreece.github.io')return r.continue();
-    if(u.hostname==='unpkg.com')return r.fulfill({status:200,body:'',contentType:u.pathname.endsWith('.css')?'text/css':'application/javascript'});
+    if(u.hostname==='unpkg.com')return r.abort();
     if(u.hostname==='nominatim.openstreetmap.org'){
       const q=u.searchParams.get('q');geocoded.push(q);
       const n=Number(/Stop (\d+)/.exec(q)?.[1]||0);

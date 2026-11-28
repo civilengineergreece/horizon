@@ -4,7 +4,10 @@ const PDF_LIB='https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 const FONTKIT='https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';
 const QR_LIB='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
 const PDF_FONT='https://pdf-lib.js.org/assets/ubuntu/Ubuntu-R.ttf';
-function loadScript(src,globalName){return new Promise((resolve,reject)=>{if(globalName&&window[globalName])return resolve();const old=[...document.scripts].find(s=>s.src===src);if(old){if(globalName&&window[globalName])return resolve();old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return;}const s=document.createElement('script');s.src=src;s.async=true;s.onload=resolve;s.onerror=reject;document.head.appendChild(s);});}
+const PDF_INTEGRITY={ [PDF_LIB]:'sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI', [FONTKIT]:'sha384-2p6U+1mmqF10USehFeRiyG2ESG9FwIqN+jxULn5w9jjQIihSn9Pt13dVCn/Hawjn', [QR_LIB]:'sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU' };
+const FONT_INTEGRITY='sha384-Kaa1DR9RrWRmy77vZ4Y+EtGcndRNQ2I+Xf3+fpAxpEzWYF6Ch9ybkd7NPMjV+xEt';
+
+function loadScript(src,globalName){return new Promise((resolve,reject)=>{if(globalName&&window[globalName])return resolve();const old=[...document.scripts].find(s=>s.src===src);if(old){if(globalName&&window[globalName])return resolve();old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return;}const s=document.createElement('script');s.src=src;s.async=true;s.integrity=PDF_INTEGRITY[src];s.crossOrigin='anonymous';s.onerror=()=>{s.remove();reject(new Error('PDF library failed integrity or network check'));};s.onload=resolve;document.head.appendChild(s);});}
 async function ensureLibs(){await loadScript(PDF_LIB,'PDFLib');await loadScript(FONTKIT,'fontkit');await loadScript(QR_LIB,'QRCode');if(!window.PDFLib||!window.fontkit||!window.QRCode)throw new Error('PDF/QR libraries unavailable');}
 function safe(v){return String(v||'').trim();}
 function n(v,f=0){const x=Number(v);return Number.isFinite(x)?x:f;}
@@ -51,7 +54,7 @@ function addUriLink(pdf,page,url,x,y,w,h){
 async function makePdf(data){
   await ensureLibs();
   const {PDFDocument,rgb}=window.PDFLib,pdf=await PDFDocument.create();pdf.registerFontkit(window.fontkit);
-  const res=await fetch(PDF_FONT,{cache:'force-cache',mode:'cors'});if(!res.ok)throw new Error(`Font ${res.status}`);
+  const res=await fetch(PDF_FONT,{cache:'force-cache',mode:'cors',integrity:FONT_INTEGRITY});if(!res.ok)throw new Error(`Font ${res.status}`);
   const font=await pdf.embedFont(await res.arrayBuffer(),{subset:true}),form=pdf.getForm(),A4=[595.28,841.89];
   const orange=rgb(1,.48,.09),dark=rgb(.035,.10,.15),ink=rgb(.08,.12,.16),muted=rgb(.38,.48,.55),line=rgb(.72,.76,.80),paper=rgb(.99,.995,1);
   const addHeader=(page,title,sub='')=>{page.drawRectangle({x:0,y:775,width:A4[0],height:67,color:dark});page.drawText('HORIZON',{x:38,y:808,size:17,font,color:orange});page.drawText(title,{x:38,y:786,size:12.5,font,color:rgb(.96,.98,1)});if(sub)page.drawText(sub,{x:38,y:762,size:8.5,font,color:muted});};
