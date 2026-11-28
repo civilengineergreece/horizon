@@ -5,6 +5,8 @@ const assets=[
   ['map-js','https://unpkg.com/maplibre-gl@5.24.1/dist/maplibre-gl.js'],
   ['pdf','https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js'],
   ['fontkit','https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js'],
+  ['pdf','https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js'],
+  ['fontkit','https://unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js'],
   ['qr','https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'],
   ['font','https://pdf-lib.js.org/assets/ubuntu/Ubuntu-R.ttf']
 ];

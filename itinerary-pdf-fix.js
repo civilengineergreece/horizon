@@ -7,8 +7,32 @@ const PDF_FONT='https://pdf-lib.js.org/assets/ubuntu/Ubuntu-R.ttf';
 const PDF_INTEGRITY={ [PDF_LIB]:'sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI', [FONTKIT]:'sha384-2p6U+1mmqF10USehFeRiyG2ESG9FwIqN+jxULn5w9jjQIihSn9Pt13dVCn/Hawjn', [QR_LIB]:'sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU' };
 const FONT_INTEGRITY='sha384-Kaa1DR9RrWRmy77vZ4Y+EtGcndRNQ2I+Xf3+fpAxpEzWYF6Ch9ybkd7NPMjV+xEt';
 
-function loadScript(src,globalName){return new Promise((resolve,reject)=>{if(globalName&&window[globalName])return resolve();const old=[...document.scripts].find(s=>s.src===src);if(old){if(globalName&&window[globalName])return resolve();old.addEventListener('load',resolve,{once:true});old.addEventListener('error',reject,{once:true});return;}const s=document.createElement('script');s.src=src;s.async=true;s.integrity=PDF_INTEGRITY[src];s.crossOrigin='anonymous';s.onerror=()=>{s.remove();reject(new Error('PDF library failed integrity or network check'));};s.onload=resolve;document.head.appendChild(s);});}
-async function ensureLibs(){await loadScript(PDF_LIB,'PDFLib');await loadScript(FONTKIT,'fontkit');await loadScript(QR_LIB,'QRCode');if(!window.PDFLib||!window.fontkit||!window.QRCode)throw new Error('PDF/QR libraries unavailable');}
+const libraryPromises=new Map();
+function loadScript(src,globalName){
+  if(window[globalName])return Promise.resolve();
+  if(libraryPromises.has(src))return libraryPromises.get(src);
+  const fallback=src.startsWith('https://cdn.jsdelivr.net/npm/')?src.replace('https://cdn.jsdelivr.net/npm/','https://unpkg.com/'):src;
+  const attempt=url=>new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    const fail=()=>{clearTimeout(timer);s.remove();reject(new Error('PDF library failed integrity or network check: '+globalName+' ('+new URL(url).hostname+')'));};
+    const timer=setTimeout(fail,18000);
+    s.integrity=PDF_INTEGRITY[src];s.crossOrigin='anonymous';s.async=true;
+    s.onload=()=>{clearTimeout(timer);if(window[globalName])resolve();else fail();};
+    s.onerror=fail;s.src=url;document.head.appendChild(s);
+  });
+  const result=attempt(src).catch(()=>attempt(fallback)).catch(e=>{libraryPromises.delete(src);throw e;});
+  libraryPromises.set(src,result);return result;
+}
+async function loadVerifiedFont(){
+  let last;
+  for(let n=0;n<2;n++){try{
+    const response=await fetch(PDF_FONT,{cache:n?'reload':'force-cache',mode:'cors',integrity:FONT_INTEGRITY,signal:AbortSignal.timeout(18000)});
+    if(!response.ok)throw new Error('Font HTTP '+response.status);
+    return await response.arrayBuffer();
+  }catch(e){last=e;}}
+  throw new Error('Verified PDF font unavailable: '+(last?.message||'network error'));
+}
+async function ensureLibs(){await loadScript(PDF_LIB,'PDFLib');await loadScript(FONTKIT,'fontkit');try{await loadScript(QR_LIB,'QRCode');}catch(e){console.warn('QR unavailable; PDF map links remain available',e.message);}if(!window.PDFLib||!window.fontkit)throw new Error('PDF libraries unavailable');}
 function safe(v){return String(v||'').trim();}
 function n(v,f=0){const x=Number(v);return Number.isFinite(x)?x:f;}
 function fileName(name){return String(name||'trip').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'')||'trip';}
@@ -54,8 +78,7 @@ function addUriLink(pdf,page,url,x,y,w,h){
 async function makePdf(data){
   await ensureLibs();
   const {PDFDocument,rgb}=window.PDFLib,pdf=await PDFDocument.create();pdf.registerFontkit(window.fontkit);
-  const res=await fetch(PDF_FONT,{cache:'force-cache',mode:'cors',integrity:FONT_INTEGRITY});if(!res.ok)throw new Error(`Font ${res.status}`);
-  const font=await pdf.embedFont(await res.arrayBuffer(),{subset:true}),form=pdf.getForm(),A4=[595.28,841.89];
+  const font=await pdf.embedFont(await loadVerifiedFont(),{subset:true}),form=pdf.getForm(),A4=[595.28,841.89];
   const orange=rgb(1,.48,.09),dark=rgb(.035,.10,.15),ink=rgb(.08,.12,.16),muted=rgb(.38,.48,.55),line=rgb(.72,.76,.80),paper=rgb(.99,.995,1);
   const addHeader=(page,title,sub='')=>{page.drawRectangle({x:0,y:775,width:A4[0],height:67,color:dark});page.drawText('HORIZON',{x:38,y:808,size:17,font,color:orange});page.drawText(title,{x:38,y:786,size:12.5,font,color:rgb(.96,.98,1)});if(sub)page.drawText(sub,{x:38,y:762,size:8.5,font,color:muted});};
   const fieldOpts=extra=>({borderWidth:1,borderColor:line,backgroundColor:paper,textColor:ink,font,...extra});

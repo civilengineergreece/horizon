@@ -20,10 +20,10 @@ try {
     if(u.hostname==='nominatim.openstreetmap.org'){
       const q=u.searchParams.get('q');geocoded.push(q);
       const n=Number(/Stop (\d+)/.exec(q)?.[1]||0);
-      return r.fulfill({json:n===12?[]:[{lat:String(37+n/1000),lon:'23.7',display_name:q}]});
+      return r.fulfill({headers:{'access-control-allow-origin':'*'},json:n===12?[]:[{lat:String(37+n/1000),lon:'23.7',display_name:q}]});
     }
     if(u.hostname==='router.project-osrm.org'||u.hostname==='routing.openstreetmap.de'){
-      routes++;return r.fulfill({status:503,body:'Unavailable'});
+      routes++;return r.fulfill({status:503,headers:{'access-control-allow-origin':'*'},body:'Unavailable'});
     }
     return r.abort();
   });

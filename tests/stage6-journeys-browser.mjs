@@ -20,6 +20,8 @@ const totals=new Map();
 try{
   for(const width of [1280,390]){
     const page=await browser.newPage({viewport:{width,height:width===390?844:920}});
+    page.on('console',msg=>{if(msg.type()==='error'&&/integrity|Content Security Policy|CORS/i.test(msg.text()))console.error('Browser security:',msg.text());});
+    page.on('requestfailed',req=>{if(/pdf-lib|fontkit|qrcodejs|Ubuntu-R/.test(req.url()))console.error('PDF network:',req.url(),req.failure()?.errorText);});
     const paidSearches=[];
     // All supplier search endpoints are blocked BEFORE the page is opened.
     // The test therefore cannot consume SerpApi quota or book anything.
