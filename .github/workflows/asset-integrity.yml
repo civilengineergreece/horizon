@@ -1,0 +1,22 @@
+name: HORIZON pinned asset integrity evidence
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/asset-integrity.yml'
+      - 'map.html'
+      - 'itinerary-pdf-fix.js'
+      - 'itinerary-editor.js'
+      - 'tests/asset-integrity.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hash-pinned-assets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/asset-integrity.mjs

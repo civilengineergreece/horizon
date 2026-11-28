@@ -91,6 +91,7 @@ jobs:
           node tests/stage6-provider-outage-browser.mjs
           node tests/audit-wizard-browser.mjs
           node tests/itinerary-pdf-browser.mjs
+          node tests/map-journey-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
       - name: Screenshot on test failure
@@ -138,6 +139,7 @@ jobs:
           node tests/stage6-provider-outage-browser.mjs
           node tests/audit-wizard-browser.mjs
           node tests/itinerary-pdf-browser.mjs
+          node tests/map-journey-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
           node tests/flight-ui-browser.mjs
