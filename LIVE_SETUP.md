@@ -86,3 +86,7 @@ The deployed entrypoint `src/index-v6.js` **fails closed** for all billable Serp
 - Local development that calls the real Worker must use an explicitly configured origin in `ALLOWED_ORIGIN` on a separate development environment. The production site must not broaden origin checks to `*` or arbitrary localhost.
 
 **Security runbook:** `docs/FULL_INDEPENDENT_AUDIT_2026-11-27.md`. This remains a free, non-transactional travel search app; bookings and merchant payments are external.
+
+## 28 Nov audit follow-up
+
+The shared rate guard covers GET `/ferries` and `/trains` as well. The production capability response must include `surfaceEndpoints`. The hotel/ferry Worker does not promise an edge cache; hotel browser results are cached temporarily and users can request a new API call. Provider cache behavior is separate. The trip map uses overlapping segments of up to ten stops to keep each road leg available; it does not invent a route when a stop is missing. The external geocoder remains best-effort.

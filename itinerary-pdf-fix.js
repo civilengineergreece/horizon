@@ -11,7 +11,7 @@ function n(v,f=0){const x=Number(v);return Number.isFinite(x)?x:f;}
 function fileName(name){return String(name||'trip').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'')||'trip';}
 function status(editor,text,ok=false){const el=editor.querySelector('.hz-edit-status');if(el){el.textContent=text;el.style.color=ok?'#8ae5b5':'#91a4b2';}}
 function parseCost(text){const m=String(text||'').match(/(\d+)\s*[–-]\s*€?(\d+)/);return m?{low:Number(m[1]),high:Number(m[2])}:{low:50,high:80};}
-function makeMapUrl(name,rows){const stops=rows.map(r=>safe(r.text)).filter(Boolean).filter(x=>!/^(Γεύμα|Πρωινό|Check|Μετάβαση|Ελεύθερος χρόνος)/i.test(x)).filter(x=>x.length>0);const u=new URL('map.html',location.href);u.searchParams.set('d',name);u.searchParams.set('stops',stops.join('|'));return u.toString();}
+function makeMapUrl(name,rows){const stops=rows.map(r=>safe(r.text)).filter(Boolean).filter(x=>!/^(Γεύμα|Πρωινό|Check|Μετάβαση|Ελεύθερος χρόνος)/i.test(x)).filter(x=>x.length>0);const u=new URL('map.html',location.href);u.searchParams.set('d',name);for(const stop of stops)u.searchParams.append('stop',stop);return u.toString();}
 function collect(editor){
   const name=editor.dataset.destination||document.querySelector('.horizon-detail-overlay .hd-head h3')?.textContent?.trim()||'Ταξίδι';
   const days=[...editor.querySelectorAll('.hz-edit-day')].map((day,i)=>{
