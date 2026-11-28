@@ -113,7 +113,7 @@ try{
         assert.equal(map.pathname,new URL('map.html',url).pathname);
         assert.equal(map.searchParams.get('d'),scenario.name);
         assert.equal(day.searchParams.get('d'),scenario.name);
-        assert.ok(day.searchParams.get('stops')?.length>5,'Every scenario needs a daily map route');
+        assert.ok(day.searchParams.getAll('stop').some(stop=>stop.trim().length>5),'Every scenario needs at least one actual daily map stop');
         const mapPage=await page.request.get(map.toString());
         assert.equal(mapPage.status(),200,'Static map route must resolve in deployed release');
         const mapSource=await mapPage.text();
