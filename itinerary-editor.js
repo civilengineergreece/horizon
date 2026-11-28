@@ -90,6 +90,9 @@ function loadPlan(name,d){
   try{
     const raw=localStorage.getItem(storageKey(name));if(!raw)return fresh;
     const saved=JSON.parse(raw);if(!saved||!Array.isArray(saved.days)||saved.days.length!==fresh.days.length)return fresh;
+    if(saved.days.some((day,i)=>!day||day.day!==i+1||typeof day.title!=='string'||!day.cost||
+      !Number.isFinite(day.cost.low)||!Number.isFinite(day.cost.high)||day.cost.low<0||day.cost.high<day.cost.low||
+      !Array.isArray(day.slots)||day.slots.some(slot=>!slot||typeof slot.time!=='string'||typeof slot.text!=='string')))return fresh;
     return saved;
   }catch{return fresh;}
 }

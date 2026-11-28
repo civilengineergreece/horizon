@@ -11,7 +11,7 @@ function n(v,f=0){const x=Number(v);return Number.isFinite(x)?x:f;}
 function fileName(name){return String(name||'trip').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'')||'trip';}
 function status(editor,text,ok=false){const el=editor.querySelector('.hz-edit-status');if(el){el.textContent=text;el.style.color=ok?'#8ae5b5':'#91a4b2';}}
 function parseCost(text){const m=String(text||'').match(/(\d+)\s*[–-]\s*€?(\d+)/);return m?{low:Number(m[1]),high:Number(m[2])}:{low:50,high:80};}
-function makeMapUrl(name,rows){const stops=rows.map(r=>safe(r.text)).filter(Boolean).filter(x=>!/^(Γεύμα|Πρωινό|Check|Μετάβαση|Ελεύθερος χρόνος)/i.test(x)).slice(0,10);const u=new URL('map.html',location.href);u.searchParams.set('d',name);u.searchParams.set('stops',stops.join('|'));return u.toString();}
+function makeMapUrl(name,rows){const stops=rows.map(r=>safe(r.text)).filter(Boolean).filter(x=>!/^(Γεύμα|Πρωινό|Check|Μετάβαση|Ελεύθερος χρόνος)/i.test(x)).filter(x=>x.length>0);const u=new URL('map.html',location.href);u.searchParams.set('d',name);u.searchParams.set('stops',stops.join('|'));return u.toString();}
 function collect(editor){
   const name=editor.dataset.destination||document.querySelector('.horizon-detail-overlay .hd-head h3')?.textContent?.trim()||'Ταξίδι';
   const days=[...editor.querySelectorAll('.hz-edit-day')].map((day,i)=>{
@@ -60,8 +60,8 @@ async function makePdf(data){
   const summary=pdf.addPage(A4);addHeader(summary,`${data.name} · Horizon Planner v2`,`${data.days.length} ημέρες · διαδραστικό PDF`);
   summary.drawText('Σύνοψη ταξιδιού',{x:38,y:724,size:12,font,color:ink});
   const cards=[['Ημέρες',String(data.days.length)],['Budget από',`€${totalLow}`],['Budget έως',`€${totalHigh}`]];cards.forEach((c,i)=>{const x=38+i*170;summary.drawRectangle({x,y:666,width:155,height:42,color:rgb(.965,.975,.982),borderColor:line,borderWidth:.7});summary.drawText(c[0],{x:x+10,y:691,size:7.5,font,color:muted});summary.drawText(c[1],{x:x+10,y:674,size:12,font,color:ink});});
-  summary.drawRectangle({x:38,y:610,width:350,height:34,color:rgb(.93,.97,.99),borderColor:rgb(.35,.65,.82),borderWidth:.8});summary.drawText('Άνοιξε τον διαδραστικό 3D χάρτη ταξιδιού',{x:50,y:622,size:9.2,font,color:rgb(.05,.28,.42)});addUriLink(pdf,summary,data.mapUrl,38,610,350,34);
-  try{const qr=await pdf.embedPng(await qrBytes(data.mapUrl));summary.drawImage(qr,{x:430,y:585,width:120,height:120});summary.drawText('3D map',{x:468,y:574,size:7.5,font,color:muted});}catch(e){console.debug('Trip QR skipped',e);}
+  summary.drawRectangle({x:38,y:610,width:350,height:34,color:rgb(.93,.97,.99),borderColor:rgb(.35,.65,.82),borderWidth:.8});summary.drawText('Άνοιξε τον 3D χάρτη (ανά 10 στάσεις)',{x:50,y:622,size:9.2,font,color:rgb(.05,.28,.42)});addUriLink(pdf,summary,data.mapUrl,38,610,350,34);
+  try{const qr=await pdf.embedPng(await qrBytes(data.mapUrl));summary.drawImage(qr,{x:430,y:585,width:120,height:120});summary.drawText('3D map',{x:468,y:574,size:7.5,font,color:muted});}catch(e){summary.drawText('QR μη διαθέσιμο · χρησιμοποίησε τον σύνδεσμο.',{x:38,y:588,size:8,font,color:muted});}
   summary.drawText('Γενικές σημειώσεις ταξιδιού',{x:38,y:575,size:10,font,color:ink});
   const trip=form.createTextField('trip_notes');prepareMultiline(trip);trip.setText(data.tripNotes||'');trip.addToPage(summary,fieldOpts({x:38,y:245,width:350,height:310}));finishField(trip,font,10);
   summary.drawText('Το PDF είναι επεξεργάσιμο. Τα budget πεδία, οι τίτλοι, το πρόγραμμα και οι σημειώσεις μπορούν να αλλάξουν και να αποθηκευτούν ξανά.',{x:38,y:205,size:8.5,font,color:muted,maxWidth:515,lineHeight:12});
@@ -80,7 +80,7 @@ async function makePdf(data){
   for(const day of data.days){
     const page=pdf.addPage(A4);addHeader(page,`Ημέρα ${day.day}`,data.name);
     page.drawText('Τίτλος ημέρας',{x:38,y:720,size:8.5,font,color:ink});const title=form.createTextField(`day_${day.day}_title`);title.setText(day.title);title.addToPage(page,fieldOpts({x:38,y:680,width:390,height:30}));finishField(title,font,11);
-    try{const qr=await pdf.embedPng(await qrBytes(day.mapUrl));page.drawImage(qr,{x:455,y:648,width:100,height:100});}catch(e){console.debug('Day QR skipped',e);}
+    try{const qr=await pdf.embedPng(await qrBytes(day.mapUrl));page.drawImage(qr,{x:455,y:648,width:100,height:100});}catch(e){page.drawText('QR μη διαθέσιμο · χρησιμοποίησε τον σύνδεσμο.',{x:38,y:606,size:7.5,font,color:muted});}
     page.drawText('Budget ημέρας από (€)',{x:38,y:656,size:7.5,font,color:muted});const blo=form.createTextField(`day_${day.day}_budget_low`);blo.setText(String(day.budget.low));blo.addToPage(page,fieldOpts({x:38,y:620,width:90,height:27}));finishField(blo,font,10);
     page.drawText('έως (€)',{x:150,y:656,size:7.5,font,color:muted});const bhi=form.createTextField(`day_${day.day}_budget_high`);bhi.setText(String(day.budget.high));bhi.addToPage(page,fieldOpts({x:150,y:620,width:90,height:27}));finishField(bhi,font,10);
     page.drawRectangle({x:260,y:620,width:168,height:27,color:rgb(.93,.97,.99),borderColor:rgb(.35,.65,.82),borderWidth:.8});page.drawText('3D χάρτης ημέρας',{x:288,y:630,size:8.5,font,color:rgb(.05,.28,.42)});addUriLink(pdf,page,day.mapUrl,260,620,168,27);

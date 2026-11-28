@@ -46,7 +46,7 @@ window.HORIZON_LIVE_CONFIG={
       if(payload.nextPageToken)u.searchParams.set('nextPageToken',String(payload.nextPageToken));
       if(payload.pageSize)u.searchParams.set('pageSize',String(payload.pageSize));
       // Propagate timeout/network failures; never mask them by retrying POST.
-      const res=await nativeFetch(u.toString(),{method:'GET',signal:init?.signal});
+      const res=await nativeFetch(u.toString(),{method:'GET',signal:init?.signal,cache:'no-store'});
       const cacheStatus=String(res.headers.get('cf-cache-status')||
         res.headers.get('x-horizon-cache')||'').toUpperCase();
       const data=await res.clone().json().catch(()=>null);
@@ -76,12 +76,12 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('results-truth.js?v=20261127-7','data-horizon-results-truth');
     loadScript('transport-label-fix.js?v=20260822-2','data-horizon-transport-labels');
     loadScript('hotel-climate-fee.js?v=20261119-2','data-horizon-hotel-climate-fee');
-    loadScript('hotels-panel.js?v=20261127-8','data-horizon-hotels-panel');
+    loadScript('hotels-panel.js?v=20261128-audit2','data-horizon-hotels-panel');
     loadScript('hotels-map.js?v=20261119-1','data-horizon-hotels-map');
     loadScript('hotel-checkout-audit.js?v=20261119-6','data-horizon-hotel-checkout-audit');
     loadScript('flight-ground-cost.js?v=20261119-1','data-horizon-flight-ground-cost');
     loadScript('flight-infant-fare-rules.js?v=20261119-1','data-horizon-infant-fares');
-    loadScript('flights-panel.js?v=20261127-9','data-horizon-flights-panel');
+    loadScript('flights-panel.js?v=20261128-audit2','data-horizon-flights-panel');
     loadScript('flight-checkout-audit.js?v=20261127-2','data-horizon-flight-checkout-audit');
     loadScript('trip-prefill-ui.js?v=20261119-5','data-horizon-trip-prefill');
     loadScript('multimodal-transport.js?v=20261127-4','data-horizon-multimodal');
@@ -96,9 +96,9 @@ window.HORIZON_LIVE_CONFIG={
     loadScript('live-transport-cta.js?v=20260823-1','data-horizon-live-transport-cta');
     loadScript('planner-uncertain-options.js?v=20260823-1','data-horizon-planner-uncertain');
     loadScript('transport-cleanup-v1.js?v=20261127-3','data-horizon-transport-cleanup');
-    loadScript('itinerary-editor.js?v=20261127-5','data-horizon-itinerary-editor');
-    loadScript('planner-v2.js?v=20261127-1','data-horizon-planner-v2');
-    loadScript('itinerary-pdf-fix.js?v=20261127-3','data-horizon-itinerary-pdf-fix');
+    loadScript('itinerary-editor.js?v=20261128-audit1','data-horizon-itinerary-editor');
+    loadScript('planner-v2.js?v=20261128-audit2','data-horizon-planner-v2');
+    loadScript('itinerary-pdf-fix.js?v=20261128-audit2','data-horizon-itinerary-pdf-fix');
     loadScript('itinerary-feasibility.js?v=20261127-2','data-horizon-itinerary-feasibility');
     loadScript('email-delivery-v2.js?v=20261127-5','data-horizon-email-v2');
   };

@@ -15,7 +15,7 @@ try {
      window.__HZ_MM_SCORE_PATCH__===true&&typeof window.render==='function',
      null,{timeout:30000});
    const badStates=['null','[]','false','"{broken}"','{"_step":-3}',
-     '{"_step":2.5}','{"_step":999}','not-json'];
+     '{"_step":2.5}','{"_step":999}','not-json','{"_step":8,"interests":42}'];
    for(const stored of badStates){
      await page.evaluate(v=>localStorage.setItem('horizon-planner-v1',v),stored);
      await page.reload({waitUntil:'domcontentloaded'});

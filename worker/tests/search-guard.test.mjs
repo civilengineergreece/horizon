@@ -149,3 +149,27 @@ test('read-only public protection capability reports actual limiter binding with
     assert.equal(outside,0);
   }finally{restore();}
 });
+
+test('surface searches share the fail-closed quota guard',async()=>{
+ let outside=0;const restore=stubFetch(()=>{outside++;throw Error('No external requests');});
+ try{
+   for(const path of ['/ferries','/trains']){
+     const disabled=await worker.fetch(request(path),env(),{});
+     assert.equal(disabled.status,503);
+     const limited=await worker.fetch(request(path),env({limit:async()=>({success:false})}),{});
+     assert.equal(limited.status,429);
+   }
+   assert.equal(outside,0);
+ }finally{restore();}
+});
+test('invalid optional flight return is not silently converted to one way',async()=>{
+ let outside=0;const restore=stubFetch(()=>{outside++;throw Error('No external requests');});
+ try{
+   const response=await worker.fetch(request('/flights','POST',{},{
+     origin:'Athens',destination:'Thessaloniki',outboundDate:'2027-03-28',returnDate:'2027-02-31'
+   }),env({limit:async()=>({success:true})}),{});
+   assert.equal(response.status,400);
+   assert.equal((await response.json()).code,'INVALID_RETURN_DATE');
+   assert.equal(outside,0);
+ }finally{restore();}
+});

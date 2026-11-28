@@ -34,7 +34,7 @@ jobs:
           node-version: '22'
       - name: Install browser test tools
         run: |
-          npm install --no-save playwright
+          npm install --no-save --ignore-scripts playwright@1.65.1
           google-chrome --version
       - name: Serve the exact PR branch for browser testing
         if: github.event_name != 'push'

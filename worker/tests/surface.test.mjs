@@ -4,8 +4,8 @@ import worker from '../src/index-v6.js';
 
 const base='https://example.workers.dev';
 const origin='https://civilengineergreece.github.io';
-const req=(path)=>new Request(base+path,{headers:{Origin:origin}});
-const env={ALLOWED_ORIGIN:origin};
+const req=(path)=>new Request(base+path,{headers:{Origin:origin,'CF-Connecting-IP':'203.0.113.42'}});
+const env={ALLOWED_ORIGIN:origin,TRAVEL_SEARCH_RATE_LIMIT:{limit:async()=>({success:true})}};
 
 test('ferries validate dates without calling a provider',async()=>{
  const original=globalThis.fetch;
@@ -144,4 +144,22 @@ test('Transitous rejects impossible calendar and inverted return dates',async()=
    assert.ok([400,422].includes(response.status));
   }
  }finally{globalThis.fetch=original;}
+});
+
+test('Transitous uses the true Greek midnight on both clock-change days',async()=>{
+ const original=globalThis.fetch;
+ const originalCaches=globalThis.caches;
+ const seen=[];
+ globalThis.caches={default:{match:async()=>null,put:async()=>{}}};
+ globalThis.fetch=async input=>{
+   seen.push(new URL(String(input)).searchParams.get('time'));
+   return Response.json({itineraries:[]});
+ };
+ try{
+   for(const date of ['2027-03-28','2027-10-31']){
+     const response=await worker.fetch(req('/trains?origin=Athens&destination=Thessaloniki&date='+date),env,{});
+     assert.equal(response.status,200);
+   }
+   assert.deepEqual(seen,['2027-03-28T00:00:00+02:00','2027-10-31T00:00:00+03:00']);
+ }finally{globalThis.fetch=original;globalThis.caches=originalCaches;}
 });

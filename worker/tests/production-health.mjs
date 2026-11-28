@@ -62,6 +62,7 @@ try {
       const data=await response.json();
       if(data?.ok===true&&data.guarded===true&&data.rateLimitConfigured===true&&
          data.perIpLimit===12&&data.periodSeconds===60&&
+         (!requireSearchGuard||['/ferries','/trains'].every(path=>data.surfaceEndpoints?.includes(path)))&&
          ['/flights','/flight-returns','/flight-booking-options','/stays','/hotel-details']
           .every(path=>data.endpoints?.includes(path))){
         protectedAPI=data;break;

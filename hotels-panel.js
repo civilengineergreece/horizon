@@ -229,7 +229,7 @@ function renderResults(panel,data,cacheLabel=''){
   applyFilters(panel);
   const badge=panel.querySelector('.hz-cache-badge');
   badge.classList.add('active');
-  badge.textContent=cacheLabel||(data?.cache?.hit?'Horizon cache: επαναχρησιμοποιήθηκαν αποθηκευμένες live τιμές — χωρίς νέα αναζήτηση SerpApi.':'Νέα live αναζήτηση: αποθηκεύτηκε στην Horizon cache για επαναλαμβανόμενα ίδια αιτήματα.');
+  badge.textContent=cacheLabel||(data?.cache?.hit?'Horizon cache: επαναχρησιμοποιήθηκαν αποθηκευμένες live τιμές — χωρίς νέα αναζήτηση SerpApi.':'Νέα αναζήτηση: τα αποτελέσματα αποθηκεύτηκαν προσωρινά στον browser.');
 }
 
 function roomOfferHTML(offer,index){
@@ -266,6 +266,7 @@ async function showRoomDetails(panel,index){
   if(!info||!hotel?.propertyToken)return;
   target.textContent='Ελέγχω δωμάτια και προσφορές για '+hotel.name+'…';
   panel._hotelDetails=null;
+  const detailVersion=panel._hotelDetailVersion=(panel._hotelDetailVersion||0)+1;
   try{
     const response=await fetch(API_BASE+'/hotel-details',{method:'POST',
       headers:{'content-type':'application/json'},
@@ -273,7 +274,7 @@ async function showRoomDetails(panel,index){
         adults:info.adults,children:info.children,infants:info.infants,childrenAges:info.childrenAges})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok||data.ok===false)throw new Error(data.error||'HTTP '+response.status);
-    if(panel._hotelInfo!==info)return;
+    if(panel._hotelInfo!==info||detailVersion!==panel._hotelDetailVersion)return;
     panel._hotelDetails={data,hotel};
     const offers=Array.isArray(data.offers)?data.offers:[];
     const propertyLink=safeUrl(data.propertyUrl);
@@ -293,7 +294,7 @@ async function showRoomDetails(panel,index){
     document.dispatchEvent(new CustomEvent('horizon:hotel-room-offers',{detail:{panel}}));
     target.scrollIntoView({block:'nearest',behavior:'smooth'});
   }catch(e){
-    target.textContent='Δεν ολοκληρώθηκε ο έλεγχος δωματίων: '+String(e.message||e);
+    if(panel._hotelInfo===info&&detailVersion===panel._hotelDetailVersion)target.textContent='Δεν ολοκληρώθηκε ο έλεγχος δωματίων: '+String(e.message||e);
   }
 }
 function selectRoom(panel,index){
@@ -413,7 +414,7 @@ async function loadNextPage(panel){
   }
 }
 
-async function searchStays(panel,info){
+async function searchStays(panel,info,force=false){
   const btn=panel.querySelector('.hz-stay-load');
   const status=panel.querySelector('.hz-stay-status');
   const agesInput=panel.querySelector('[data-hotel-child-ages]');
@@ -445,7 +446,7 @@ async function searchStays(panel,info){
   panel.querySelector('.hz-hotel-checkout-audit')?.remove();
   panel.querySelector('.hz-filters')?.classList.remove('active');
   panel.querySelector('.hz-cache-badge')?.classList.remove('active');
-  const local=localRead(info);
+  const local=force?null:localRead(info);
   if(local){
     renderResults(panel,local,'Browser cache: άμεση επαναχρησιμοποίηση των ίδιων αποτελεσμάτων — χωρίς κλήση στον Worker.');
     btn.textContent='Επαναχρησιμοποίηση live τιμών';
@@ -477,7 +478,7 @@ async function searchStays(panel,info){
     localWrite(info,data);
     renderResults(panel,data);
     btn.textContent='Οι live τιμές είναι έτοιμες';
-    status.textContent=data?.cache?.hit?'Η αναζήτηση εξυπηρετήθηκε από την Horizon edge cache χωρίς νέα κλήση SerpApi.':'Η αναζήτηση ολοκληρώθηκε και αποθηκεύτηκε στην Horizon edge cache.';
+    status.textContent=data?.cache?.hit?'Η αναζήτηση εξυπηρετήθηκε από την Horizon edge cache χωρίς νέα κλήση SerpApi.':'Η αναζήτηση ολοκληρώθηκε και αποθηκεύτηκε προσωρινά στον browser.';
   }catch(e){
     if(requestVersion!==panel._hotelSearchVersion)return;
     btn.textContent='Δοκίμασε ξανά';
@@ -514,7 +515,8 @@ function renderPanel(pane,name){
     ${info.children?`<div class="hz-hotel-ages"><label>Ηλικίες ${info.children} παιδιών, 2–11 ετών (π.χ. 5,8 — χωρίς βρέφη)</label><input data-hotel-child-ages value="${esc(info.childrenAges.join(','))}" placeholder="Ηλικίες χωρισμένες με κόμμα" aria-label="Ηλικίες παιδιών"></div>`:''}
     <div class="hz-hotel-price-warning">${info.infants?`Τα ${info.infants} βρέφη (κάτω των 2 ετών) δηλώνονται στη Google Hotels/SerpApi με ηλικία 1. Η κούνια, η αποδοχή βρέφους και η τυχόν χρέωση απαιτούν επιβεβαίωση από τον πωλητή. `:''}Η τιμή πηγής δεν αποδεικνύει ότι περιλαμβάνει όλα τα τέλη. Το τέλος ανθεκτικότητας αφορά δωμάτια και διανυκτερεύσεις, όχι αριθμό επισκεπτών. Για περισσότερα από ένα δωμάτια το ποσό δεν τεκμαίρεται από την εκτίμηση ενός δωματίου.</div>
     <button type="button" class="hz-stay-load">Αναζήτηση live τιμών μέσα στο Horizon</button>
-    <div class="hz-stay-status">Horizon browser cache 30′ + Cloudflare edge cache 6 ώρες για ίδια στοιχεία αναζήτησης.</div>
+    <button type="button" class="hz-hotel-select" data-hotel-force-refresh>Ανανέωση τιμών (νέο αίτημα API)</button>
+    <div class="hz-stay-status">Horizon browser cache 30′ για ίδια στοιχεία. Η ανανέωση παρακάμπτει την τοπική cache· η πηγή ενδέχεται να χρησιμοποιεί δική της cache.</div>
     <div class="hz-cache-badge"></div><div class="hz-hotel-selected" aria-live="polite">Δεν έχει επιλεγεί κατάλυμα για τον προϋπολογισμό.</div>
     <div class="hz-filters">
       <div class="hz-filter-grid">
@@ -534,6 +536,7 @@ function renderPanel(pane,name){
     if(load){load.disabled=false;load.textContent='Αναζήτηση με τις νέες ηλικίες';}
   });
   panel.querySelector('.hz-stay-load').addEventListener('click',()=>searchStays(panel,info));
+  panel.querySelector('[data-hotel-force-refresh]').addEventListener('click',()=>{if(!panel.querySelector('.hz-stay-load').disabled)searchStays(panel,info,true);});
   panel.querySelector('.hz-hotel-next-page').addEventListener('click',()=>loadNextPage(panel));
   panel.querySelector('.hz-stay-results').addEventListener('click',e=>{const btn=e.target.closest?.('[data-hotel-index]');if(btn)selectStay(panel,Number(btn.dataset.hotelIndex));const detail=e.target.closest?.('[data-hotel-details-index]');if(detail)showRoomDetails(panel,Number(detail.dataset.hotelDetailsIndex));});
   panel.querySelector('.hz-hotel-detail').addEventListener('click',e=>{const room=e.target.closest?.('[data-hotel-room-index]');if(room)selectRoom(panel,Number(room.dataset.hotelRoomIndex));});
