@@ -266,6 +266,7 @@ async function showRoomDetails(panel,index){
   if(!info||!hotel?.propertyToken)return;
   target.textContent='Ελέγχω δωμάτια και προσφορές για '+hotel.name+'…';
   panel._hotelDetails=null;
+  const detailVersion=panel._hotelDetailVersion=(panel._hotelDetailVersion||0)+1;
   try{
     const response=await fetch(API_BASE+'/hotel-details',{method:'POST',
       headers:{'content-type':'application/json'},
@@ -273,7 +274,7 @@ async function showRoomDetails(panel,index){
         adults:info.adults,children:info.children,infants:info.infants,childrenAges:info.childrenAges})});
     const data=await response.json().catch(()=>({}));
     if(!response.ok||data.ok===false)throw new Error(data.error||'HTTP '+response.status);
-    if(panel._hotelInfo!==info)return;
+    if(panel._hotelInfo!==info||detailVersion!==panel._hotelDetailVersion)return;
     panel._hotelDetails={data,hotel};
     const offers=Array.isArray(data.offers)?data.offers:[];
     const propertyLink=safeUrl(data.propertyUrl);
@@ -293,7 +294,7 @@ async function showRoomDetails(panel,index){
     document.dispatchEvent(new CustomEvent('horizon:hotel-room-offers',{detail:{panel}}));
     target.scrollIntoView({block:'nearest',behavior:'smooth'});
   }catch(e){
-    target.textContent='Δεν ολοκληρώθηκε ο έλεγχος δωματίων: '+String(e.message||e);
+    if(panel._hotelInfo===info&&detailVersion===panel._hotelDetailVersion)target.textContent='Δεν ολοκληρώθηκε ο έλεγχος δωματίων: '+String(e.message||e);
   }
 }
 function selectRoom(panel,index){

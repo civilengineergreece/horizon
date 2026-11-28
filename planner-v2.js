@@ -15,7 +15,13 @@ function key(ed){
     infants:Number(t.infants)||0,childrenAges:t.childrenAges||s.childrenAges||[]
   });
 }
-function load(ed){try{return JSON.parse(localStorage.getItem(key(ed))||'{}')||{};}catch{return {};}}
+function load(ed){try{
+  const v=JSON.parse(localStorage.getItem(key(ed))||'{}');
+  if(!v||!Array.isArray(v.days))return {};
+  return {days:v.days.filter(x=>x&&Number.isInteger(x.day)&&x.day>0&&
+    typeof x.low==='number'&&typeof x.high==='number'&&Number.isFinite(x.low)&&Number.isFinite(x.high)&&
+    x.low>=0&&x.high>=x.low&&x.high<=1e7)};
+}catch{return {};}}
 function save(ed){
   const data={days:[...ed.querySelectorAll('.hz-edit-day')].map((d,i)=>({day:i+1,low:num(d.querySelector('[data-hz-budget-low]')?.value),high:num(d.querySelector('[data-hz-budget-high]')?.value)}))};
   try{localStorage.setItem(key(ed),JSON.stringify(data));}catch{}

@@ -91,7 +91,7 @@ function createOverlay(card,initialTab){
   const stayIdeas=stayAdvice(d,tags);
   const actIdeas=activityIdeas(name,tags);
   const miniPlan=buildMiniPlan(name,tags);
-  const saved=localStorage.getItem(SAVED_KEY)===name;
+  let saved=false;try{saved=localStorage.getItem(SAVED_KEY)===name;}catch{}
 
   document.getElementById(OVERLAY_ID)?.remove();
   const overlay=document.createElement('div');
@@ -138,8 +138,8 @@ function createOverlay(card,initialTab){
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
   document.addEventListener('keydown',function key(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',key);}});
   overlay.querySelectorAll('[data-save]').forEach(btn=>btn.onclick=()=>{
-    const isSaved=localStorage.getItem(SAVED_KEY)===name;
-    if(isSaved)localStorage.removeItem(SAVED_KEY);else localStorage.setItem(SAVED_KEY,name);
+    let isSaved=false;try{isSaved=localStorage.getItem(SAVED_KEY)===name;
+      if(isSaved)localStorage.removeItem(SAVED_KEY);else localStorage.setItem(SAVED_KEY,name);}catch{return;}
     overlay.querySelectorAll('[data-save]').forEach(x=>{x.classList.toggle('saved',!isSaved);x.textContent=!isSaved?'✓ Αποθηκευμένο':'☆ Αποθήκευση επιλογής';});
   });
 }
