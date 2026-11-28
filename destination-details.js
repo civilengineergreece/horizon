@@ -93,7 +93,8 @@ function createOverlay(card,initialTab){
   const miniPlan=buildMiniPlan(name,tags);
   let saved=false;try{saved=localStorage.getItem(SAVED_KEY)===name;}catch{}
 
-  document.getElementById(OVERLAY_ID)?.remove();
+  document.getElementById(OVERLAY_ID)?.querySelector('.hd-close')?.click();
+  const previousFocus=document.activeElement;
   const overlay=document.createElement('div');
   overlay.id=OVERLAY_ID;
   overlay.className='horizon-detail-overlay';
@@ -128,15 +129,24 @@ function createOverlay(card,initialTab){
   document.body.style.overflow='hidden';
 
   const activate=tab=>{
-    overlay.querySelectorAll('.hd-tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-    overlay.querySelectorAll('.hd-pane').forEach(p=>p.classList.toggle('active',p.dataset.pane===tab));
+    overlay.querySelectorAll('.hd-tab').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
+    overlay.querySelectorAll('.hd-pane').forEach(p=>{const active=p.dataset.pane===tab;p.classList.toggle('active',active);p.setAttribute('aria-hidden',String(!active));});
   };
   activate(initialTab);
   overlay.querySelectorAll('.hd-tab').forEach(b=>b.onclick=()=>activate(b.dataset.tab));
-  const close=()=>{overlay.remove();document.body.style.overflow='';};
+  const close=()=>{document.removeEventListener('keydown',key);overlay.remove();document.body.style.overflow='';if(previousFocus?.isConnected)previousFocus.focus();};
+  function key(e){
+    if(e.key==='Escape'){e.preventDefault();close();return;}
+    if(e.key!=='Tab')return;
+    const items=[...overlay.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.tabIndex>=0&&el.getClientRects().length&&!el.closest('[aria-hidden="true"]'));
+    if(!items.length){e.preventDefault();return;}
+    const first=items[0],last=items.at(-1),active=document.activeElement;
+    if(!overlay.contains(active)||(e.shiftKey&&active===first)||(!e.shiftKey&&active===last)){e.preventDefault();(e.shiftKey?last:first).focus();}
+  }
   overlay.querySelector('.hd-close').onclick=close;
   overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
-  document.addEventListener('keydown',function key(e){if(e.key==='Escape'){close();document.removeEventListener('keydown',key);}});
+  document.addEventListener('keydown',key);
+  overlay.querySelector('.hd-close').focus();
   overlay.querySelectorAll('[data-save]').forEach(btn=>btn.onclick=()=>{
     let isSaved=false;try{isSaved=localStorage.getItem(SAVED_KEY)===name;
       if(isSaved)localStorage.removeItem(SAVED_KEY);else localStorage.setItem(SAVED_KEY,name);}catch{return;}

@@ -72,7 +72,7 @@ jobs:
           node-version: '22'
       - name: Install browser test tools
         run: |
-          npm install --no-save playwright
+          npm install --no-save --ignore-scripts playwright@1.65.1
           google-chrome --version
       - name: Serve exact candidate revision locally
         run: |
@@ -125,7 +125,7 @@ jobs:
           node-version: '22'
       - name: Install browser test tools
         run: |
-          npm install --no-save playwright
+          npm install --no-save --ignore-scripts playwright@1.65.1
           google-chrome --version
       - name: Allow GitHub Pages latest deployment to finish
         run: sleep 65

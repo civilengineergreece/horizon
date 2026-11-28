@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Horizon · 3D χάρτης ταξιδιού</title>
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.1/dist/maplibre-gl.css">
 <style>
 :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#06131d;color:#eef6fb}*{box-sizing:border-box}body{margin:0;background:#06131d}#map{position:fixed;inset:0}.hz-top{position:fixed;z-index:5;left:14px;right:14px;top:14px;display:flex;gap:10px;align-items:center;pointer-events:none}.hz-card{pointer-events:auto;max-width:min(780px,calc(100vw - 150px));padding:11px 14px;border:1px solid rgba(255,255,255,.15);border-radius:14px;background:rgba(5,20,31,.91);backdrop-filter:blur(12px);box-shadow:0 8px 30px rgba(0,0,0,.25)}.hz-brand{font-weight:950;letter-spacing:.08em;color:#ff7a16}.hz-title{font-weight:850;margin-top:2px}.hz-sub{font-size:.76rem;color:#a9bac6;margin-top:3px}.hz-toggle{pointer-events:auto;margin-left:auto;border:1px solid rgba(255,255,255,.18);background:#0b2536;color:#fff;border-radius:12px;padding:10px 12px;font-weight:850;cursor:pointer}.hz-status{position:fixed;z-index:5;left:14px;bottom:18px;max-width:min(820px,calc(100vw - 28px));padding:9px 12px;border-radius:12px;background:rgba(5,20,31,.92);color:#d5e3ec;font-size:.74rem;border:1px solid rgba(255,255,255,.11);backdrop-filter:blur(10px)}
 .hz-stop-marker{display:flex;align-items:center;gap:7px;cursor:pointer;filter:drop-shadow(0 4px 10px rgba(0,0,0,.3))}.hz-stop-num{width:32px;height:32px;flex:0 0 32px;border-radius:50%;display:grid;place-items:center;background:#ff7a16;color:#07131b;font-weight:950;border:2px solid #fff}.hz-stop-name{max-width:270px;padding:6px 9px;border-radius:9px;background:rgba(5,20,31,.95);border:1px solid rgba(255,255,255,.20);color:#fff;font-size:.73rem;font-weight:900;line-height:1.18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hz-leg-badge{padding:6px 9px;border-radius:999px;background:#fff;color:#15232d;border:2px solid #ff7a16;font-size:.67rem;font-weight:950;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.22)}
@@ -28,7 +28,7 @@
   </div>
 </aside>
 <div class="hz-status" id="status">Προετοιμασία χάρτη…</div>
-<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5.24.1/dist/maplibre-gl.js"></script>
 <script>
 (()=>{
 'use strict';
@@ -51,6 +51,7 @@ if(pageCount>1){
  }
  document.body.append(nav);
 }
+if(typeof maplibregl==='undefined'){status.textContent='Δεν φορτώθηκε η βιβλιοθήκη χάρτη. Δοκίμασε ξανά αργότερα.';return;}
 const map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/liberty',center:[23.7275,37.9838],zoom:11,pitch:55,bearing:-12,antialias:true});
 map.addControl(new maplibregl.NavigationControl({visualizePitch:true}),'bottom-right');
 let is3d=true,selectedStop=null,activePopup=null,infoRequest=0,currentLegs=[];
