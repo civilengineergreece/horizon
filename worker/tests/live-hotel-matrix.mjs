@@ -1,5 +1,10 @@
 import {writeFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
+if(process.env.HORIZON_ALLOW_BILLABLE!=='true'){
+  console.error('Live audit blocked: explicit HORIZON_ALLOW_BILLABLE=true authorization is required.');
+  process.exit(2);
+}
+const originHeader='https://civilengineergreece.github.io';
 const base='https://horizon-live-api.gnchristou.workers.dev';
 const origin='https://civilengineergreece.github.io';
 const day=offset=>new Date(Date.now()+offset*86400000).toISOString().slice(0,10);

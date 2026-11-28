@@ -1,18 +1,20 @@
 name: HORIZON live hotel family search smoke
 
 on:
-  push:
-    branches: ['main']
-    paths:
-      - 'worker/src/index.js'
-      - 'worker/tests/live-hotel-smoke.mjs'
   workflow_dispatch:
+    inputs:
+      authorize_billable:
+        description: 'I authorize real provider quota use for this one live audit'
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   production-hotel-query:
+    if: inputs.authorize_billable == true
     runs-on: ubuntu-latest
     timeout-minutes: 4
     steps:
@@ -23,4 +25,6 @@ jobs:
       - name: Test script syntax
         run: node --check worker/tests/live-hotel-smoke.mjs
       - name: Verify Google Hotels quote and infant occupancy on production Worker
+        env:
+          HORIZON_ALLOW_BILLABLE: 'true'
         run: node worker/tests/live-hotel-smoke.mjs

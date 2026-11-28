@@ -55,7 +55,7 @@ jobs:
       - name: Syntax check all app/Worker/test JavaScript
         run: |
           set -e
-          for f in *.js worker/src/*.js worker/tests/*.mjs tests/*.mjs; do
+          for f in *.js worker/src/*.js worker/*.mjs worker/tests/*.mjs tests/*.mjs; do
             [ -f "$f" ] || continue
             node --check "$f"
           done
@@ -91,6 +91,7 @@ jobs:
           node tests/stage6-provider-outage-browser.mjs
           node tests/audit-wizard-browser.mjs
           node tests/itinerary-pdf-browser.mjs
+          node tests/map-journey-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
       - name: Screenshot on test failure
@@ -138,6 +139,7 @@ jobs:
           node tests/stage6-provider-outage-browser.mjs
           node tests/audit-wizard-browser.mjs
           node tests/itinerary-pdf-browser.mjs
+          node tests/map-journey-browser.mjs
           node tests/itinerary-feasibility-browser.mjs
           node tests/transport-truth-browser.mjs
           node tests/flight-ui-browser.mjs

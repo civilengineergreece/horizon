@@ -125,7 +125,7 @@ try{
   assert.equal(pdfAudit.high,'90');
   assert.equal(pdfAudit.tripNotes,'Δοκιμαστική σημείωση PDF');
   assert.ok(pdfAudit.names.includes('day_3_plan')&&pdfAudit.names.includes('day_1_done'));
-  assert.ok(pdfAudit.mapUrl.includes('/map.html?d=')&&pdfAudit.dayMapUrl.includes('stops='));
+  assert.ok(pdfAudit.mapUrl.includes('/map.html?d=')&&new URL(pdfAudit.dayMapUrl).searchParams.getAll('stop').length>0);
   console.log('PASS: real PDF generated, loaded again; 4 pages, Greek text, editable forms and map links');
 
   // Bad manual values must never silently become negative or inverted PDF totals.
